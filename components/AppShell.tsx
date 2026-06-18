@@ -60,6 +60,16 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     await loadHierarchy();
   }
 
+  async function createSpace(name: string, workspaceId: string) {
+    if (!name.trim()) return;
+    await fetch("/api/spaces", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), workspaceId }),
+    });
+    await loadHierarchy();
+  }
+
   useEffect(() => {
     loadHierarchy().finally(() => setLoading(false));
     try {
@@ -268,11 +278,12 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 
         {loading && <p className="fx-navgroup">Carregando...</p>}
         {workspaces.map((ws, i) => (
-          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} isAdmin={isAdmin} refresh={loadHierarchy} />
+          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} onCreateSpace={createSpace} isAdmin={isAdmin} refresh={loadHierarchy} />
         ))}
-        {!loading && workspaces.length === 0 && (
+        {!loading && workspaces.length === 0 && isAdmin && (
           <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>Sem dados ainda. Rode a importação do ClickUp.</p>
         )}
+        {!loading && workspaces.length === 0 && !isAdmin && <AccessRequest />}
       </aside>
 
       {/* Resize handle (apenas desktop) */}
@@ -295,6 +306,31 @@ export default function AppShell({ user, children }: { user: User; children: Rea
       </div>
 
       <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
+    </div>
+  );
+}
+
+function AccessRequest() {
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  async function request() {
+    setLoading(true);
+    await fetch("/api/access-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+    setLoading(false);
+    setSent(true);
+  }
+  return (
+    <div style={{ padding: "14px 12px" }}>
+      <p style={{ fontSize: 12.5, color: "var(--txt-soft)", lineHeight: 1.5, marginTop: 0 }}>
+        Você ainda não tem acesso a nenhum espaço. Solicite ao administrador para ele liberar.
+      </p>
+      {sent ? (
+        <p style={{ fontSize: 12.5, color: "var(--sage)", fontWeight: 600 }}>✓ Solicitação enviada! Aguarde a liberação.</p>
+      ) : (
+        <button className="fx-btn fx-btn-primary" style={{ width: "100%" }} onClick={request} disabled={loading}>
+          {loading ? "Enviando…" : "Solicitar acesso"}
+        </button>
+      )}
     </div>
   );
 }
@@ -323,7 +359,7 @@ function Kebab({ type, id, isPrivate, memberIds, refresh }: { type: "space" | "l
   );
 }
 
-function WorkspaceNode({ ws, pathname, color, onCreateList, isAdmin, refresh }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList; isAdmin: boolean; refresh: () => void }) {
+function WorkspaceNode({ ws, pathname, color, onCreateList, onCreateSpace, isAdmin, refresh }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList; onCreateSpace: (name: string, workspaceId: string) => void | Promise<void>; isAdmin: boolean; refresh: () => void }) {
   const initial = ws.name.charAt(0).toUpperCase();
   const [open, setOpen] = useState(true);
   return (
@@ -360,9 +396,50 @@ function WorkspaceNode({ ws, pathname, color, onCreateList, isAdmin, refresh }: 
           {ws.spaces.map((sp, i) => (
             <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} onCreateList={onCreateList} isAdmin={isAdmin} refresh={refresh} />
           ))}
+          {ws.spaces.length === 0 && (
+            <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "4px 10px" }}>Nenhum espaço ainda.</p>
+          )}
+          {isAdmin && <AddSpaceInput onCreate={(name) => onCreateSpace(name, ws.id)} />}
         </div>
       )}
     </div>
+  );
+}
+
+function AddSpaceInput({ onCreate }: { onCreate: (name: string) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  if (!adding) {
+    return (
+      <button className="fx-navitem" onClick={() => setAdding(true)} style={{ fontSize: 13, color: "var(--roxo)", fontWeight: 600 }}>
+        + Espaço
+      </button>
+    );
+  }
+  return (
+    <input
+      autoFocus
+      className="fx-input"
+      style={{ fontSize: 13, margin: "2px 0" }}
+      placeholder="Nome do espaço"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && name.trim()) {
+          onCreate(name.trim());
+          setName("");
+          setAdding(false);
+        }
+        if (e.key === "Escape") {
+          setAdding(false);
+          setName("");
+        }
+      }}
+      onBlur={() => {
+        setAdding(false);
+        setName("");
+      }}
+    />
   );
 }
 

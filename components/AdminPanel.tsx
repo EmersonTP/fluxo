@@ -121,6 +121,22 @@ export default function AdminPanel() {
     else if (data.error) alert(data.error);
   }
 
+  async function resetPassword(u: AdminUser) {
+    const pwd = prompt(`Nova senha para "${u.name}" (${u.email}):\n\nDepois é só passar pra pessoa — ela troca em Configurações.`);
+    if (!pwd) return;
+    if (pwd.length < 6) {
+      alert("A senha precisa ter ao menos 6 caracteres.");
+      return;
+    }
+    const res = await fetch(`/api/admin/users/${u.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pwd }),
+    });
+    if (res.ok) alert("Senha redefinida! Passe a nova senha pra pessoa.");
+    else alert("Não foi possível redefinir.");
+  }
+
   async function deleteUser(u: AdminUser) {
     if (!confirm(`Excluir definitivamente "${u.name}" (${u.email})?\n\nEle perde o acesso. As tarefas atribuídas a ele ficam sem responsável.`)) return;
     const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
@@ -294,7 +310,14 @@ export default function AdminPanel() {
                       </select>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => resetPassword(u)}
+                      title="Redefinir senha"
+                      className="text-xs text-brand-600 hover:underline mr-3"
+                    >
+                      Redefinir senha
+                    </button>
                     <button
                       onClick={() => deleteUser(u)}
                       title="Excluir usuário"

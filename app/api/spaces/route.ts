@@ -9,6 +9,14 @@ export async function POST(req: Request) {
   const { name, workspaceId, color } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
 
+  // Isolamento por empresa: membro só cria espaço na própria empresa
+  if (workspaceId && user.role !== "owner" && user.role !== "admin") {
+    const ws = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { companyId: true } });
+    if (!user.companyId || ws?.companyId !== user.companyId) {
+      return NextResponse.json({ error: "Sem acesso a esta empresa." }, { status: 403 });
+    }
+  }
+
   let wsId = workspaceId;
   if (!wsId) {
     const ws = await prisma.workspace.findFirst();

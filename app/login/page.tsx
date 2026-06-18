@@ -14,6 +14,21 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
 
+  async function forgotPassword() {
+    setError("");
+    setInfo("");
+    if (!email) {
+      setError("Digite seu e-mail acima e clique de novo em “Esqueci minha senha”.");
+      return;
+    }
+    await fetch("/api/auth/forgot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    }).catch(() => {});
+    setInfo("Avisamos o administrador. Ele vai redefinir sua senha e te passar a nova.");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -98,6 +113,12 @@ export default function LoginPage() {
             {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
           </button>
         </form>
+
+        {mode === "login" && (
+          <button onClick={forgotPassword} className="text-xs text-neutral-500 hover:text-brand-600 hover:underline mt-3">
+            Esqueci minha senha
+          </button>
+        )}
 
         <p className="text-sm text-neutral-500 mt-4 text-center">
           {mode === "login" ? "Não tem conta?" : "Já tem conta?"}{" "}

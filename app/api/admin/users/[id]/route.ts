@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/api";
+import { hashPassword } from "@/lib/auth";
 
-// Approve / change role / assign company / disable a user.
+// Approve / change role / assign company / disable / reset password.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
@@ -13,6 +14,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.role !== undefined) data.role = body.role; // owner | admin | member
   if (body.companyId !== undefined) data.companyId = body.companyId || null;
   if (body.name !== undefined) data.name = body.name;
+  if (body.password) {
+    if (String(body.password).length < 6) return NextResponse.json({ error: "Senha muito curta (mín. 6)." }, { status: 400 });
+    data.passwordHash = await hashPassword(String(body.password));
+  }
 
   // Guard: don't allow removing the last owner
   if (body.role && body.role !== "owner") {
