@@ -2,9 +2,85 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Member, TaskT, StatusT, TagT, SubtaskT, AttachmentT } from "@/lib/types";
-import { PRIORITIES, toDateInput } from "@/lib/ui";
+import { toDateInput } from "@/lib/ui";
 
 const TAG_COLORS = ["#9250ac", "#ff7e59", "#7fa08a", "#534ab7", "#d85a30", "#3b82f6"];
+
+const PRIO_OPTS = [
+  { value: "", label: "Sem prioridade", color: "#c7c7c7" },
+  { value: "urgent", label: "Urgente", color: "#e5484d" },
+  { value: "high", label: "Alta", color: "#ff7e59" },
+  { value: "normal", label: "Normal", color: "#3b82f6" },
+  { value: "low", label: "Baixa", color: "#9aa0a6" },
+];
+
+// Dropdown custom (mesmo visual da lista) pro modal
+function FieldPicker({
+  label,
+  dot,
+  open,
+  setOpen,
+  children,
+}: {
+  label: React.ReactNode;
+  dot?: string;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        type="button"
+        className="fx-select"
+        onClick={() => setOpen(!open)}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-start" }}
+      >
+        {dot !== undefined && <span style={{ width: 12, height: 12, borderRadius: "50%", background: dot, flexShrink: 0, border: "1px solid rgba(0,0,0,.12)" }} />}
+        <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+        <span style={{ opacity: 0.5, fontSize: 11 }}>▾</span>
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
+          <div className="fx-popover" style={{ top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 61, maxHeight: 240, overflowY: "auto" }}>
+            {children}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function StatusField({ statuses, value, onChange }: { statuses: StatusT[]; value?: string | null; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const cur = statuses.find((s) => s.id === value);
+  return (
+    <FieldPicker label={cur?.name || "—"} dot={cur?.color || "#a3a3a3"} open={open} setOpen={setOpen}>
+      {statuses.map((s) => (
+        <button key={s.id} type="button" onClick={() => { onChange(s.id); setOpen(false); }}>
+          <span style={{ width: 12, height: 12, borderRadius: "50%", background: s.color, flexShrink: 0, border: "1px solid rgba(0,0,0,.12)" }} />
+          {s.name}
+        </button>
+      ))}
+    </FieldPicker>
+  );
+}
+
+function PriorityField({ value, onChange }: { value?: string | null; onChange: (p: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const cur = PRIO_OPTS.find((p) => p.value === (value || ""));
+  return (
+    <FieldPicker label={cur?.label || "Sem prioridade"} dot={cur?.color} open={open} setOpen={setOpen}>
+      {PRIO_OPTS.map((p) => (
+        <button key={p.value} type="button" onClick={() => { onChange(p.value); setOpen(false); }}>
+          <span style={{ color: p.color }}>⚑</span>
+          {p.label}
+        </button>
+      ))}
+    </FieldPicker>
+  );
+}
 
 type DepLite = { id: string; name: string; status?: { name: string; color: string; type: string } | null };
 
@@ -280,23 +356,11 @@ export default function TaskModal({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               <div>
                 <div className="fx-field-label">Status</div>
-                <select className="fx-select" value={task.statusId || ""} onChange={(e) => patch({ statusId: e.target.value })}>
-                  {task.list.statuses.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                <StatusField statuses={task.list.statuses} value={task.statusId} onChange={(id) => patch({ statusId: id })} />
               </div>
               <div>
                 <div className="fx-field-label">Prioridade</div>
-                <select className="fx-select" value={task.priority || ""} onChange={(e) => patch({ priority: e.target.value })}>
-                  {PRIORITIES.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+                <PriorityField value={task.priority} onChange={(p) => patch({ priority: p })} />
               </div>
               <div>
                 <div className="fx-field-label">Prazo</div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { hashPassword, verifyPassword } from "@/lib/auth";
+import { sendEmail, emailLayout } from "@/lib/email";
 
 // Update own profile: name and/or password.
 export async function PATCH(req: Request) {
@@ -37,5 +38,14 @@ export async function PATCH(req: Request) {
   }
 
   await prisma.user.update({ where: { id: user.id }, data });
+
+  if (data.passwordHash) {
+    sendEmail(
+      user.email,
+      "Sua senha foi alterada · Sandra",
+      emailLayout("Senha alterada", `A senha da sua conta na Sandra foi alterada agora há pouco. Se não foi você, fale com o administrador imediatamente.`)
+    ).catch(() => {});
+  }
+
   return NextResponse.json({ ok: true });
 }

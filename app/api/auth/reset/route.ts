@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
+import { sendEmail, emailLayout } from "@/lib/email";
 
 // Define uma nova senha a partir do token de redefinição (link do e-mail).
 export async function POST(req: Request) {
@@ -17,5 +18,13 @@ export async function POST(req: Request) {
     where: { id: user.id },
     data: { passwordHash: await hashPassword(String(password)), resetToken: null, resetTokenExp: null, emailVerified: true },
   });
+
+  // Confirmação de segurança
+  sendEmail(
+    user.email,
+    "Sua senha foi alterada · Sandra",
+    emailLayout("Senha alterada", `A senha da sua conta na Sandra acabou de ser alterada. Se não foi você, fale com o administrador imediatamente.`)
+  ).catch(() => {});
+
   return NextResponse.json({ ok: true });
 }
