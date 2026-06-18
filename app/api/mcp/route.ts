@@ -66,7 +66,7 @@ async function callTool(origin: string, name: string, a: any = {}) {
 
 const SERVER_INFO = { name: "sandra", version: "1.0.0" };
 
-async function handle(msg: any, origin: string) {
+async function handle(msg: any, origin: string, authorized: boolean) {
   const { id, method, params } = msg || {};
   // Notificações (sem id) não exigem resposta
   if (id === undefined || id === null) return null;
@@ -86,6 +86,10 @@ async function handle(msg: any, origin: string) {
     if (method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
     if (method === "tools/call") {
+      // A chave só é exigida pra EXECUTAR ferramentas (acessar dados), não pra conectar
+      if (!authorized) {
+        return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: "Erro: chave de acesso inválida ou ausente na URL do conector (?key=...)." }], isError: true } };
+      }
       try {
         const result = await callTool(origin, params?.name, params?.arguments || {});
         return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } };
@@ -106,23 +110,34 @@ function authed(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!authed(req)) return NextResponse.json({ jsonrpc: "2.0", error: { code: -32001, message: "Não autorizado." } }, { status: 401 });
-
+  // NUNCA devolvemos 401 aqui: um 401 faz o Claude achar que é um servidor OAuth e tentar "fazer login".
+  // A conexão (initialize/tools/list) é sempre aberta; a chave só vale na execução de ferramentas.
+  const authorized = authed(req);
   const origin = new URL(req.url).origin;
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ jsonrpc: "2.0", error: { code: -32700, message: "JSON inválido." } }, { status: 400 });
 
   // Suporta uma mensagem ou um lote (array)
   if (Array.isArray(body)) {
-    const out = (await Promise.all(body.map((m) => handle(m, origin)))).filter(Boolean);
+    const out = (await Promise.all(body.map((m) => handle(m, origin, authorized)))).filter(Boolean);
     return out.length ? NextResponse.json(out) : new NextResponse(null, { status: 202 });
   }
-  const res = await handle(body, origin);
+  const res = await handle(body, origin, authorized);
   return res ? NextResponse.json(res) : new NextResponse(null, { status: 202 });
 }
 
-// Health check simples
+// Health check (sem 401, pra não acionar fluxo de login no cliente)
 export async function GET(req: Request) {
-  if (!authed(req)) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-  return NextResponse.json({ ok: true, server: SERVER_INFO, tools: TOOLS.map((t) => t.name) });
+  return NextResponse.json({ ok: true, server: SERVER_INFO, authorized: authed(req), tools: TOOLS.map((t) => t.name) });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key, Mcp-Session-Id, Mcp-Protocol-Version",
+    },
+  });
 }
