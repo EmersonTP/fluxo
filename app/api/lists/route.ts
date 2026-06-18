@@ -17,6 +17,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Nome e space/folder obrigatórios." }, { status: 400 });
   }
 
+  // Isolamento por empresa: membro só cria lista dentro da própria empresa
+  if (user.role !== "owner" && user.role !== "admin") {
+    let companyId: string | null = null;
+    if (spaceId) {
+      const sp = await prisma.space.findUnique({ where: { id: spaceId }, select: { workspace: { select: { companyId: true } } } });
+      companyId = sp?.workspace.companyId ?? null;
+    } else if (folderId) {
+      const f = await prisma.folder.findUnique({ where: { id: folderId }, select: { space: { select: { workspace: { select: { companyId: true } } } } } });
+      companyId = f?.space.workspace.companyId ?? null;
+    }
+    if (!user.companyId || companyId !== user.companyId) {
+      return NextResponse.json({ error: "Sem acesso a este espaço." }, { status: 403 });
+    }
+  }
+
   const list = await prisma.list.create({
     data: {
       name: name.trim(),

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser, isResponse } from "@/lib/api";
+import { requireUser, isResponse, accessibleListIds } from "@/lib/api";
 import { companyScope } from "@/lib/auth";
 
 // GET /api/search?q=...&limit=50  -> tasks matching name, scoped to the user's company
@@ -26,8 +26,12 @@ export async function GET(req: Request) {
           },
         };
 
+  // Privacidade: membro só busca em listas a que tem acesso
+  const allowed = await accessibleListIds(user);
+  const privacyFilter = allowed === null ? {} : { listId: { in: allowed } };
+
   const tasks = await prisma.task.findMany({
-    where: { name: { contains: q, mode: "insensitive" }, ...listFilter },
+    where: { name: { contains: q, mode: "insensitive" }, ...listFilter, ...privacyFilter },
     take: limit,
     orderBy: { updatedAt: "desc" },
     include: {

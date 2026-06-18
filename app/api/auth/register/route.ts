@@ -23,8 +23,21 @@ export async function POST(req: Request) {
 
   const isFirst = (await prisma.user.count()) === 0;
 
+  if (existing && existing.status === "disabled") {
+    return NextResponse.json({ error: "Esta conta está desativada. Fale com o administrador." }, { status: 403 });
+  }
+
+  if (existing && existing.status === "pending") {
+    // Conta criada mas ainda não aprovada: define a senha mas NÃO loga
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { passwordHash: await hashPassword(password), name },
+    });
+    return NextResponse.json({ status: "pending" });
+  }
+
   if (existing) {
-    // Imported member activating their account
+    // Membro importado (ativo, sem senha) reivindicando o acesso
     const user = await prisma.user.update({
       where: { id: existing.id },
       data: { passwordHash: await hashPassword(password), name, status: "active" },

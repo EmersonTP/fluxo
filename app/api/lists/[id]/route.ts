@@ -1,6 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser, isResponse, canAccessList } from "@/lib/api";
+import { requireUser, requireAdmin, isResponse, canAccessList, companyIdForList } from "@/lib/api";
+import { companyScope } from "@/lib/auth";
+
+// Privacidade da lista: tornar privada e definir quem acessa (admin/owner).
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const admin = await requireAdmin();
+  if (isResponse(admin)) return admin;
+  const scope = companyScope(admin);
+  if (scope !== null && (await companyIdForList(params.id)) !== scope) {
+    return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  }
+  const body = await req.json().catch(() => ({}));
+  const data: any = {};
+  if (body.private !== undefined) data.private = !!body.private;
+  if (body.memberIds !== undefined) data.members = { set: (body.memberIds as string[]).map((id) => ({ id })) };
+  const list = await prisma.list.update({
+    where: { id: params.id },
+    data,
+    select: { id: true, private: true, members: { select: { id: true } } },
+  });
+  return NextResponse.json({ list });
+}
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();

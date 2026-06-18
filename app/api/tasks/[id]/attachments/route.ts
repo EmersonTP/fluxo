@@ -2,15 +2,24 @@ import { NextResponse } from "next/server";
 import { writeFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { requireUser, isResponse } from "@/lib/api";
+import { requireUser, isResponse, canAccessList } from "@/lib/api";
 import { ensureUploadDir, safeStoredName, UPLOAD_DIR } from "@/lib/storage";
 
 export const runtime = "nodejs";
 const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 
+async function guard(user: { role: string; companyId: string | null }, taskId: string) {
+  const t = await prisma.task.findUnique({ where: { id: taskId }, select: { listId: true } });
+  if (!t) return NextResponse.json({ error: "Tarefa não encontrada." }, { status: 404 });
+  if (!(await canAccessList(user, t.listId))) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  return null;
+}
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (isResponse(user)) return user;
+  const blocked = await guard(user, params.id);
+  if (blocked) return blocked;
   const attachments = await prisma.attachment.findMany({
     where: { taskId: params.id },
     orderBy: { createdAt: "desc" },
@@ -21,6 +30,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (isResponse(user)) return user;
+  const blocked = await guard(user, params.id);
+  if (blocked) return blocked;
 
   const form = await req.formData();
   const file = form.get("file");

@@ -18,17 +18,18 @@ export async function GET() {
       spaces: {
         orderBy: { order: "asc" },
         include: {
+          members: { select: { id: true } },
           lists: {
             where: { folderId: null },
             orderBy: { order: "asc" },
-            include: { _count: { select: { tasks: true } } },
+            include: { _count: { select: { tasks: true } }, members: { select: { id: true } } },
           },
           folders: {
             orderBy: { order: "asc" },
             include: {
               lists: {
                 orderBy: { order: "asc" },
-                include: { _count: { select: { tasks: true } } },
+                include: { _count: { select: { tasks: true } }, members: { select: { id: true } } },
               },
             },
           },
@@ -36,6 +37,21 @@ export async function GET() {
       },
     },
   });
+
+  // Membros: filtra espaços/listas privados aos quais não têm acesso
+  const isMember = user.role !== "owner" && user.role !== "admin";
+  if (isMember) {
+    const uid = user.id;
+    const canList = (l: any) => !l.private || l.members.some((m: any) => m.id === uid);
+    for (const ws of workspaces as any[]) {
+      ws.spaces = ws.spaces.filter((sp: any) => !sp.private || sp.members.some((m: any) => m.id === uid));
+      for (const sp of ws.spaces) {
+        sp.lists = sp.lists.filter(canList);
+        for (const f of sp.folders) f.lists = f.lists.filter(canList);
+        sp.folders = sp.folders.filter((f: any) => f.lists.length > 0);
+      }
+    }
+  }
 
   return NextResponse.json({ workspaces });
 }

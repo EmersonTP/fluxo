@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser, isResponse } from "@/lib/api";
+import { requireUser, isResponse, canAccessList } from "@/lib/api";
 import { createNotifications } from "@/lib/notify";
+
+// Carrega o listId da tarefa e valida acesso da empresa. Retorna 404/403 ou null se ok.
+async function guardTask(user: { role: string; companyId: string | null }, taskId: string) {
+  const t = await prisma.task.findUnique({ where: { id: taskId }, select: { listId: true } });
+  if (!t) return NextResponse.json({ error: "Tarefa não encontrada." }, { status: 404 });
+  if (!(await canAccessList(user, t.listId))) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  return null;
+}
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (isResponse(user)) return user;
+  const blocked = await guardTask(user, params.id);
+  if (blocked) return blocked;
 
   const task = await prisma.task.findUnique({
     where: { id: params.id },
@@ -38,8 +48,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (isResponse(user)) return user;
+  const blocked = await guardTask(user, params.id);
+  if (blocked) return blocked;
 
   const body = await req.json();
+  // Se for mover de lista, validar acesso à lista de destino também
+  if (body.listId && !(await canAccessList(user, body.listId))) {
+    return NextResponse.json({ error: "Sem acesso à lista de destino." }, { status: 403 });
+  }
   const data: any = {};
   if (body.name !== undefined) data.name = body.name;
   if (body.description !== undefined) data.description = body.description;
@@ -109,6 +125,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (isResponse(user)) return user;
+  const blocked = await guardTask(user, params.id);
+  if (blocked) return blocked;
 
   await prisma.task.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });

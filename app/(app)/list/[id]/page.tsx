@@ -248,17 +248,18 @@ function BoardView({
   const [overCol, setOverCol] = useState<string | null>(null);
   const overRef = useRef<string | null>(null);
 
-  function handleCardMouseDown(e: React.MouseEvent, task: TaskT) {
-    if (e.button !== 0) return;
+  function handleCardPointerDown(e: React.PointerEvent, task: TaskT) {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
     const startX = e.clientX;
     const startY = e.clientY;
     let started = false;
-    function move(ev: MouseEvent) {
+    function move(ev: PointerEvent) {
       if (!started && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 6) {
         started = true;
         document.body.style.userSelect = "none";
       }
       if (started) {
+        ev.preventDefault();
         setDrag({ taskId: task.id, name: task.name, x: ev.clientX, y: ev.clientY });
         const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
         const col = el?.closest("[data-status]") as HTMLElement | null;
@@ -268,8 +269,9 @@ function BoardView({
       }
     }
     function up() {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
       document.body.style.userSelect = "";
       if (started) {
         const target = overRef.current;
@@ -281,8 +283,9 @@ function BoardView({
       }
       overRef.current = null;
     }
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
+    document.addEventListener("pointermove", move, { passive: false });
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
   }
 
   return (
@@ -298,7 +301,7 @@ function BoardView({
             </div>
             <div className={`fx-colbody scrollbar-thin ${drag && overCol === st.id ? "drag-over" : ""}`}>
               {colTasks.map((t) => (
-                <TaskCard key={t.id} task={t} onOpen={onOpen} onMouseDown={(e) => handleCardMouseDown(e, t)} />
+                <TaskCard key={t.id} task={t} onOpen={onOpen} onPointerDown={(e) => handleCardPointerDown(e, t)} />
               ))}
             </div>
             {st.id !== "none" && <QuickAdd listId={list.id} statusId={st.id} onCreated={onCreated} />}
@@ -405,7 +408,7 @@ function ListView({
                   <span>Tarefa</span>
                   <span>Resp.</span>
                   <span>Prazo</span>
-                  <span>Prioridade</span>
+                  <span className="fx-lt-prio">Prioridade</span>
                 </div>
                 {groupTasks.map((t) => (
                   <TreeRow
@@ -718,7 +721,7 @@ function TreeRow({
           )}
         </span>
 
-        <span className="fx-lt-cell" style={{ position: "relative" }}>
+        <span className="fx-lt-cell fx-lt-prio" style={{ position: "relative" }}>
           <button className="fx-lt-flag" style={{ color: prio ? prio.color : "var(--txt-faint)", background: prio ? prio.color + "1c" : "transparent" }} onClick={(e) => { e.stopPropagation(); setMenu(menu === "priority" ? null : "priority"); }}>
             <span>⚑</span>
             {prio ? prio.label : <span style={{ opacity: 0.5 }}>—</span>}

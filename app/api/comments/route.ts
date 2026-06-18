@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser, isResponse } from "@/lib/api";
+import { requireUser, isResponse, canAccessList } from "@/lib/api";
 import { createNotifications, mentionedUserIds } from "@/lib/notify";
 
 export async function POST(req: Request) {
@@ -11,6 +11,11 @@ export async function POST(req: Request) {
   if (!taskId || !text?.trim()) {
     return NextResponse.json({ error: "Texto obrigatório." }, { status: 400 });
   }
+  // Isolamento por empresa: só comenta em tarefas que o usuário pode acessar
+  const owner = await prisma.task.findUnique({ where: { id: taskId }, select: { listId: true } });
+  if (!owner) return NextResponse.json({ error: "Tarefa não encontrada." }, { status: 404 });
+  if (!(await canAccessList(user, owner.listId))) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+
   const comment = await prisma.comment.create({
     data: { taskId, text: text.trim(), userId: user.id },
     include: { user: { select: { id: true, name: true, color: true } } },

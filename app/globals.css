@@ -85,6 +85,49 @@ body {
   align-items: center;
   padding: 12px 0 14px;
   gap: 2px;
+  overflow-y: auto;
+}
+
+/* ── Mobile / telas pequenas ─────────────────────────── */
+@media (max-width: 768px) {
+  .fx-rail {
+    width: 58px;
+  }
+  .fx-rail-item {
+    width: 50px;
+    padding: 7px 0;
+  }
+  .fx-rail-label {
+    font-size: 9px;
+  }
+  .fx-topbar {
+    padding: 12px 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .fx-title {
+    font-size: 19px;
+  }
+  .fx-board {
+    padding: 14px 14px;
+    gap: 12px;
+  }
+  .fx-col {
+    flex: 0 0 84vw;
+  }
+  .fx-modal {
+    width: 100%;
+    max-height: 94vh;
+  }
+  .fx-lt-headrow,
+  .fx-lt-row {
+    grid-template-columns: calc(14px + var(--indent, 0px)) 18px minmax(0, 1fr) 64px 70px;
+    gap: 7px;
+  }
+  /* esconde a coluna de prioridade no celular pra não espremer */
+  .fx-lt-prio {
+    display: none;
+  }
 }
 .fx-rail-brand {
   width: 36px;
@@ -579,7 +622,12 @@ body {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
-  overflow: hidden;
+  /* overflow visível pra os menus inline (status/prioridade/responsável/prazo) não serem cortados */
+  overflow: visible;
+}
+.fx-lt-headrow {
+  border-top-left-radius: var(--r-card);
+  border-top-right-radius: var(--r-card);
 }
 .fx-lt-headrow,
 .fx-lt-row {

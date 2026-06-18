@@ -39,6 +39,8 @@ model User {
   comments      Comment[]
   chatMessages  ChatMessage[]
   notifications Notification[]
+  spaceAccess   Space[]       @relation("SpaceMembers")
+  listAccess    List[]        @relation("ListMembers")
 }
 
 model Workspace {
@@ -65,6 +67,9 @@ model Space {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  private Boolean @default(false)
+  members User[]  @relation("SpaceMembers")
+
   folders Folder[]
   lists   List[]
 }
@@ -89,6 +94,9 @@ model List {
   space     Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   folderId  String?
   folder    Folder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  private Boolean @default(false)
+  members User[]  @relation("ListMembers")
 
   statuses Status[]
   tasks    Task[]

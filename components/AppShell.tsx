@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { WorkspaceT, SpaceT } from "@/lib/types";
 import NotificationBell from "./NotificationBell";
 import SearchPalette from "./SearchPalette";
+import PrivacyMenu from "./PrivacyMenu";
 
 type User = { id: string; name: string; email: string; role: string };
 
@@ -16,6 +17,7 @@ const ICONS: Record<string, string> = {
   tasks: "M9 11l3 3 8-8M4 6h.01M4 12h.01M4 18h.01M9 18h11M9 6h11",
   chat: "M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8z",
   reports: "M3 3v18h18M7 16V9M12 16V5M17 16v-7",
+  productivity: "M22 12h-4l-3 9L9 3l-3 9H2",
   docs: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h6",
   admin: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 8l2 2 4-4",
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13a7.8 7.8 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7.5 7.5 0 0 0-1.7 1l-2.4-1-2 3.5L4.6 11a7.8 7.8 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.4 1 2-3.5z",
@@ -39,6 +41,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobile, setMobile] = useState(false);
   const widthRef = useRef(248);
 
   function loadHierarchy() {
@@ -101,6 +104,24 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Detecta tela pequena (celular/tablet) e recolhe a barra por padrão
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => {
+      setMobile(mq.matches);
+      if (mq.matches) setCollapsed(true);
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  // No celular, fecha a gaveta ao navegar
+  useEffect(() => {
+    if (mobile) setCollapsed(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   function toggleCollapse() {
     const next = !collapsed;
     setCollapsed(next);
@@ -131,6 +152,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     { icon: "chat", label: "Chat", href: "/chat" },
     { icon: "docs", label: "Docs", href: "/documentos" },
     { icon: "reports", label: "Relatórios", href: "/relatorios" },
+    ...(isAdmin ? [{ icon: "productivity", label: "Produtividade", href: "/produtividade" }] : []),
     ...(isAdmin ? [{ icon: "admin", label: "Admin", href: "/admin" }] : []),
     { icon: "gear", label: "Config", href: "/configuracoes" },
   ];
@@ -200,18 +222,40 @@ export default function AppShell({ user, children }: { user: User; children: Rea
         </div>
       </div>
 
+      {/* Backdrop da gaveta no mobile */}
+      {mobile && !collapsed && (
+        <div onClick={toggleCollapse} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.35)", zIndex: 44 }} />
+      )}
+
       {/* Wider sidebar (spaces) */}
       <aside
         className="fx-side"
-        style={{
-          width: collapsed ? 0 : width,
-          flexShrink: 0,
-          display: "flex",
-          flexDirection: "column",
-          padding: collapsed ? 0 : "16px 12px",
-          overflowX: "hidden",
-          overflowY: "auto",
-        }}
+        style={
+          mobile
+            ? {
+                position: "fixed",
+                top: 0,
+                bottom: 0,
+                left: 66,
+                width: collapsed ? 0 : "min(82vw, 300px)",
+                zIndex: 45,
+                boxShadow: collapsed ? "none" : "var(--shadow-modal)",
+                display: "flex",
+                flexDirection: "column",
+                padding: collapsed ? 0 : "16px 12px",
+                overflowX: "hidden",
+                overflowY: "auto",
+              }
+            : {
+                width: collapsed ? 0 : width,
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "column",
+                padding: collapsed ? 0 : "16px 12px",
+                overflowX: "hidden",
+                overflowY: "auto",
+              }
+        }
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 6px 10px 10px" }}>
           <Link href="/" className="fx-brand">
@@ -224,15 +268,15 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 
         {loading && <p className="fx-navgroup">Carregando...</p>}
         {workspaces.map((ws, i) => (
-          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} />
+          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} isAdmin={isAdmin} refresh={loadHierarchy} />
         ))}
         {!loading && workspaces.length === 0 && (
           <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>Sem dados ainda. Rode a importação do ClickUp.</p>
         )}
       </aside>
 
-      {/* Resize handle */}
-      {!collapsed && (
+      {/* Resize handle (apenas desktop) */}
+      {!collapsed && !mobile && (
         <div onMouseDown={startResize} title="Arraste para redimensionar" style={{ width: 5, flexShrink: 0, cursor: "col-resize", background: "var(--line)" }} />
       )}
 
@@ -260,7 +304,26 @@ const COMPANY_COLORS = ["#9250ac", "#d85a30", "#1d9e75", "#534ab7", "#ff7e59", "
 
 type CreateList = (name: string, parent: { spaceId?: string; folderId?: string }) => void | Promise<void>;
 
-function WorkspaceNode({ ws, pathname, color, onCreateList }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList }) {
+// Botão de 3 pontinhos (⋯) com menu de privacidade — só admin/owner
+function Kebab({ type, id, isPrivate, memberIds, refresh }: { type: "space" | "list"; id: string; isPrivate: boolean; memberIds: string[]; refresh: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Privacidade / acesso"
+        style={{ background: "none", border: "none", cursor: "pointer", color: isPrivate ? "var(--roxo)" : "var(--txt-faint)", fontSize: 15, lineHeight: 1, padding: "0 2px" }}
+      >
+        {isPrivate ? "🔒" : "⋯"}
+      </button>
+      {open && (
+        <PrivacyMenu type={type} id={id} initialPrivate={isPrivate} initialMemberIds={memberIds} onClose={() => setOpen(false)} onSaved={refresh} />
+      )}
+    </span>
+  );
+}
+
+function WorkspaceNode({ ws, pathname, color, onCreateList, isAdmin, refresh }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList; isAdmin: boolean; refresh: () => void }) {
   const initial = ws.name.charAt(0).toUpperCase();
   return (
     <div style={{ marginTop: 12, borderRadius: 10, background: color + "12", paddingBottom: 4 }}>
@@ -288,29 +351,32 @@ function WorkspaceNode({ ws, pathname, color, onCreateList }: { ws: WorkspaceT; 
       </div>
       <div style={{ borderLeft: `2px solid ${color}`, marginLeft: 20, paddingLeft: 4 }}>
         {ws.spaces.map((sp, i) => (
-          <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} onCreateList={onCreateList} />
+          <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} onCreateList={onCreateList} isAdmin={isAdmin} refresh={refresh} />
         ))}
       </div>
     </div>
   );
 }
 
-function SpaceNode({ sp, pathname, color, onCreateList }: { sp: SpaceT; pathname: string; color: string; onCreateList: CreateList }) {
+function SpaceNode({ sp, pathname, color, onCreateList, isAdmin, refresh }: { sp: SpaceT; pathname: string; color: string; onCreateList: CreateList; isAdmin: boolean; refresh: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
-      <button className="fx-navitem" onClick={() => setOpen(!open)}>
-        <span className="fx-dot" style={{ background: color }} />
-        <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sp.name}</span>
-        <span style={{ fontSize: 11, opacity: 0.5 }}>{open ? "▾" : "▸"}</span>
-      </button>
+      <div className="fx-navitem fx-row-hover" style={{ display: "flex" }}>
+        <button onClick={() => setOpen(!open)} style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: "inherit", font: "inherit", minWidth: 0, padding: 0 }}>
+          <span className="fx-dot" style={{ background: color }} />
+          <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{sp.name}</span>
+          <span style={{ fontSize: 11, opacity: 0.5 }}>{open ? "▾" : "▸"}</span>
+        </button>
+        {isAdmin && <Kebab type="space" id={sp.id} isPrivate={!!sp.private} memberIds={(sp.members || []).map((m) => m.id)} refresh={refresh} />}
+      </div>
       {open && (
         <div style={{ marginLeft: 14, borderLeft: "1px solid var(--line)", paddingLeft: 6 }}>
           {sp.lists.map((l) => (
-            <ListLink key={l.id} id={l.id} name={l.name} count={l._count?.tasks} pathname={pathname} />
+            <ListLink key={l.id} id={l.id} name={l.name} count={l._count?.tasks} pathname={pathname} isPrivate={!!l.private} memberIds={(l.members || []).map((m) => m.id)} isAdmin={isAdmin} refresh={refresh} />
           ))}
           {sp.folders.map((f) => (
-            <FolderNode key={f.id} folder={f} pathname={pathname} onCreateList={onCreateList} />
+            <FolderNode key={f.id} folder={f} pathname={pathname} onCreateList={onCreateList} isAdmin={isAdmin} refresh={refresh} />
           ))}
           <AddListInput onCreate={(name) => onCreateList(name, { spaceId: sp.id })} />
         </div>
@@ -319,7 +385,7 @@ function SpaceNode({ sp, pathname, color, onCreateList }: { sp: SpaceT; pathname
   );
 }
 
-function FolderNode({ folder, pathname, onCreateList }: { folder: SpaceT["folders"][number]; pathname: string; onCreateList: CreateList }) {
+function FolderNode({ folder, pathname, onCreateList, isAdmin, refresh }: { folder: SpaceT["folders"][number]; pathname: string; onCreateList: CreateList; isAdmin: boolean; refresh: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -331,7 +397,7 @@ function FolderNode({ folder, pathname, onCreateList }: { folder: SpaceT["folder
       {open && (
         <div style={{ marginLeft: 14, borderLeft: "1px solid var(--line)", paddingLeft: 6 }}>
           {folder.lists.map((l) => (
-            <ListLink key={l.id} id={l.id} name={l.name} count={l._count?.tasks} pathname={pathname} />
+            <ListLink key={l.id} id={l.id} name={l.name} count={l._count?.tasks} pathname={pathname} isPrivate={!!l.private} memberIds={(l.members || []).map((m) => m.id)} isAdmin={isAdmin} refresh={refresh} />
           ))}
           <AddListInput onCreate={(name) => onCreateList(name, { folderId: folder.id })} />
         </div>
@@ -377,12 +443,34 @@ function AddListInput({ onCreate }: { onCreate: (name: string) => void }) {
   );
 }
 
-function ListLink({ id, name, count, pathname }: { id: string; name: string; count?: number; pathname: string }) {
+function ListLink({
+  id,
+  name,
+  count,
+  pathname,
+  isPrivate,
+  memberIds,
+  isAdmin,
+  refresh,
+}: {
+  id: string;
+  name: string;
+  count?: number;
+  pathname: string;
+  isPrivate?: boolean;
+  memberIds?: string[];
+  isAdmin?: boolean;
+  refresh?: () => void;
+}) {
   const active = pathname === `/list/${id}`;
   return (
-    <Link href={`/list/${id}`} className={`fx-navitem ${active ? "active" : ""}`} style={{ fontSize: 13 }}>
-      <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
-      {count !== undefined && count > 0 && <span style={{ fontSize: 11, opacity: 0.5 }}>{count}</span>}
-    </Link>
+    <div className={`fx-navitem ${active ? "active" : ""}`} style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+      <Link href={`/list/${id}`} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: "inherit", textDecoration: "none" }}>
+        {isPrivate && <span style={{ fontSize: 10 }}>🔒</span>}
+        <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+        {count !== undefined && count > 0 && <span style={{ fontSize: 11, opacity: 0.5 }}>{count}</span>}
+      </Link>
+      {isAdmin && refresh && <Kebab type="list" id={id} isPrivate={!!isPrivate} memberIds={memberIds || []} refresh={refresh} />}
+    </div>
   );
 }

@@ -43,7 +43,7 @@ export type SubtaskT = {
   assignees: Member[];
 };
 
-export type ListLite = { id: string; name: string; _count?: { tasks: number } };
+export type ListLite = { id: string; name: string; _count?: { tasks: number }; private?: boolean; members?: { id: string }[] };
 export type FolderT = { id: string; name: string; lists: ListLite[] };
-export type SpaceT = { id: string; name: string; color: string; folders: FolderT[]; lists: ListLite[] };
+export type SpaceT = { id: string; name: string; color: string; folders: FolderT[]; lists: ListLite[]; private?: boolean; members?: { id: string }[] };
 export type WorkspaceT = { id: string; name: string; spaces: SpaceT[] };

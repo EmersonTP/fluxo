@@ -21,24 +21,29 @@ export default function LoginPage() {
     setLoading(true);
     const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
     const payload = mode === "login" ? { email, password, remember } : { name, email, password, remember };
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || "Erro ao entrar.");
-      return;
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Erro ao entrar.");
+        return;
+      }
+      if (data.status === "pending") {
+        setMode("login");
+        setInfo("Conta criada! Aguarde a aprovação do administrador para acessar.");
+        return;
+      }
+      router.push("/");
+      router.refresh();
+    } catch {
+      setError("Falha de conexão. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
-    if (data.status === "pending") {
-      setMode("login");
-      setInfo("Conta criada! Aguarde a aprovação do administrador para acessar.");
-      return;
-    }
-    router.push("/");
-    router.refresh();
   }
 
   return (

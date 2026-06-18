@@ -48,13 +48,57 @@ export async function companyIdForList(listId: string): Promise<string | null> {
   return list?.space?.workspace.companyId || list?.folder?.space.workspace.companyId || null;
 }
 
-// True if a company-scoped user may access the given list.
+// True if a company-scoped user may access the given list, respecting privacy.
 export async function canAccessList(
-  user: { role: string; companyId: string | null },
+  user: { id?: string; role: string; companyId: string | null },
   listId: string
 ): Promise<boolean> {
   if (user.role === "owner" || user.role === "admin") return true;
   if (!user.companyId) return false;
-  const companyId = await companyIdForList(listId);
-  return companyId === user.companyId;
+  const l = await prisma.list.findUnique({
+    where: { id: listId },
+    select: {
+      private: true,
+      members: { select: { id: true } },
+      space: { select: { private: true, members: { select: { id: true } }, workspace: { select: { companyId: true } } } },
+      folder: { select: { space: { select: { private: true, members: { select: { id: true } }, workspace: { select: { companyId: true } } } } } },
+    },
+  });
+  if (!l) return false;
+  const space = l.space || l.folder?.space;
+  if ((space?.workspace.companyId ?? null) !== user.companyId) return false;
+  const uid = user.id;
+  if (space?.private && !space.members.some((m: { id: string }) => m.id === uid)) return false;
+  if (l.private && !l.members.some((m: { id: string }) => m.id === uid)) return false;
+  return true;
+}
+
+// IDs of lists a member can see (privacy-aware). Returns null for owner/admin (= all).
+export async function accessibleListIds(user: { id?: string; role: string; companyId: string | null }): Promise<string[] | null> {
+  if (user.role === "owner" || user.role === "admin") return null;
+  if (!user.companyId) return [];
+  const lists = await prisma.list.findMany({
+    where: {
+      OR: [
+        { space: { workspace: { companyId: user.companyId } } },
+        { folder: { space: { workspace: { companyId: user.companyId } } } },
+      ],
+    },
+    select: {
+      id: true,
+      private: true,
+      members: { select: { id: true } },
+      space: { select: { private: true, members: { select: { id: true } } } },
+      folder: { select: { space: { select: { private: true, members: { select: { id: true } } } } } },
+    },
+  });
+  const uid = user.id;
+  return lists
+    .filter((l: any) => {
+      const space = l.space || l.folder?.space;
+      if (space?.private && !space.members.some((m: { id: string }) => m.id === uid)) return false;
+      if (l.private && !l.members.some((m: { id: string }) => m.id === uid)) return false;
+      return true;
+    })
+    .map((l: any) => l.id);
 }

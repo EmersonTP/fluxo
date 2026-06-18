@@ -55,6 +55,11 @@ export default function TaskModal({
     fetch(`/api/tasks/${taskId}`)
       .then((r) => r.json())
       .then((d) => {
+        if (!d.task) {
+          alert(d.error || "Tarefa indisponível.");
+          onClose();
+          return;
+        }
         setTask(d.task);
         setName(d.task.name);
         setDescription(d.task.description || "");
@@ -63,7 +68,12 @@ export default function TaskModal({
             .then((r) => r.json())
             .then((td) => setAvailableTags(td.tags || []));
         }
+      })
+      .catch(() => {
+        alert("Falha ao carregar a tarefa.");
+        onClose();
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
 
   useEffect(() => {
