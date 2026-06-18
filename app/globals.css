@@ -268,7 +268,8 @@ body {
   gap: 10px;
   padding: 2px 6px 8px;
   overflow-y: auto;
-  min-height: 40px;
+  flex: 1 1 0;
+  min-height: 60px;
 }
 .fx-colbody.drag-over {
   outline: 2px dashed var(--roxo);
@@ -285,6 +286,7 @@ body {
   padding: 13px 14px 12px 16px;
   cursor: grab;
   overflow: hidden;
+  flex: 0 0 auto;
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s;
 }
 .fx-card::before {
