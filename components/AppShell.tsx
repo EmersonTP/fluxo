@@ -44,7 +44,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
       {/* Sidebar */}
       <aside className="fx-side" style={{ display: "flex", flexDirection: "column", padding: "18px 12px", overflowY: "auto" }}>
         <Link href="/" className="fx-brand" style={{ padding: "6px 10px 10px" }}>
-          Fluxo<b>.</b>
+          Sandra<b>.</b>
         </Link>
 
         <div className="fx-navgroup">Geral</div>

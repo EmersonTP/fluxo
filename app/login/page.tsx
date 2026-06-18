@@ -44,8 +44,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-neutral-100 px-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8">
         <div className="flex items-center gap-2 mb-6">
-          <div className="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold">F</div>
-          <span className="text-xl font-bold tracking-tight">Fluxo</span>
+          <div className="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold">S</div>
+          <span className="text-xl font-bold tracking-tight">Sandra</span>
         </div>
         <h1 className="text-lg font-semibold mb-1">
           {mode === "login" ? "Entrar" : "Criar conta"}

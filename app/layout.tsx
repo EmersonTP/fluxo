@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fluxo — Gestão de Tarefas",
+  title: "Sandra — Gestão de Tarefas",
   description: "Gestão de projetos e tarefas do Grupo Gariglia",
 };
 

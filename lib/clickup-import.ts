@@ -72,19 +72,30 @@ export async function runImport(
     const cuId = String(member.id);
     const name = member.username || member.email || `Usuário ${cuId}`;
     const email = (member.email || `${cuId}@import.local`).toLowerCase();
-    const user = await prisma.user.upsert({
-      where: { clickupId: cuId },
-      update: { name },
-      create: {
-        clickupId: cuId,
-        name,
-        email,
-        color: member.color || colorFor(cuId),
-        role: "member",
-        status: "active",
-        companyId: companyId || undefined,
-      },
-    });
+
+    let user = await prisma.user.findUnique({ where: { clickupId: cuId } });
+    if (user) {
+      user = await prisma.user.update({ where: { id: user.id }, data: { name } });
+    } else {
+      // Link to an existing account with the same email (e.g. the owner who
+      // already registered) instead of failing on the unique email constraint.
+      const byEmail = await prisma.user.findUnique({ where: { email } });
+      if (byEmail) {
+        user = await prisma.user.update({ where: { id: byEmail.id }, data: { clickupId: cuId } });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            clickupId: cuId,
+            name,
+            email,
+            color: member.color || colorFor(cuId),
+            role: "member",
+            status: "active",
+            companyId: companyId || undefined,
+          },
+        });
+      }
+    }
     if (companyId && !user.companyId) {
       await prisma.user.update({ where: { id: user.id }, data: { companyId } });
     }
