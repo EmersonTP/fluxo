@@ -22,6 +22,8 @@ export default function AdminPanel() {
   const [tab, setTab] = useState<"users" | "companies" | "import">("users");
   const [newCompany, setNewCompany] = useState("");
   const [loading, setLoading] = useState(true);
+  const [openCompany, setOpenCompany] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
 
   // ClickUp import
   const [token, setToken] = useState("");
@@ -86,6 +88,28 @@ export default function AdminPanel() {
     load();
   }
 
+  async function patchCompany(id: string, body: Record<string, unknown>) {
+    const res = await fetch(`/api/admin/companies/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.company) setCompanies((prev) => prev.map((c) => (c.id === id ? { ...c, ...data.company } : c)));
+    else if (data.error) alert(data.error);
+  }
+
+  async function deleteCompany(c: Company) {
+    if (!confirm(`Excluir a empresa "${c.name}"?\n\nIsso APAGA todos os espaços, listas e tarefas dela (${c._count?.workspaces ?? 0} workspaces). Os usuários continuam, mas ficam sem empresa.\n\nEsta ação não pode ser desfeita.`)) return;
+    if (!confirm(`Confirma de novo: apagar TUDO da empresa "${c.name}"?`)) return;
+    const res = await fetch(`/api/admin/companies/${c.id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.ok) {
+      setCompanies((prev) => prev.filter((x) => x.id !== c.id));
+      setOpenCompany(null);
+    } else alert(data.error || "Não foi possível excluir.");
+  }
+
   async function patchUser(id: string, body: Record<string, unknown>) {
     const res = await fetch(`/api/admin/users/${id}`, {
       method: "PATCH",
@@ -95,6 +119,14 @@ export default function AdminPanel() {
     const data = await res.json();
     if (data.user) setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data.user } : u)));
     else if (data.error) alert(data.error);
+  }
+
+  async function deleteUser(u: AdminUser) {
+    if (!confirm(`Excluir definitivamente "${u.name}" (${u.email})?\n\nEle perde o acesso. As tarefas atribuídas a ele ficam sem responsável.`)) return;
+    const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.ok) setUsers((prev) => prev.filter((x) => x.id !== u.id));
+    else alert(data.error || "Não foi possível excluir.");
   }
 
   const pending = users.filter((u) => u.status === "pending");
@@ -142,14 +174,56 @@ export default function AdminPanel() {
             </button>
           </div>
           <div className="bg-white rounded-xl border border-neutral-200 divide-y">
-            {companies.map((c) => (
-              <div key={c.id} className="flex items-center justify-between px-4 py-3">
-                <span className="font-medium">{c.name}</span>
-                <span className="text-xs text-neutral-500">
-                  {c._count?.workspaces ?? 0} workspaces · {c._count?.users ?? 0} usuários
-                </span>
-              </div>
-            ))}
+            {companies.map((c) => {
+              const open = openCompany === c.id;
+              return (
+                <div key={c.id}>
+                  <button
+                    onClick={() => {
+                      setOpenCompany(open ? null : c.id);
+                      setEditName(c.name);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-neutral-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-neutral-400 text-xs">{open ? "▾" : "▸"}</span>
+                      <span className="font-medium">{c.name}</span>
+                      {!c.active && <span className="text-[10px] uppercase bg-neutral-200 text-neutral-600 rounded px-1.5 py-0.5">Inativa</span>}
+                    </span>
+                    <span className="text-xs text-neutral-500">
+                      {c._count?.workspaces ?? 0} workspaces · {c._count?.users ?? 0} usuários
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="px-4 pb-4 pt-1 bg-neutral-50 flex flex-wrap items-center gap-2">
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="border border-neutral-300 rounded-md px-2 py-1.5 text-sm flex-1 min-w-[180px]"
+                      />
+                      <button
+                        onClick={() => editName.trim() && editName !== c.name && patchCompany(c.id, { name: editName.trim() })}
+                        className="bg-brand-600 text-white rounded-md px-3 py-1.5 text-sm"
+                      >
+                        Renomear
+                      </button>
+                      <button
+                        onClick={() => patchCompany(c.id, { active: !c.active })}
+                        className="border border-neutral-300 rounded-md px-3 py-1.5 text-sm"
+                      >
+                        {c.active ? "Desativar" : "Ativar"}
+                      </button>
+                      <button
+                        onClick={() => deleteCompany(c)}
+                        className="ml-auto text-sm text-red-600 hover:underline"
+                      >
+                        Excluir empresa
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {companies.length === 0 && <p className="px-4 py-3 text-sm text-neutral-500">Nenhuma empresa ainda.</p>}
           </div>
         </div>
@@ -164,6 +238,7 @@ export default function AdminPanel() {
                 <th className="text-left px-4 py-2 font-medium">Empresa</th>
                 <th className="text-left px-4 py-2 font-medium">Papel</th>
                 <th className="text-left px-4 py-2 font-medium">Status</th>
+                <th className="text-right px-4 py-2 font-medium">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -218,6 +293,15 @@ export default function AdminPanel() {
                         <option value="disabled">{STATUS_LABEL.disabled}</option>
                       </select>
                     )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <button
+                      onClick={() => deleteUser(u)}
+                      title="Excluir usuário"
+                      className="text-xs text-red-600 hover:text-red-700 hover:underline"
+                    >
+                      Excluir
+                    </button>
                   </td>
                 </tr>
               ))}

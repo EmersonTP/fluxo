@@ -26,13 +26,14 @@ export function signToken(user: SessionUser) {
   return jwt.sign(user, SECRET, { expiresIn: "30d" });
 }
 
-export function setAuthCookie(token: string) {
+export function setAuthCookie(token: string, remember: boolean = true) {
   cookies().set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    // remember = cookie persistente (30 dias); senão, cookie de sessão (some ao fechar o navegador)
+    ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
   });
 }
 

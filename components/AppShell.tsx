@@ -5,11 +5,13 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import type { WorkspaceT, SpaceT } from "@/lib/types";
 import NotificationBell from "./NotificationBell";
+import SearchPalette from "./SearchPalette";
 
 type User = { id: string; name: string; email: string; role: string };
 
 const ICONS: Record<string, string> = {
   home: "M3 10.5 12 3l9 7.5M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5",
+  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.3-4.3",
   spaces: "M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
   tasks: "M9 11l3 3 8-8M4 6h.01M4 12h.01M4 18h.01M9 18h11M9 6h11",
   chat: "M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8z",
@@ -36,6 +38,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   const [width, setWidth] = useState(248);
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const widthRef = useRef(248);
 
   function loadHierarchy() {
@@ -87,6 +90,17 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     window.addEventListener("mouseup", onUp);
   }
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((s) => !s);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   function toggleCollapse() {
     const next = !collapsed;
     setCollapsed(next);
@@ -129,6 +143,10 @@ export default function AppShell({ user, children }: { user: User; children: Rea
           S
         </Link>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, width: "100%", alignItems: "center" }}>
+          <button className="fx-rail-item" title="Buscar (⌘K)" onClick={() => setSearchOpen(true)}>
+            <Icon name="search" />
+            <span className="fx-rail-label">Buscar</span>
+          </button>
           <button
             className={`fx-rail-item ${!collapsed ? "active" : ""}`}
             title="Espaços (abrir/fechar barra)"
@@ -231,6 +249,8 @@ export default function AppShell({ user, children }: { user: User; children: Rea
         )}
         {children}
       </div>
+
+      <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

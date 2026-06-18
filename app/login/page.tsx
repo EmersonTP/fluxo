@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,7 +20,7 @@ export default function LoginPage() {
     setInfo("");
     setLoading(true);
     const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
-    const payload = mode === "login" ? { email, password } : { name, email, password };
+    const payload = mode === "login" ? { email, password, remember } : { name, email, password, remember };
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -78,6 +79,10 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          <label className="flex items-center gap-2 text-sm text-neutral-600 select-none cursor-pointer">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="w-4 h-4" />
+            Manter conectado neste dispositivo
+          </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
           {info && <p className="text-sm text-green-700">{info}</p>}
           <button

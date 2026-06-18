@@ -29,6 +29,11 @@ export default function ListPage({ params }: { params: { id: string } }) {
       const saved = localStorage.getItem(`fluxo:view:${params.id}`) || localStorage.getItem("fluxo:view:last");
       if (saved === "board" || saved === "list" || saved === "calendar") setView(saved);
     } catch {}
+    // Abrir tarefa vinda da busca global (?task=...)
+    try {
+      const t = new URLSearchParams(window.location.search).get("task");
+      if (t) setOpenTask(t);
+    } catch {}
   }, [params.id]);
 
   function changeView(v: View) {

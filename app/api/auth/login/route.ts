@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword, signToken, setAuthCookie } from "@/lib/auth";
 
 export async function POST(req: Request) {
-  const { email, password } = await req.json();
+  const { email, password, remember } = await req.json();
   if (!email || !password) {
     return NextResponse.json({ error: "Informe e-mail e senha." }, { status: 400 });
   }
@@ -24,6 +24,6 @@ export async function POST(req: Request) {
     role: user.role,
     companyId: user.companyId,
   };
-  setAuthCookie(signToken(session));
+  setAuthCookie(signToken(session), remember !== false);
   return NextResponse.json({ user: session });
 }

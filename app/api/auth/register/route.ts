@@ -7,7 +7,7 @@ import { hashPassword, signToken, setAuthCookie } from "@/lib/auth";
 // - Existing imported member (no password) => activates account, logs in.
 // - Everyone else => created as "pending"; must be approved by an admin.
 export async function POST(req: Request) {
-  const { name, email, password } = await req.json();
+  const { name, email, password, remember } = await req.json();
   if (!name || !email || !password) {
     return NextResponse.json({ error: "Preencha nome, e-mail e senha." }, { status: 400 });
   }
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       data: { passwordHash: await hashPassword(password), name, status: "active" },
     });
     const session = { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId };
-    setAuthCookie(signToken(session));
+    setAuthCookie(signToken(session), remember !== false);
     return NextResponse.json({ user: session });
   }
 
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
   if (isFirst) {
     const session = { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId };
-    setAuthCookie(signToken(session));
+    setAuthCookie(signToken(session), remember !== false);
     return NextResponse.json({ user: session });
   }
 
