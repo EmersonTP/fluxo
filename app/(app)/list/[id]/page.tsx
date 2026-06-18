@@ -327,15 +327,16 @@ function ListView({
                   <span>Prioridade</span>
                 </div>
                 {groupTasks.map((t) => (
-                  <ListRow
+                  <TreeRow
                     key={t.id}
                     task={t}
+                    depth={0}
                     listId={list.id}
                     statuses={statuses}
                     onOpen={onOpen}
                     onCreated={onCreated}
-                    onMove={onMove}
-                    onSetPriority={onSetPriority}
+                    onTopMove={onMove}
+                    onTopSetPriority={onSetPriority}
                   />
                 ))}
                 {groupTasks.length === 0 && (
@@ -418,94 +419,123 @@ function GroupTitle({ st, onCreated }: { st: StatusT; onCreated: () => void }) {
   );
 }
 
-function ListRow({
-  task,
+function StatusDot({ color, done, size = 16, onClick, title }: { color: string; done?: boolean; size?: number; onClick?: (e: React.MouseEvent) => void; title?: string }) {
+  return (
+    <button
+      className="fx-lt-statusdot"
+      style={{ color, background: done ? color : "transparent", width: size, height: size, cursor: onClick ? "pointer" : "default" }}
+      title={title}
+      onClick={onClick}
+    >
+      {done && (
+        <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function TreeRow({
+  task: initial,
+  depth,
   listId,
   statuses,
   onOpen,
   onCreated,
-  onMove,
-  onSetPriority,
+  onTopMove,
+  onTopSetPriority,
 }: {
-  task: TaskT;
+  task: any;
+  depth: number;
   listId: string;
   statuses: StatusT[];
   onOpen: (id: string) => void;
   onCreated: () => void;
-  onMove: (taskId: string, statusId: string) => void;
-  onSetPriority: (taskId: string, priority: string | null) => void;
+  onTopMove?: (taskId: string, statusId: string) => void;
+  onTopSetPriority?: (taskId: string, priority: string | null) => void;
 }) {
+  const [task, setTask] = useState<any>(initial);
+  useEffect(() => setTask(initial), [initial]);
   const [expanded, setExpanded] = useState(false);
-  const [subs, setSubs] = useState<any[] | null>(null);
+  const [children, setChildren] = useState<any[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [subName, setSubName] = useState("");
   const [menu, setMenu] = useState<null | "status" | "priority">(null);
+
   const late = isLate(task.dueDate, task.dateClosed);
-  const subCount = task._count?.subtasks || 0;
+  const subCount = task._count?.subtasks ?? (children?.length || 0);
   const curStatus = statuses.find((s) => s.id === (task.statusId || "none"));
   const dotColor = curStatus?.color || "#a3a3a3";
+  const done = curStatus?.type === "done" || curStatus?.type === "closed";
   const prio = PRIORITIES.find((p) => p.value === task.priority);
+  const indent = { ["--indent" as any]: depth * 22 + "px" };
 
+  async function loadChildren() {
+    const d = await fetch(`/api/tasks/${task.id}`).then((r) => r.json());
+    setChildren(d.task?.subtasks || []);
+  }
   async function toggle() {
     const nx = !expanded;
     setExpanded(nx);
-    if (nx && subs === null) {
-      const d = await fetch(`/api/tasks/${task.id}`).then((r) => r.json());
-      setSubs(d.task?.subtasks || []);
+    if (nx && children === null) await loadChildren();
+  }
+  function changeStatus(sid: string) {
+    setMenu(null);
+    const st = statuses.find((s) => s.id === sid) || null;
+    if (depth === 0 && onTopMove) {
+      onTopMove(task.id, sid);
+    } else {
+      setTask((t: any) => ({ ...t, statusId: sid, status: st }));
+      fetch(`/api/tasks/${task.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ statusId: sid }) });
+    }
+  }
+  function changePriority(p: string | null) {
+    setMenu(null);
+    if (depth === 0 && onTopSetPriority) {
+      onTopSetPriority(task.id, p);
+    } else {
+      setTask((t: any) => ({ ...t, priority: p || undefined }));
+      fetch(`/api/tasks/${task.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priority: p }) });
     }
   }
   async function addSub() {
-    if (!subName.trim()) return;
+    if (!subName.trim()) {
+      setAdding(false);
+      return;
+    }
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ listId, name: subName.trim(), parentId: task.id }),
     });
     const d = await res.json();
-    if (d.task) setSubs((s) => [...(s || []), { id: d.task.id, name: d.task.name, status: d.task.status }]);
+    if (d.task) {
+      setChildren((c) => [...(c || []), d.task]);
+      setTask((t: any) => ({ ...t, _count: { ...(t._count || {}), subtasks: (t._count?.subtasks || 0) + 1 } }));
+      setExpanded(true);
+    }
     setSubName("");
+    setAdding(false);
     onCreated();
   }
 
   return (
     <div>
-      <div className="fx-lt-row" onClick={() => onOpen(task.id)}>
-        {/* expand caret */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggle();
-          }}
-          className="fx-lt-caret"
-          title="Subtarefas"
-        >
-          {subCount > 0 || expanded ? (expanded ? "▾" : "▸") : "·"}
+      <div className="fx-lt-row" style={indent} onClick={() => onOpen(task.id)}>
+        <button onClick={(e) => { e.stopPropagation(); toggle(); }} className="fx-lt-caret" title="Subtarefas">
+          {expanded ? "▾" : "▸"}
         </button>
 
-        {/* status dot + inline picker */}
-        <div style={{ position: "relative", display: "flex", justifyContent: "center" }}>
-          <button
-            className="fx-lt-statusdot"
-            style={{ color: dotColor, background: curStatus?.type === "done" || curStatus?.type === "closed" ? dotColor : "transparent" }}
-            title={curStatus?.name || "Status"}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenu(menu === "status" ? null : "status");
-            }}
-          />
+        <div style={{ position: "relative", justifySelf: "center" }}>
+          <StatusDot color={dotColor} done={done} title={curStatus?.name || "Status"} onClick={(e) => { e.stopPropagation(); setMenu(menu === "status" ? null : "status"); }} />
           {menu === "status" && (
             <>
               <div onClick={(e) => { e.stopPropagation(); setMenu(null); }} style={{ position: "fixed", inset: 0, zIndex: 55 }} />
-              <div className="fx-popover" style={{ top: 22, left: 0 }} onClick={(e) => e.stopPropagation()}>
+              <div className="fx-popover" style={{ top: 24, left: 0 }} onClick={(e) => e.stopPropagation()}>
                 {statuses.filter((s) => s.id !== "none").map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      onMove(task.id, s.id);
-                      setMenu(null);
-                    }}
-                  >
-                    <span className="fx-lt-statusdot" style={{ color: s.color, background: s.type === "done" || s.type === "closed" ? s.color : "transparent", cursor: "pointer" }} />
+                  <button key={s.id} onClick={() => changeStatus(s.id)}>
+                    <StatusDot color={s.color} done={s.type === "done" || s.type === "closed"} size={14} />
                     {s.name}
                   </button>
                 ))}
@@ -514,36 +544,25 @@ function ListRow({
           )}
         </div>
 
-        {/* name */}
         <span className="fx-lt-name">
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{task.name}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{task.name}</span>
           {subCount > 0 && <span style={{ fontSize: 11, color: "var(--txt-faint)", flexShrink: 0 }}>⤷ {subCount}</span>}
         </span>
 
-        {/* assignees */}
         <span className="fx-lt-cell">
-          {task.assignees.slice(0, 3).map((a, i) => (
+          {(task.assignees || []).slice(0, 3).map((a: any, i: number) => (
             <span key={a.id} className="fx-avatar" title={a.name} style={{ width: 22, height: 22, background: a.color, marginLeft: i ? -6 : 0, border: "1.5px solid var(--surface)" }}>
               {a.name.charAt(0).toUpperCase()}
             </span>
           ))}
         </span>
 
-        {/* due date */}
-        <span className={late ? "fx-lt-cell" : "fx-lt-cell"} style={{ color: late ? "var(--coral-deep)" : "var(--txt-soft)", fontWeight: late ? 600 : 400 }}>
-          {task.dueDate ? formatDate(task.dueDate) : <span style={{ opacity: 0.4 }}>—</span>}
+        <span className="fx-lt-cell" style={{ color: late ? "var(--coral-deep)" : "var(--txt-soft)", fontWeight: late ? 600 : 400 }}>
+          {task.dueDate ? formatDate(task.dueDate) : <span style={{ opacity: 0.35 }}>—</span>}
         </span>
 
-        {/* priority + inline picker */}
         <span className="fx-lt-cell" style={{ position: "relative" }}>
-          <button
-            className="fx-lt-flag"
-            style={{ color: prio ? prio.color : "var(--txt-faint)", background: prio ? prio.color + "1c" : "transparent" }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenu(menu === "priority" ? null : "priority");
-            }}
-          >
+          <button className="fx-lt-flag" style={{ color: prio ? prio.color : "var(--txt-faint)", background: prio ? prio.color + "1c" : "transparent" }} onClick={(e) => { e.stopPropagation(); setMenu(menu === "priority" ? null : "priority"); }}>
             <span>⚑</span>
             {prio ? prio.label : <span style={{ opacity: 0.5 }}>—</span>}
           </button>
@@ -552,12 +571,12 @@ function ListRow({
               <div onClick={(e) => { e.stopPropagation(); setMenu(null); }} style={{ position: "fixed", inset: 0, zIndex: 55 }} />
               <div className="fx-popover" style={{ top: 26, right: 0 }} onClick={(e) => e.stopPropagation()}>
                 {PRIORITIES.map((p) => (
-                  <button key={p.value} onClick={() => { onSetPriority(task.id, p.value); setMenu(null); }}>
+                  <button key={p.value} onClick={() => changePriority(p.value)}>
                     <span style={{ color: p.color }}>⚑</span>
                     {p.label}
                   </button>
                 ))}
-                <button onClick={() => { onSetPriority(task.id, null); setMenu(null); }}>
+                <button onClick={() => changePriority(null)}>
                   <span style={{ opacity: 0.5 }}>⚑</span>
                   Limpar
                 </button>
@@ -568,40 +587,37 @@ function ListRow({
       </div>
 
       {expanded && (
-        <div style={{ background: "var(--bg)" }}>
-          {(subs || []).map((s) => (
-            <div key={s.id} className="fx-lt-row" onClick={() => onOpen(s.id)} style={{ fontSize: 13 }}>
-              <span className="fx-lt-caret" style={{ cursor: "default" }} />
-              <span style={{ display: "flex", justifyContent: "center", color: "var(--txt-faint)" }}>↳</span>
-              <span className="fx-lt-name">{s.name}</span>
-              <span />
-              <span />
-              <span className="fx-lt-cell">{s.status && <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{s.status.name}</span>}</span>
-            </div>
+        <div>
+          {(children || []).map((c) => (
+            <TreeRow key={c.id} task={c} depth={depth + 1} listId={listId} statuses={statuses} onOpen={onOpen} onCreated={onCreated} />
           ))}
           {adding ? (
-            <input
-              autoFocus
-              className="fx-addrow"
-              style={{ paddingLeft: 48 }}
-              placeholder="Nome da subtarefa"
-              value={subName}
-              onChange={(e) => setSubName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addSub();
-                if (e.key === "Escape") {
-                  setAdding(false);
-                  setSubName("");
-                }
-              }}
-              onBlur={() => {
-                setAdding(false);
-                setSubName("");
-              }}
-            />
+            <div className="fx-lt-row" style={{ ["--indent" as any]: (depth + 1) * 22 + "px" }}>
+              <span className="fx-lt-caret" />
+              <span style={{ justifySelf: "center", color: "var(--txt-faint)" }}>+</span>
+              <input
+                autoFocus
+                className="fx-input"
+                style={{ fontSize: 13, padding: "3px 8px", gridColumn: "3 / -1" }}
+                placeholder="Nome da subtarefa"
+                value={subName}
+                onChange={(e) => setSubName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addSub();
+                  if (e.key === "Escape") { setAdding(false); setSubName(""); }
+                }}
+                onBlur={addSub}
+              />
+            </div>
           ) : (
-            <button className="fx-addrow" style={{ paddingLeft: 48 }} onClick={() => setAdding(true)}>
-              + subtarefa
+            <button
+              className="fx-lt-row"
+              style={{ ["--indent" as any]: (depth + 1) * 22 + "px", color: "var(--txt-faint)", border: "none", borderTop: "1px solid var(--line)", cursor: "pointer", textAlign: "left", font: "inherit", background: "transparent" }}
+              onClick={() => setAdding(true)}
+            >
+              <span className="fx-lt-caret" />
+              <span style={{ justifySelf: "center" }}>+</span>
+              <span className="fx-lt-name" style={{ color: "var(--txt-faint)", fontSize: 13 }}>Adicionar subtarefa</span>
             </button>
           )}
         </div>
@@ -634,7 +650,7 @@ function QuickAdd({ listId, statusId, onCreated, asRow }: { listId: string; stat
       onChange={(e) => setName(e.target.value)}
       onKeyDown={(e) => e.key === "Enter" && submit()}
       disabled={adding}
-      placeholder="+ Nova tarefa"
+      placeholder="+ Adicionar tarefa"
     />
   );
 }

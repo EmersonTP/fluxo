@@ -16,7 +16,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       list: { include: { statuses: { orderBy: { order: "asc" } } } },
       subtasks: {
         orderBy: { createdAt: "asc" },
-        include: { status: true, assignees: { select: { id: true, name: true, color: true } } },
+        include: {
+          status: true,
+          assignees: { select: { id: true, name: true, color: true } },
+          _count: { select: { subtasks: true } },
+        },
       },
       attachments: { orderBy: { createdAt: "desc" } },
       comments: {

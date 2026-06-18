@@ -10,6 +10,7 @@ type User = { id: string; name: string; email: string; role: string };
 
 const ICONS: Record<string, string> = {
   home: "M3 10.5 12 3l9 7.5M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5",
+  spaces: "M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
   tasks: "M9 11l3 3 8-8M4 6h.01M4 12h.01M4 18h.01M9 18h11M9 6h11",
   chat: "M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8z",
   admin: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 8l2 2 4-4",
@@ -124,6 +125,14 @@ export default function AppShell({ user, children }: { user: User; children: Rea
           S
         </Link>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, width: "100%", alignItems: "center" }}>
+          <button
+            className={`fx-rail-item ${!collapsed ? "active" : ""}`}
+            title="Espaços (abrir/fechar barra)"
+            onClick={toggleCollapse}
+          >
+            <Icon name="spaces" />
+            <span className="fx-rail-label">Espaços</span>
+          </button>
           {railItems.map((it) => {
             const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
             return (
