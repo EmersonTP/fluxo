@@ -325,9 +325,14 @@ function Kebab({ type, id, isPrivate, memberIds, refresh }: { type: "space" | "l
 
 function WorkspaceNode({ ws, pathname, color, onCreateList, isAdmin, refresh }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList; isAdmin: boolean; refresh: () => void }) {
   const initial = ws.name.charAt(0).toUpperCase();
+  const [open, setOpen] = useState(true);
   return (
-    <div style={{ marginTop: 12, borderRadius: 10, background: color + "12", paddingBottom: 4 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+    <div style={{ marginTop: 12, borderRadius: 10, background: color + "12", paddingBottom: open ? 4 : 0 }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", width: "100%", background: "none", border: "none", cursor: "pointer", font: "inherit", textAlign: "left" }}
+        title={open ? "Recolher" : "Expandir"}
+      >
         <span
           style={{
             width: 22,
@@ -345,15 +350,18 @@ function WorkspaceNode({ ws, pathname, color, onCreateList, isAdmin, refresh }: 
         >
           {initial}
         </span>
-        <span style={{ fontWeight: 600, fontSize: 12.5, color: "var(--txt)", textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <span style={{ flex: 1, fontWeight: 600, fontSize: 12.5, color: "var(--txt)", textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {ws.name}
         </span>
-      </div>
-      <div style={{ borderLeft: `2px solid ${color}`, marginLeft: 20, paddingLeft: 4 }}>
-        {ws.spaces.map((sp, i) => (
-          <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} onCreateList={onCreateList} isAdmin={isAdmin} refresh={refresh} />
-        ))}
-      </div>
+        <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div style={{ borderLeft: `2px solid ${color}`, marginLeft: 20, paddingLeft: 4 }}>
+          {ws.spaces.map((sp, i) => (
+            <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} onCreateList={onCreateList} isAdmin={isAdmin} refresh={refresh} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

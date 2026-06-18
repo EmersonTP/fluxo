@@ -294,7 +294,9 @@ body {
 .fx-topbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  row-gap: 8px;
+  flex-wrap: wrap;
   padding: 16px 26px;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
