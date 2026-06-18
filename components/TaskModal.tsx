@@ -97,6 +97,13 @@ export default function TaskModal({
     if (data.task) {
       onUpdated(data.task);
       setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
+      // Atualiza o histórico ao vivo (a resposta do PATCH não traz as atividades)
+      fetch(`/api/tasks/${taskId}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.task?.activities) setTask((prev) => (prev ? { ...prev, activities: d.task.activities } : prev));
+        })
+        .catch(() => {});
     }
   }
 

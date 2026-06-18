@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { ListDetail, TaskT, Member, StatusT } from "@/lib/types";
 import TaskModal from "@/components/TaskModal";
 import { TaskCard } from "@/components/TaskCard";
@@ -13,6 +14,15 @@ type SortBy = "manual" | "due" | "priority" | "name";
 const PRIO_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
 export default function ListPage({ params }: { params: { id: string } }) {
+  return (
+    <Suspense fallback={null}>
+      <ListPageInner params={params} />
+    </Suspense>
+  );
+}
+
+function ListPageInner({ params }: { params: { id: string } }) {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<ListDetail | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [view, setView] = useState<View>("board");
@@ -29,12 +39,13 @@ export default function ListPage({ params }: { params: { id: string } }) {
       const saved = localStorage.getItem(`fluxo:view:${params.id}`) || localStorage.getItem("fluxo:view:last");
       if (saved === "board" || saved === "list" || saved === "calendar") setView(saved);
     } catch {}
-    // Abrir tarefa vinda da busca global (?task=...)
-    try {
-      const t = new URLSearchParams(window.location.search).get("task");
-      if (t) setOpenTask(t);
-    } catch {}
   }, [params.id]);
+
+  // Abrir tarefa vinda da busca global (?task=...), inclusive na mesma lista
+  useEffect(() => {
+    const t = searchParams.get("task");
+    if (t) setOpenTask(t);
+  }, [searchParams]);
 
   function changeView(v: View) {
     setView(v);
