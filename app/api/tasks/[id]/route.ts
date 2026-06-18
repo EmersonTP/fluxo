@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
+import { createNotifications } from "@/lib/notify";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
@@ -52,8 +53,24 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
   }
 
+  let newlyAssigned: string[] = [];
   if (body.assigneeIds !== undefined) {
     data.assignees = { set: body.assigneeIds.map((id: string) => ({ id })) };
+    const before = await prisma.task.findUnique({
+      where: { id: params.id },
+      select: { name: true, listId: true, assignees: { select: { id: true } } },
+    });
+    const prevIds = new Set((before?.assignees || []).map((a: { id: string }) => a.id));
+    newlyAssigned = (body.assigneeIds as string[]).filter((id) => !prevIds.has(id) && id !== user.id);
+    if (newlyAssigned.length && before) {
+      await createNotifications(
+        newlyAssigned,
+        "assigned",
+        `${user.name} atribuiu você a "${before.name}"`,
+        `/list/${before.listId}`,
+        user.id
+      );
+    }
   }
   if (body.tagIds !== undefined) {
     data.tags = { set: body.tagIds.map((id: string) => ({ id })) };

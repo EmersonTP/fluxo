@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ListDetail, TaskT, Member, StatusT } from "@/lib/types";
 import TaskModal from "@/components/TaskModal";
 import { TaskCard } from "@/components/TaskCard";
-import { formatDate, isLate, priorityMeta } from "@/lib/ui";
+import { formatDate, isLate } from "@/lib/ui";
 import { useToast } from "@/components/Toast";
 
 type View = "board" | "list";
@@ -69,6 +69,17 @@ export default function ListPage({ params }: { params: { id: string } }) {
     toast(`Tarefa movida para "${label}"`);
   }
 
+  async function setPriority(taskId: string, priority: string | null) {
+    setData((prev) =>
+      prev ? { ...prev, tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, priority: priority || undefined } : t)) } : prev
+    );
+    await fetch(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ priority }),
+    });
+  }
+
   async function addTaskTop() {
     if (!data) return;
     const res = await fetch("/api/tasks", {
@@ -122,7 +133,7 @@ export default function ListPage({ params }: { params: { id: string } }) {
       {view === "board" ? (
         <BoardView list={data} tasks={filtered} onMove={moveTask} onOpen={setOpenTask} onCreated={load} />
       ) : (
-        <ListView list={data} tasks={filtered} onOpen={setOpenTask} onCreated={load} />
+        <ListView list={data} tasks={filtered} onOpen={setOpenTask} onCreated={load} onMove={moveTask} onSetPriority={setPriority} />
       )}
 
       {openTask && (
@@ -246,12 +257,34 @@ function BoardView({
   );
 }
 
-function ListView({ list, tasks, onOpen, onCreated }: { list: ListDetail; tasks: TaskT[]; onOpen: (id: string) => void; onCreated: () => void }) {
+const PRIORITIES = [
+  { value: "urgent", label: "Urgente", color: "#e5484d" },
+  { value: "high", label: "Alta", color: "#ff7e59" },
+  { value: "normal", label: "Normal", color: "#3b82f6" },
+  { value: "low", label: "Baixa", color: "#9aa0a6" },
+];
+
+function ListView({
+  list,
+  tasks,
+  onOpen,
+  onCreated,
+  onMove,
+  onSetPriority,
+}: {
+  list: ListDetail;
+  tasks: TaskT[];
+  onOpen: (id: string) => void;
+  onCreated: () => void;
+  onMove: (taskId: string, statusId: string) => void;
+  onSetPriority: (taskId: string, priority: string | null) => void;
+}) {
   const statuses: StatusT[] = list.statuses.length
     ? list.statuses
     : [{ id: "none", name: "Sem status", color: "#a3a3a3", order: 0, type: "open" }];
   const [addingGroup, setAddingGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   async function createGroup() {
     if (!groupName.trim()) return;
@@ -266,18 +299,51 @@ function ListView({ list, tasks, onOpen, onCreated }: { list: ListDetail; tasks:
   }
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "18px 26px 40px" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "16px 26px 48px" }}>
       {statuses.map((st) => {
         const groupTasks = tasks.filter((t) => (t.statusId || "none") === st.id);
+        const isCollapsed = collapsed[st.id];
         return (
-          <div key={st.id} style={{ marginBottom: 18 }}>
-            <StatusHeader st={st} count={groupTasks.length} onCreated={onCreated} />
-            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--r-card)", overflow: "hidden" }}>
-              {groupTasks.map((t) => (
-                <ListRow key={t.id} task={t} listId={list.id} onOpen={onOpen} onCreated={onCreated} />
-              ))}
-              {st.id !== "none" && <QuickAdd listId={list.id} statusId={st.id} onCreated={onCreated} asRow />}
+          <div key={st.id} className="fx-lt-group">
+            <div className="fx-lt-grouphead">
+              <button
+                className="fx-lt-caret"
+                onClick={() => setCollapsed((c) => ({ ...c, [st.id]: !c[st.id] }))}
+                style={{ transform: isCollapsed ? "rotate(-90deg)" : "none" }}
+              >
+                ▾
+              </button>
+              <GroupTitle st={st} onCreated={onCreated} />
+              <span style={{ fontSize: 12, color: "var(--txt-faint)", fontWeight: 600 }}>{groupTasks.length}</span>
             </div>
+            {!isCollapsed && (
+              <div className="fx-lt-table">
+                <div className="fx-lt-headrow">
+                  <span />
+                  <span />
+                  <span>Tarefa</span>
+                  <span>Resp.</span>
+                  <span>Prazo</span>
+                  <span>Prioridade</span>
+                </div>
+                {groupTasks.map((t) => (
+                  <ListRow
+                    key={t.id}
+                    task={t}
+                    listId={list.id}
+                    statuses={statuses}
+                    onOpen={onOpen}
+                    onCreated={onCreated}
+                    onMove={onMove}
+                    onSetPriority={onSetPriority}
+                  />
+                ))}
+                {groupTasks.length === 0 && (
+                  <div style={{ padding: "12px 14px", fontSize: 12.5, color: "var(--txt-faint)" }}>Nenhuma tarefa neste grupo.</div>
+                )}
+                {st.id !== "none" && <QuickAdd listId={list.id} statusId={st.id} onCreated={onCreated} asRow />}
+              </div>
+            )}
           </div>
         );
       })}
@@ -310,7 +376,7 @@ function ListView({ list, tasks, onOpen, onCreated }: { list: ListDetail; tasks:
   );
 }
 
-function StatusHeader({ st, count, onCreated }: { st: StatusT; count: number; onCreated: () => void }) {
+function GroupTitle({ st, onCreated }: { st: StatusT; onCreated: () => void }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(st.name);
   async function save() {
@@ -324,44 +390,61 @@ function StatusHeader({ st, count, onCreated }: { st: StatusT; count: number; on
     }
     setEditing(false);
   }
+  if (editing && st.id !== "none") {
+    return (
+      <input
+        autoFocus
+        className="fx-input"
+        style={{ maxWidth: 200, fontSize: 12.5, padding: "3px 8px" }}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") save();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        onBlur={save}
+      />
+    );
+  }
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-      {editing && st.id !== "none" ? (
-        <input
-          autoFocus
-          className="fx-input"
-          style={{ maxWidth: 200, fontSize: 13 }}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") save();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          onBlur={save}
-        />
-      ) : (
-        <span
-          className="fx-pill"
-          style={{ color: st.color, background: st.color + "20", cursor: st.id !== "none" ? "text" : "default" }}
-          onClick={() => st.id !== "none" && setEditing(true)}
-          title={st.id !== "none" ? "Clique para renomear" : ""}
-        >
-          {st.name}
-        </span>
-      )}
-      <span style={{ fontSize: 12, color: "var(--txt-faint)" }}>{count}</span>
-    </div>
+    <button
+      className="fx-lt-statuspill"
+      style={{ color: "#fff", background: st.color, cursor: st.id !== "none" ? "text" : "default" }}
+      onClick={() => st.id !== "none" && setEditing(true)}
+      title={st.id !== "none" ? "Clique para renomear" : ""}
+    >
+      {st.name}
+    </button>
   );
 }
 
-function ListRow({ task, listId, onOpen, onCreated }: { task: TaskT; listId: string; onOpen: (id: string) => void; onCreated: () => void }) {
+function ListRow({
+  task,
+  listId,
+  statuses,
+  onOpen,
+  onCreated,
+  onMove,
+  onSetPriority,
+}: {
+  task: TaskT;
+  listId: string;
+  statuses: StatusT[];
+  onOpen: (id: string) => void;
+  onCreated: () => void;
+  onMove: (taskId: string, statusId: string) => void;
+  onSetPriority: (taskId: string, priority: string | null) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [subs, setSubs] = useState<any[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [subName, setSubName] = useState("");
-  const prio = priorityMeta(task.priority);
+  const [menu, setMenu] = useState<null | "status" | "priority">(null);
   const late = isLate(task.dueDate, task.dateClosed);
   const subCount = task._count?.subtasks || 0;
+  const curStatus = statuses.find((s) => s.id === (task.statusId || "none"));
+  const dotColor = curStatus?.color || "#a3a3a3";
+  const prio = PRIORITIES.find((p) => p.value === task.priority);
 
   async function toggle() {
     const nx = !expanded;
@@ -386,52 +469,121 @@ function ListRow({ task, listId, onOpen, onCreated }: { task: TaskT; listId: str
 
   return (
     <div>
-      <div className="fx-listrow" onClick={() => onOpen(task.id)}>
+      <div className="fx-lt-row" onClick={() => onOpen(task.id)}>
+        {/* expand caret */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             toggle();
           }}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--txt-faint)", width: 16, flexShrink: 0, fontSize: 11, padding: 0 }}
+          className="fx-lt-caret"
           title="Subtarefas"
         >
           {subCount > 0 || expanded ? (expanded ? "▾" : "▸") : "·"}
         </button>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: "var(--txt)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {prio && (
-            <span className="fx-pill" style={{ color: prio.fg, background: prio.bg, marginRight: 8 }}>
-              {prio.label}
-            </span>
+
+        {/* status dot + inline picker */}
+        <div style={{ position: "relative", display: "flex", justifyContent: "center" }}>
+          <button
+            className="fx-lt-statusdot"
+            style={{ color: dotColor, background: curStatus?.type === "done" || curStatus?.type === "closed" ? dotColor : "transparent" }}
+            title={curStatus?.name || "Status"}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenu(menu === "status" ? null : "status");
+            }}
+          />
+          {menu === "status" && (
+            <>
+              <div onClick={(e) => { e.stopPropagation(); setMenu(null); }} style={{ position: "fixed", inset: 0, zIndex: 55 }} />
+              <div className="fx-popover" style={{ top: 22, left: 0 }} onClick={(e) => e.stopPropagation()}>
+                {statuses.filter((s) => s.id !== "none").map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      onMove(task.id, s.id);
+                      setMenu(null);
+                    }}
+                  >
+                    <span className="fx-lt-statusdot" style={{ color: s.color, background: s.type === "done" || s.type === "closed" ? s.color : "transparent", cursor: "pointer" }} />
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
-          {task.name}
-          {subCount > 0 && <span style={{ fontSize: 11, color: "var(--txt-faint)", marginLeft: 8 }}>⤷ {subCount}</span>}
+        </div>
+
+        {/* name */}
+        <span className="fx-lt-name">
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{task.name}</span>
+          {subCount > 0 && <span style={{ fontSize: 11, color: "var(--txt-faint)", flexShrink: 0 }}>⤷ {subCount}</span>}
         </span>
-        <div style={{ display: "flex", flexShrink: 0 }}>
+
+        {/* assignees */}
+        <span className="fx-lt-cell">
           {task.assignees.slice(0, 3).map((a, i) => (
-            <span key={a.id} className="fx-avatar" title={a.name} style={{ background: a.color, marginLeft: i ? -6 : 0, border: "1.5px solid var(--surface)" }}>
+            <span key={a.id} className="fx-avatar" title={a.name} style={{ width: 22, height: 22, background: a.color, marginLeft: i ? -6 : 0, border: "1.5px solid var(--surface)" }}>
               {a.name.charAt(0).toUpperCase()}
             </span>
           ))}
-        </div>
-        {task.dueDate && (
-          <span className={late ? "fx-meta late" : "fx-meta"} style={{ flexShrink: 0, minWidth: 44, textAlign: "right" }}>
-            {formatDate(task.dueDate)}
-          </span>
-        )}
+        </span>
+
+        {/* due date */}
+        <span className={late ? "fx-lt-cell" : "fx-lt-cell"} style={{ color: late ? "var(--coral-deep)" : "var(--txt-soft)", fontWeight: late ? 600 : 400 }}>
+          {task.dueDate ? formatDate(task.dueDate) : <span style={{ opacity: 0.4 }}>—</span>}
+        </span>
+
+        {/* priority + inline picker */}
+        <span className="fx-lt-cell" style={{ position: "relative" }}>
+          <button
+            className="fx-lt-flag"
+            style={{ color: prio ? prio.color : "var(--txt-faint)", background: prio ? prio.color + "1c" : "transparent" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenu(menu === "priority" ? null : "priority");
+            }}
+          >
+            <span>⚑</span>
+            {prio ? prio.label : <span style={{ opacity: 0.5 }}>—</span>}
+          </button>
+          {menu === "priority" && (
+            <>
+              <div onClick={(e) => { e.stopPropagation(); setMenu(null); }} style={{ position: "fixed", inset: 0, zIndex: 55 }} />
+              <div className="fx-popover" style={{ top: 26, right: 0 }} onClick={(e) => e.stopPropagation()}>
+                {PRIORITIES.map((p) => (
+                  <button key={p.value} onClick={() => { onSetPriority(task.id, p.value); setMenu(null); }}>
+                    <span style={{ color: p.color }}>⚑</span>
+                    {p.label}
+                  </button>
+                ))}
+                <button onClick={() => { onSetPriority(task.id, null); setMenu(null); }}>
+                  <span style={{ opacity: 0.5 }}>⚑</span>
+                  Limpar
+                </button>
+              </div>
+            </>
+          )}
+        </span>
       </div>
+
       {expanded && (
-        <div style={{ paddingLeft: 30, background: "var(--bg)" }}>
+        <div style={{ background: "var(--bg)" }}>
           {(subs || []).map((s) => (
-            <div key={s.id} className="fx-listrow" onClick={() => onOpen(s.id)} style={{ fontSize: 13 }}>
-              <span style={{ width: 16, flexShrink: 0, color: "var(--txt-faint)" }}>↳</span>
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-              {s.status && <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{s.status.name}</span>}
+            <div key={s.id} className="fx-lt-row" onClick={() => onOpen(s.id)} style={{ fontSize: 13 }}>
+              <span className="fx-lt-caret" style={{ cursor: "default" }} />
+              <span style={{ display: "flex", justifyContent: "center", color: "var(--txt-faint)" }}>↳</span>
+              <span className="fx-lt-name">{s.name}</span>
+              <span />
+              <span />
+              <span className="fx-lt-cell">{s.status && <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{s.status.name}</span>}</span>
             </div>
           ))}
           {adding ? (
             <input
               autoFocus
               className="fx-addrow"
+              style={{ paddingLeft: 48 }}
               placeholder="Nome da subtarefa"
               value={subName}
               onChange={(e) => setSubName(e.target.value)}
@@ -448,7 +600,7 @@ function ListRow({ task, listId, onOpen, onCreated }: { task: TaskT; listId: str
               }}
             />
           ) : (
-            <button className="fx-addrow" onClick={() => setAdding(true)}>
+            <button className="fx-addrow" style={{ paddingLeft: 48 }} onClick={() => setAdding(true)}>
               + subtarefa
             </button>
           )}

@@ -5,6 +5,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type Channel = { id: string; name: string; company?: { name: string } | null; _count?: { messages: number } };
 type Msg = { id: string; text: string; createdAt: string; user?: { id: string; name: string; color: string } | null };
 
+function dayLabel(d: Date) {
+  const today = new Date();
+  const y = new Date();
+  y.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Hoje";
+  if (d.toDateString() === y.toDateString()) return "Ontem";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
 export default function ChatPanel({ meId }: { meId: string }) {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [active, setActive] = useState<string | null>(null);
@@ -14,6 +23,7 @@ export default function ChatPanel({ meId }: { meId: string }) {
   const [creating, setCreating] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<string | null>(null);
+  const countRef = useRef(0);
 
   const loadChannels = useCallback(() => {
     fetch("/api/channels")
@@ -30,7 +40,13 @@ export default function ChatPanel({ meId }: { meId: string }) {
   const loadMessages = useCallback((channelId: string) => {
     fetch(`/api/channels/${channelId}/messages`)
       .then((r) => r.json())
-      .then((d) => setMessages(d.messages || []));
+      .then((d) => {
+        const msgs: Msg[] = d.messages || [];
+        if (msgs.length !== countRef.current) {
+          countRef.current = msgs.length;
+          setMessages(msgs);
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -40,10 +56,11 @@ export default function ChatPanel({ meId }: { meId: string }) {
   useEffect(() => {
     if (!active) return;
     activeRef.current = active;
+    countRef.current = -1;
     loadMessages(active);
     const t = setInterval(() => {
       if (activeRef.current) loadMessages(activeRef.current);
-    }, 4000);
+    }, 3500);
     return () => clearInterval(t);
   }, [active, loadMessages]);
 
@@ -61,7 +78,10 @@ export default function ChatPanel({ meId }: { meId: string }) {
       body: JSON.stringify({ text: body }),
     });
     const d = await res.json();
-    if (d.message) setMessages((m) => [...m, d.message]);
+    if (d.message) {
+      setMessages((m) => [...m, d.message]);
+      countRef.current += 1;
+    }
   }
 
   async function createChannel() {
@@ -80,14 +100,17 @@ export default function ChatPanel({ meId }: { meId: string }) {
     }
   }
 
-  const activeName = channels.find((c) => c.id === active)?.name;
+  const activeChannel = channels.find((c) => c.id === active);
+  const activeName = activeChannel?.name;
 
   return (
     <>
       <div className="fx-topbar">
         <div>
-          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>Geral</div>
-          <div className="fx-title">Chat{activeName ? ` · #${activeName}` : ""}</div>
+          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>
+            {activeChannel?.company ? activeChannel.company.name : "Geral"}
+          </div>
+          <div className="fx-title">{activeName ? `# ${activeName}` : "Chat"}</div>
         </div>
       </div>
       <div className="fx-accent" />
@@ -108,19 +131,17 @@ export default function ChatPanel({ meId }: { meId: string }) {
                 placeholder="nome-do-canal"
                 value={newChannel}
                 onChange={(e) => setNewChannel(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && createChannel()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createChannel();
+                  if (e.key === "Escape") setCreating(false);
+                }}
                 autoFocus
               />
             </div>
           )}
           {channels.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setActive(c.id)}
-              className={`fx-navitem ${active === c.id ? "active" : ""}`}
-              style={{ fontSize: 13.5 }}
-            >
-              <span style={{ opacity: 0.6 }}>#</span>
+            <button key={c.id} onClick={() => setActive(c.id)} className={`fx-navitem ${active === c.id ? "active" : ""}`} style={{ fontSize: 13.5 }}>
+              <span style={{ opacity: 0.55 }}>#</span>
               <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{c.name}</span>
               {c.company && <span style={{ fontSize: 10, color: "var(--txt-faint)" }}>{c.company.name.split(" ")[0]}</span>}
             </button>
@@ -132,21 +153,61 @@ export default function ChatPanel({ meId }: { meId: string }) {
 
         {/* Messages */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: "18px 22px" }}>
             {!active && <p style={{ color: "var(--txt-soft)" }}>Selecione ou crie um canal.</p>}
-            {messages.map((m) => {
+            {active && messages.length === 0 && (
+              <div style={{ textAlign: "center", color: "var(--txt-faint)", marginTop: 40 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+                <p style={{ fontSize: 14 }}>Seja o primeiro a falar em #{activeName}.</p>
+              </div>
+            )}
+            {messages.map((m, i) => {
+              const prev = messages[i - 1];
+              const d = new Date(m.createdAt);
+              const newDay = !prev || new Date(prev.createdAt).toDateString() !== d.toDateString();
+              const grouped =
+                !newDay &&
+                prev &&
+                prev.user?.id === m.user?.id &&
+                d.getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
               const mine = m.user?.id === meId;
               return (
-                <div key={m.id} style={{ display: "flex", gap: 10, marginBottom: 14, flexDirection: mine ? "row-reverse" : "row" }}>
-                  <span className="fx-avatar" style={{ background: m.user?.color || "var(--roxo)", flexShrink: 0 }}>
-                    {(m.user?.name || "?").charAt(0).toUpperCase()}
-                  </span>
-                  <div style={{ maxWidth: "70%" }}>
-                    <div style={{ fontSize: 11, color: "var(--txt-faint)", marginBottom: 2, textAlign: mine ? "right" : "left" }}>
-                      {m.user?.name || "Desconhecido"} · {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                <div key={m.id}>
+                  {newDay && (
+                    <div style={{ textAlign: "center", margin: "16px 0 12px" }}>
+                      <span style={{ fontSize: 11, color: "var(--txt-faint)", background: "var(--col)", padding: "3px 12px", borderRadius: 999 }}>
+                        {dayLabel(d)}
+                      </span>
                     </div>
-                    <div style={{ background: mine ? "var(--roxo)" : "var(--col)", color: mine ? "#fff" : "var(--txt)", borderRadius: 12, padding: "9px 13px", fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                      {m.text}
+                  )}
+                  <div style={{ display: "flex", gap: 10, marginTop: grouped ? 2 : 10, flexDirection: mine ? "row-reverse" : "row" }}>
+                    <span style={{ width: 32, flexShrink: 0 }}>
+                      {!grouped && (
+                        <span className="fx-avatar" style={{ background: m.user?.color || "var(--roxo)" }}>
+                          {(m.user?.name || "?").charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                    <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
+                      {!grouped && (
+                        <div style={{ fontSize: 11, color: "var(--txt-faint)", marginBottom: 3 }}>
+                          {m.user?.name || "Desconhecido"} · {d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          background: mine ? "var(--roxo)" : "var(--col)",
+                          color: mine ? "#fff" : "var(--txt)",
+                          borderRadius: 12,
+                          padding: "9px 13px",
+                          fontSize: 14,
+                          lineHeight: 1.45,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {m.text}
+                      </div>
                     </div>
                   </div>
                 </div>

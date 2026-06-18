@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import type { WorkspaceT, SpaceT } from "@/lib/types";
+import NotificationBell from "./NotificationBell";
 
 type User = { id: string; name: string; email: string; role: string };
 
@@ -133,7 +134,10 @@ export default function AppShell({ user, children }: { user: User; children: Rea
             );
           })}
         </div>
-        <div style={{ marginTop: "auto", position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
+        <div style={{ marginTop: "auto", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <NotificationBell />
+        </div>
+        <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
           <button onClick={() => setMenuOpen((o) => !o)} className="fx-rail-avatar" title={user.name}>
             {user.name.charAt(0).toUpperCase()}
           </button>

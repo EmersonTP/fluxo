@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { companyScope } from "@/lib/auth";
+import { createNotifications, mentionedUserIds } from "@/lib/notify";
 
 async function canAccessChannel(user: { role: string; companyId: string | null }, channelId: string) {
   const ch = await prisma.channel.findUnique({ where: { id: channelId } });
@@ -37,5 +38,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     data: { channelId: params.id, text: text.trim(), userId: user.id },
     include: { user: { select: { id: true, name: true, color: true } } },
   });
+
+  // Notify mentioned users in this channel's company.
+  const ch = await prisma.channel.findUnique({ where: { id: params.id }, select: { companyId: true, name: true } });
+  const mentioned = await mentionedUserIds(text, ch?.companyId ?? null);
+  await createNotifications(
+    mentioned,
+    "mention",
+    `${user.name} mencionou você em #${ch?.name ?? "chat"}`,
+    "/chat",
+    user.id
+  );
+
   return NextResponse.json({ message });
 }

@@ -1,20 +1,44 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
-export default function SettingsPanel({ name: initialName, email, role }: { name: string; email: string; role: string }) {
+const AVATAR_COLORS = ["#9250ac", "#ff7e59", "#1d9e75", "#534ab7", "#d85a30", "#3b82f6", "#ec4899", "#f59e0b", "#14b8a6", "#ef4444"];
+
+export default function SettingsPanel({
+  name: initialName,
+  email,
+  role,
+  isAdmin,
+  color: initialColor,
+}: {
+  name: string;
+  email: string;
+  role: string;
+  isAdmin: boolean;
+  color: string;
+}) {
   const [name, setName] = useState(initialName);
+  const [color, setColor] = useState(initialColor);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [dark, setDark] = useState(false);
+  const [notif, setNotif] = useState({ assigned: true, mentions: true, daily: false });
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
   useEffect(() => {
     try {
       setDark(localStorage.getItem("fluxo:theme") === "dark");
+      const n = localStorage.getItem("fluxo:notif");
+      if (n) setNotif(JSON.parse(n));
     } catch {}
   }, []);
+
+  function flash(setter: (v: string) => void, text: string) {
+    setter(text);
+    setTimeout(() => setter(""), 2500);
+  }
 
   function toggleTheme() {
     const next = !dark;
@@ -25,17 +49,25 @@ export default function SettingsPanel({ name: initialName, email, role }: { name
     document.documentElement.setAttribute("data-theme", next ? "dark" : "light");
   }
 
+  function setNotifKey(key: keyof typeof notif, val: boolean) {
+    const next = { ...notif, [key]: val };
+    setNotif(next);
+    try {
+      localStorage.setItem("fluxo:notif", JSON.stringify(next));
+    } catch {}
+  }
+
   async function saveProfile() {
     setMsg("");
     setErr("");
     const res = await fetch("/api/account", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, color }),
     });
     const d = await res.json();
-    if (res.ok) setMsg("Nome atualizado.");
-    else setErr(d.error || "Erro.");
+    if (res.ok) flash(setMsg, "Perfil atualizado.");
+    else flash(setErr, d.error || "Erro.");
   }
 
   async function savePassword() {
@@ -48,10 +80,10 @@ export default function SettingsPanel({ name: initialName, email, role }: { name
     });
     const d = await res.json();
     if (res.ok) {
-      setMsg("Senha alterada.");
+      flash(setMsg, "Senha alterada.");
       setCurrentPassword("");
       setNewPassword("");
-    } else setErr(d.error || "Erro.");
+    } else flash(setErr, d.error || "Erro.");
   }
 
   return (
@@ -64,13 +96,31 @@ export default function SettingsPanel({ name: initialName, email, role }: { name
       </div>
       <div className="fx-accent" />
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 26px", maxWidth: 620 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 26px", maxWidth: 640 }}>
         {msg && <p style={{ color: "var(--sage)", fontSize: 14, marginBottom: 12 }}>{msg}</p>}
         {err && <p style={{ color: "var(--coral-deep)", fontSize: 14, marginBottom: 12 }}>{err}</p>}
 
         <Section title="Minha conta">
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 4 }}>
+            <span className="fx-avatar" style={{ width: 56, height: 56, fontSize: 22, background: color }}>
+              {name.charAt(0).toUpperCase()}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 6 }}>Cor do avatar</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {AVATAR_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    style={{ width: 26, height: 26, borderRadius: "50%", background: c, border: color === c ? "3px solid var(--txt)" : "2px solid var(--line)", cursor: "pointer" }}
+                    aria-label={c}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
           <Field label="Nome">
-            <input className="fx-input" value={name} onChange={(e) => setName(e.target.value)} />
+            <input className="fx-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
           </Field>
           <Field label="E-mail">
             <input className="fx-input" value={email} disabled style={{ opacity: 0.6 }} />
@@ -79,7 +129,7 @@ export default function SettingsPanel({ name: initialName, email, role }: { name
             <input className="fx-input" value={role} disabled style={{ opacity: 0.6 }} />
           </Field>
           <button className="fx-btn fx-btn-primary" onClick={saveProfile}>
-            Salvar nome
+            Salvar perfil
           </button>
         </Section>
 
@@ -95,11 +145,28 @@ export default function SettingsPanel({ name: initialName, email, role }: { name
           </button>
         </Section>
 
+        <Section title="Notificações">
+          <Toggle label="Avisar quando uma tarefa for atribuída a mim" checked={notif.assigned} onChange={(v) => setNotifKey("assigned", v)} />
+          <Toggle label="Avisar menções no chat" checked={notif.mentions} onChange={(v) => setNotifKey("mentions", v)} />
+          <Toggle label="Resumo diário das minhas tarefas" checked={notif.daily} onChange={(v) => setNotifKey("daily", v)} />
+        </Section>
+
         <Section title="Aparência">
           <button className="fx-btn" onClick={toggleTheme}>
             {dark ? "☀️ Mudar para modo claro" : "🌙 Mudar para modo escuro"}
           </button>
         </Section>
+
+        {isAdmin && (
+          <Section title="Equipe & Empresas">
+            <p style={{ fontSize: 13.5, color: "var(--txt-soft)", margin: 0 }}>
+              Gerencie usuários (aprovar, papéis, empresas) e crie novas empresas no painel de administração.
+            </p>
+            <Link href="/admin" className="fx-btn fx-btn-primary" style={{ textDecoration: "none", display: "inline-block" }}>
+              Abrir Administração
+            </Link>
+          </Section>
+        )}
       </div>
     </>
   );
@@ -122,5 +189,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 5 }}>{label}</div>
       {children}
     </div>
+  );
+}
+
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "var(--txt)", width: "100%" }}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ width: 18, height: 18, accentColor: "var(--roxo)" }} />
+      {label}
+    </label>
   );
 }

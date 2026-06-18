@@ -8,12 +8,15 @@ export async function PATCH(req: Request) {
   const user = await requireUser();
   if (isResponse(user)) return user;
 
-  const { name, currentPassword, newPassword } = await req.json();
+  const { name, color, currentPassword, newPassword } = await req.json();
   const data: any = {};
 
   if (name !== undefined) {
     if (!name.trim()) return NextResponse.json({ error: "Nome não pode ficar vazio." }, { status: 400 });
     data.name = name.trim();
+  }
+  if (color !== undefined && /^#[0-9a-fA-F]{6}$/.test(color)) {
+    data.color = color;
   }
 
   if (newPassword) {
