@@ -39,6 +39,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       },
       blockedBy: { select: { id: true, name: true, status: { select: { name: true, color: true, type: true } } } },
       blocking: { select: { id: true, name: true, status: { select: { name: true, color: true, type: true } } } },
+      activities: {
+        orderBy: { createdAt: "desc" },
+        take: 60,
+        include: { user: { select: { id: true, name: true, color: true } } },
+      },
     },
   });
   if (!task) return NextResponse.json({ error: "Tarefa não encontrada." }, { status: 404 });
@@ -56,6 +61,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.listId && !(await canAccessList(user, body.listId))) {
     return NextResponse.json({ error: "Sem acesso à lista de destino." }, { status: 403 });
   }
+
+  // Estado anterior, para registrar o histórico de alterações
+  const prev = await prisma.task.findUnique({
+    where: { id: params.id },
+    select: {
+      name: true,
+      listId: true,
+      priority: true,
+      dueDate: true,
+      statusId: true,
+      assignees: { select: { id: true, name: true } },
+    },
+  });
+
   const data: any = {};
   if (body.name !== undefined) data.name = body.name;
   if (body.description !== undefined) data.description = body.description;
@@ -78,18 +97,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   let newlyAssigned: string[] = [];
   if (body.assigneeIds !== undefined) {
     data.assignees = { set: body.assigneeIds.map((id: string) => ({ id })) };
-    const before = await prisma.task.findUnique({
-      where: { id: params.id },
-      select: { name: true, listId: true, assignees: { select: { id: true } } },
-    });
-    const prevIds = new Set((before?.assignees || []).map((a: { id: string }) => a.id));
+    const prevIds = new Set((prev?.assignees || []).map((a: { id: string }) => a.id));
     newlyAssigned = (body.assigneeIds as string[]).filter((id) => !prevIds.has(id) && id !== user.id);
-    if (newlyAssigned.length && before) {
+    if (newlyAssigned.length && prev) {
       await createNotifications(
         newlyAssigned,
         "assigned",
-        `${user.name} atribuiu você a "${before.name}"`,
-        `/list/${before.listId}`,
+        `${user.name} atribuiu você a "${prev.name}"`,
+        `/list/${prev.listId}`,
         user.id
       );
     }
@@ -118,6 +133,47 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       _count: { select: { subtasks: true, comments: true } },
     },
   });
+
+  // Registrar histórico de alterações (sem quebrar a request se falhar)
+  try {
+    const PRIO: Record<string, string> = { urgent: "Urgente", high: "Alta", normal: "Normal", low: "Baixa" };
+    const fmt = (d: Date | null) => (d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : null);
+    const logs: { type: string; text: string }[] = [];
+
+    if (prev) {
+      if (body.name !== undefined && body.name !== prev.name) {
+        logs.push({ type: "renamed", text: `renomeou para "${body.name}"` });
+      }
+      if (body.statusId !== undefined && body.statusId !== prev.statusId) {
+        logs.push({ type: "status", text: `moveu para "${task.status?.name || "—"}"` });
+      }
+      if (body.priority !== undefined && (body.priority || null) !== (prev.priority || null)) {
+        logs.push({ type: "priority", text: body.priority ? `definiu prioridade: ${PRIO[body.priority] || body.priority}` : "removeu a prioridade" });
+      }
+      if (body.dueDate !== undefined) {
+        const oldD = fmt(prev.dueDate);
+        const newD = body.dueDate ? fmt(new Date(body.dueDate)) : null;
+        if (oldD !== newD) logs.push({ type: "due", text: newD ? `definiu o prazo para ${newD}` : "removeu o prazo" });
+      }
+      if (body.assigneeIds !== undefined) {
+        const prevIds = new Set(prev.assignees.map((a: { id: string }) => a.id));
+        const newIds = new Set(task.assignees.map((a: { id: string }) => a.id));
+        for (const a of task.assignees) if (!prevIds.has(a.id)) logs.push({ type: "assignees", text: `atribuiu ${a.name}` });
+        for (const a of prev.assignees) if (!newIds.has(a.id)) logs.push({ type: "assignees", text: `removeu ${a.name}` });
+      }
+      if (body.listId !== undefined && body.listId !== prev.listId) {
+        logs.push({ type: "moved", text: "moveu para outra lista" });
+      }
+    }
+
+    if (logs.length) {
+      await prisma.activity.createMany({
+        data: logs.map((l) => ({ taskId: params.id, userId: user.id, type: l.type, text: l.text })),
+      });
+    }
+  } catch {
+    /* histórico é best-effort */
+  }
 
   return NextResponse.json({ task });
 }

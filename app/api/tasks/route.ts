@@ -44,5 +44,11 @@ export async function POST(req: Request) {
     },
   });
 
+  try {
+    await prisma.activity.create({ data: { taskId: task.id, userId: user.id, type: "created", text: "criou a tarefa" } });
+  } catch {
+    /* histórico best-effort */
+  }
+
   return NextResponse.json({ task });
 }

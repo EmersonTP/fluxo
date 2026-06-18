@@ -41,6 +41,7 @@ model User {
   notifications Notification[]
   spaceAccess   Space[]       @relation("SpaceMembers")
   listAccess    List[]        @relation("ListMembers")
+  activities    Activity[]
 }
 
 model Workspace {
@@ -148,8 +149,24 @@ model Task {
   blockedBy Task[] @relation("TaskDeps")
   blocking  Task[] @relation("TaskDeps")
 
+  activities Activity[]
+
   @@index([listId])
   @@index([statusId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  type      String   // created | renamed | status | priority | assignees | due | moved | comment
+  text      String
+  createdAt DateTime @default(now())
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
 }
 
 model Attachment {

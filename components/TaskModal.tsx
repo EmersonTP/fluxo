@@ -16,6 +16,7 @@ type FullTask = TaskT & {
   customFields?: Record<string, string> | null;
   blockedBy?: DepLite[];
   blocking?: DepLite[];
+  activities?: { id: string; type: string; text: string; createdAt: string; user?: Member | null }[];
 };
 
 export default function TaskModal({
@@ -514,6 +515,27 @@ export default function TaskModal({
                 Enviar
               </button>
             </div>
+
+            {task.activities && task.activities.length > 0 && (
+              <>
+                <div className="fx-field-label">Histórico</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {task.activities.map((a) => (
+                    <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--txt-soft)" }}>
+                      <span className="fx-avatar" style={{ width: 20, height: 20, fontSize: 9, background: a.user?.color || "var(--txt-faint)", flexShrink: 0 }}>
+                        {(a.user?.name || "?").charAt(0).toUpperCase()}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <b style={{ color: "var(--txt)", fontWeight: 600 }}>{a.user?.name || "Alguém"}</b> {a.text}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--txt-faint)", whiteSpace: "nowrap" }}>
+                        {new Date(a.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 22, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
               <button onClick={remove} style={{ background: "none", border: "none", color: "var(--coral-deep)", cursor: "pointer", fontSize: 13 }}>
