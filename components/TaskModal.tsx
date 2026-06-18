@@ -34,6 +34,9 @@ export default function TaskModal({
   const [availableTags, setAvailableTags] = useState<TagT[]>([]);
   const [newTagName, setNewTagName] = useState("");
   const [showTagEditor, setShowTagEditor] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+  const [showAssign, setShowAssign] = useState(false);
+  const [assignSearch, setAssignSearch] = useState("");
   const [newSubtask, setNewSubtask] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -110,18 +113,20 @@ export default function TaskModal({
     patch({ tagIds: ids });
   }
 
-  async function createTag() {
-    if (!task || !newTagName.trim()) return;
+  async function createTag(nameArg?: string) {
+    const tagName = (nameArg ?? newTagName).trim();
+    if (!task || !tagName) return;
     const color = TAG_COLORS[availableTags.length % TAG_COLORS.length];
     const res = await fetch("/api/tags", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newTagName, color, listId: task.list.id }),
+      body: JSON.stringify({ name: tagName, color, listId: task.list.id }),
     });
     const data = await res.json();
     if (data.tag) {
       setAvailableTags((prev) => (prev.some((t) => t.id === data.tag.id) ? prev : [...prev, data.tag]));
       setNewTagName("");
+      setTagSearch("");
       patch({ tagIds: [...task.tags.map((t) => t.id), data.tag.id] });
     }
   }
@@ -227,45 +232,88 @@ export default function TaskModal({
             </div>
 
             <div className="fx-field-label">Responsáveis</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {members.map((m) => {
-                const active = task.assignees.some((a) => a.id === m.id);
-                return (
-                  <button key={m.id} className={`fx-chip ${active ? "on" : ""}`} onClick={() => toggleAssignee(m.id)}>
-                    <span className="fx-avatar" style={{ width: 18, height: 18, fontSize: 8, background: m.color }}>
-                      {m.name.charAt(0).toUpperCase()}
-                    </span>
-                    {m.name.split(" ")[0]}
-                  </button>
-                );
-              })}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+              {task.assignees.map((a) => (
+                <button key={a.id} className="fx-chip on" onClick={() => toggleAssignee(a.id)} title="Remover">
+                  <span className="fx-avatar" style={{ width: 18, height: 18, fontSize: 8, background: a.color }}>
+                    {a.name.charAt(0).toUpperCase()}
+                  </span>
+                  {a.name.split(" ")[0]}
+                  <span style={{ opacity: 0.5 }}>✕</span>
+                </button>
+              ))}
+              <button className="fx-chip" style={{ borderStyle: "dashed" }} onClick={() => setShowAssign((s) => !s)}>
+                + Responsável
+              </button>
             </div>
+            {showAssign && (
+              <div style={{ marginTop: 8, border: "1px solid var(--line)", borderRadius: 8, padding: 8, maxHeight: 220, overflowY: "auto" }}>
+                <input className="fx-input" placeholder="Buscar pessoa..." value={assignSearch} onChange={(e) => setAssignSearch(e.target.value)} style={{ marginBottom: 8 }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {members
+                    .filter((m) => m.name.toLowerCase().includes(assignSearch.toLowerCase()))
+                    .map((m) => {
+                      const active = task.assignees.some((a) => a.id === m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => toggleAssignee(m.id)}
+                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, border: "none", background: active ? "rgba(146,80,172,.1)" : "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: 13, color: "var(--txt)", textAlign: "left", width: "100%" }}
+                        >
+                          <span className="fx-avatar" style={{ width: 20, height: 20, fontSize: 9, background: m.color }}>
+                            {m.name.charAt(0).toUpperCase()}
+                          </span>
+                          <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
+                          {active && <span style={{ color: "var(--roxo)" }}>✓</span>}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             <div className="fx-field-label">Tags</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-              {availableTags.map((t) => {
-                const active = task.tags.some((x) => x.id === t.id);
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => toggleTag(t.id)}
-                    className="fx-pill"
-                    style={{ color: t.color, background: active ? t.color + "22" : "transparent", border: `1px solid ${t.color}`, cursor: "pointer", opacity: active ? 1 : 0.55 }}
-                  >
-                    {t.name}
-                  </button>
-                );
-              })}
-              <button className="fx-chip" onClick={() => setShowTagEditor((s) => !s)} style={{ borderStyle: "dashed" }}>
-                + nova tag
+              {task.tags.map((t) => (
+                <button key={t.id} className="fx-pill" onClick={() => toggleTag(t.id)} title="Remover" style={{ color: t.color, background: t.color + "22", border: `1px solid ${t.color}`, cursor: "pointer" }}>
+                  {t.name} <span style={{ opacity: 0.6 }}>✕</span>
+                </button>
+              ))}
+              <button className="fx-chip" style={{ borderStyle: "dashed" }} onClick={() => setShowTagEditor((s) => !s)}>
+                + Tag
               </button>
             </div>
             {showTagEditor && (
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <input className="fx-input" value={newTagName} onChange={(e) => setNewTagName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createTag()} placeholder="Nome da tag" />
-                <button className="fx-btn fx-btn-primary" onClick={createTag}>
-                  Criar
-                </button>
+              <div style={{ marginTop: 8, border: "1px solid var(--line)", borderRadius: 8, padding: 8, maxHeight: 240, overflowY: "auto" }}>
+                <input
+                  className="fx-input"
+                  placeholder="Buscar ou criar tag... (Enter cria)"
+                  value={tagSearch}
+                  onChange={(e) => setTagSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && tagSearch.trim() && !availableTags.find((t) => t.name.toLowerCase() === tagSearch.toLowerCase())) {
+                      createTag(tagSearch);
+                    }
+                  }}
+                  style={{ marginBottom: 8 }}
+                />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {availableTags
+                    .filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                    .map((t) => {
+                      const active = task.tags.some((x) => x.id === t.id);
+                      return (
+                        <button key={t.id} onClick={() => toggleTag(t.id)} className="fx-pill" style={{ color: t.color, background: active ? t.color + "22" : "transparent", border: `1px solid ${t.color}`, cursor: "pointer", opacity: active ? 1 : 0.6 }}>
+                          {active ? "✓ " : ""}{t.name}
+                        </button>
+                      );
+                    })}
+                  {tagSearch.trim() && !availableTags.find((t) => t.name.toLowerCase() === tagSearch.toLowerCase()) && (
+                    <button className="fx-chip" style={{ borderStyle: "dashed", color: "var(--roxo)" }} onClick={() => createTag(tagSearch)}>
+                      + criar “{tagSearch}”
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

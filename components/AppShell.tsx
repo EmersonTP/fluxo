@@ -62,10 +62,14 @@ export default function AppShell({ user, children }: { user: User; children: Rea
             Administração
           </Link>
         )}
+        <Link href="/configuracoes" className={`fx-navitem ${pathname === "/configuracoes" ? "active" : ""}`}>
+          <span className="fx-dot" style={{ background: "var(--roxo-deep)" }} />
+          Configurações
+        </Link>
 
         {loading && <p className="fx-navgroup">Carregando...</p>}
-        {workspaces.map((ws) => (
-          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} />
+        {workspaces.map((ws, i) => (
+          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} />
         ))}
         {!loading && workspaces.length === 0 && (
           <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>
@@ -104,14 +108,39 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 }
 
 const SPACE_COLORS = ["var(--roxo)", "var(--coral)", "var(--sage)", "var(--roxo-deep)", "var(--coral-deep)"];
+const COMPANY_COLORS = ["#9250ac", "#d85a30", "#1d9e75", "#534ab7", "#ff7e59", "#3b82f6"];
 
-function WorkspaceNode({ ws, pathname }: { ws: WorkspaceT; pathname: string }) {
+function WorkspaceNode({ ws, pathname, color }: { ws: WorkspaceT; pathname: string; color: string }) {
+  const initial = ws.name.charAt(0).toUpperCase();
   return (
-    <div>
-      <div className="fx-navgroup">{ws.name}</div>
-      {ws.spaces.map((sp, i) => (
-        <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} />
-      ))}
+    <div style={{ marginTop: 12, borderRadius: 10, background: color + "12", paddingBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+        <span
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            background: color,
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "0 0 auto",
+          }}
+        >
+          {initial}
+        </span>
+        <span style={{ fontWeight: 600, fontSize: 12.5, color: "var(--txt)", textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {ws.name}
+        </span>
+      </div>
+      <div style={{ borderLeft: `2px solid ${color}`, marginLeft: 20, paddingLeft: 4 }}>
+        {ws.spaces.map((sp, i) => (
+          <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} />
+        ))}
+      </div>
     </div>
   );
 }

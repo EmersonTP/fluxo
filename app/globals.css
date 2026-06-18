@@ -268,8 +268,8 @@ body {
   gap: 10px;
   padding: 2px 6px 8px;
   overflow-y: auto;
-  flex: 1 1 0;
-  min-height: 60px;
+  min-height: 40px;
+  max-height: calc(100vh - 240px);
 }
 .fx-colbody.drag-over {
   outline: 2px dashed var(--roxo);
@@ -400,6 +400,57 @@ body {
 }
 .fx-table tbody tr:hover {
   background: rgba(146, 80, 172, 0.06);
+}
+
+/* ---- grouped list rows (ClickUp-style) ---- */
+.fx-listrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.fx-listrow:first-child {
+  border-top: none;
+}
+.fx-listrow:hover {
+  background: rgba(146, 80, 172, 0.06);
+}
+.fx-addrow {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--line);
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--txt-faint);
+  cursor: pointer;
+}
+.fx-addrow:hover {
+  background: rgba(146, 80, 172, 0.06);
+  color: var(--roxo);
+}
+.fx-addbtn-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: var(--r-btn);
+  border: none;
+  background: var(--roxo);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.fx-addbtn-top:hover {
+  background: var(--roxo-deep);
 }
 
 /* ---------------- MODAL ---------------- */

@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ListDetail, TaskT, Member } from "@/lib/types";
+import type { ListDetail, TaskT, Member, StatusT } from "@/lib/types";
 import TaskModal from "@/components/TaskModal";
 import { TaskCard } from "@/components/TaskCard";
-import { formatDate, isLate } from "@/lib/ui";
+import { formatDate, isLate, priorityMeta } from "@/lib/ui";
 import { useToast } from "@/components/Toast";
 
 type View = "board" | "list";
@@ -69,6 +69,20 @@ export default function ListPage({ params }: { params: { id: string } }) {
     toast(`Tarefa movida para "${label}"`);
   }
 
+  async function addTaskTop() {
+    if (!data) return;
+    const res = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listId: data.id, statusId: data.statuses[0]?.id, name: "Nova tarefa" }),
+    });
+    const d = await res.json();
+    if (d.task) {
+      await load();
+      setOpenTask(d.task.id);
+    }
+  }
+
   if (loading && !data) return <div style={{ padding: 32, color: "var(--txt-soft)" }}>Carregando...</div>;
   if (!data) return <div style={{ padding: 32, color: "var(--txt-soft)" }}>Lista não encontrada.</div>;
 
@@ -77,21 +91,21 @@ export default function ListPage({ params }: { params: { id: string } }) {
   return (
     <>
       <div className="fx-topbar">
-        <div>
-          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>
+        <div style={{ minWidth: 0, flexShrink: 1 }}>
+          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {data.space?.name}
             {data.folder ? ` / ${data.folder.name}` : ""}
           </div>
-          <div className="fx-title">{data.name}</div>
+          <div className="fx-title" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{data.name}</div>
         </div>
-        <div className="fx-search" style={{ position: "relative", marginLeft: "auto" }}>
+        <div className="fx-search" style={{ position: "relative", flex: "1 1 150px", minWidth: 0, maxWidth: 300, marginLeft: "auto" }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.4 }}>
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
             <path d="M21 21l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar tarefa…" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar tarefa…" style={{ width: "100%" }} />
         </div>
-        <div style={{ display: "flex", border: "1px solid var(--line)", borderRadius: "var(--r-pill)", overflow: "hidden" }}>
+        <div style={{ display: "flex", border: "1px solid var(--line)", borderRadius: "var(--r-pill)", overflow: "hidden", flexShrink: 0 }}>
           <button className="fx-filterbtn" style={{ border: "none", borderRadius: 0, ...(view === "board" ? { background: "var(--roxo)", color: "#fff" } : {}) }} onClick={() => changeView("board")}>
             Kanban
           </button>
@@ -99,6 +113,9 @@ export default function ListPage({ params }: { params: { id: string } }) {
             Lista
           </button>
         </div>
+        <button className="fx-addbtn-top" style={{ flexShrink: 0 }} onClick={addTaskTop}>
+          + Tarefa
+        </button>
       </div>
       <div className="fx-accent" />
 
@@ -179,53 +196,61 @@ function BoardView({
 }
 
 function ListView({ list, tasks, onOpen, onCreated }: { list: ListDetail; tasks: TaskT[]; onOpen: (id: string) => void; onCreated: () => void }) {
+  const statuses: StatusT[] = list.statuses.length
+    ? list.statuses
+    : [{ id: "none", name: "Sem status", color: "#a3a3a3", order: 0, type: "open" }];
+
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "22px 26px" }}>
-      <table className="fx-table">
-        <thead>
-          <tr>
-            <th>Tarefa</th>
-            <th style={{ width: 150 }}>Status</th>
-            <th style={{ width: 120 }}>Responsável</th>
-            <th style={{ width: 100 }}>Prazo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((t) => (
-            <tr key={t.id} onClick={() => onOpen(t.id)}>
-              <td style={{ fontWeight: 500 }}>{t.name}</td>
-              <td>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span className="fx-dot" style={{ background: t.status?.color || "#a3a3a3" }} />
-                  {t.status?.name || "—"}
-                </span>
-              </td>
-              <td>
-                <div style={{ display: "flex" }}>
-                  {t.assignees.slice(0, 3).map((a, i) => (
-                    <span key={a.id} className="fx-avatar" title={a.name} style={{ background: a.color, marginLeft: i ? -6 : 0, border: "1.5px solid var(--surface)" }}>
-                      {a.name.charAt(0).toUpperCase()}
+    <div style={{ flex: 1, overflowY: "auto", padding: "18px 26px 40px" }}>
+      {statuses.map((st) => {
+        const groupTasks = tasks.filter((t) => (t.statusId || "none") === st.id);
+        return (
+          <div key={st.id} style={{ marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+              <span className="fx-pill" style={{ color: st.color, background: st.color + "20" }}>
+                {st.name}
+              </span>
+              <span style={{ fontSize: 12, color: "var(--txt-faint)" }}>{groupTasks.length}</span>
+            </div>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--r-card)", overflow: "hidden" }}>
+              {groupTasks.map((t) => {
+                const prio = priorityMeta(t.priority);
+                const late = isLate(t.dueDate, t.dateClosed);
+                return (
+                  <div key={t.id} className="fx-listrow" onClick={() => onOpen(t.id)}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: "var(--txt)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {prio && (
+                        <span className="fx-pill" style={{ color: prio.fg, background: prio.bg, marginRight: 8 }}>
+                          {prio.label}
+                        </span>
+                      )}
+                      {t.name}
                     </span>
-                  ))}
-                </div>
-              </td>
-              <td>
-                <span className={isLate(t.dueDate, t.dateClosed) ? "fx-meta late" : "fx-meta"}>
-                  {t.dueDate ? formatDate(t.dueDate) : "—"}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div style={{ marginTop: 10 }}>
-        <QuickAdd listId={list.id} statusId={list.statuses[0]?.id} onCreated={onCreated} />
-      </div>
+                    <div style={{ display: "flex", flexShrink: 0 }}>
+                      {t.assignees.slice(0, 3).map((a, i) => (
+                        <span key={a.id} className="fx-avatar" title={a.name} style={{ background: a.color, marginLeft: i ? -6 : 0, border: "1.5px solid var(--surface)" }}>
+                          {a.name.charAt(0).toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
+                    {t.dueDate && (
+                      <span className={late ? "fx-meta late" : "fx-meta"} style={{ flexShrink: 0, minWidth: 44, textAlign: "right" }}>
+                        {formatDate(t.dueDate)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {st.id !== "none" && <QuickAdd listId={list.id} statusId={st.id} onCreated={onCreated} asRow />}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function QuickAdd({ listId, statusId, onCreated }: { listId: string; statusId?: string; onCreated: () => void }) {
+function QuickAdd({ listId, statusId, onCreated, asRow }: { listId: string; statusId?: string; onCreated: () => void; asRow?: boolean }) {
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -244,7 +269,7 @@ function QuickAdd({ listId, statusId, onCreated }: { listId: string; statusId?: 
 
   return (
     <input
-      className="fx-addbtn"
+      className={asRow ? "fx-addrow" : "fx-addbtn"}
       value={name}
       onChange={(e) => setName(e.target.value)}
       onKeyDown={(e) => e.key === "Enter" && submit()}
