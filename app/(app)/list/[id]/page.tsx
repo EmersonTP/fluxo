@@ -7,7 +7,10 @@ import { TaskCard } from "@/components/TaskCard";
 import { formatDate, isLate } from "@/lib/ui";
 import { useToast } from "@/components/Toast";
 
-type View = "board" | "list";
+type View = "board" | "list" | "calendar";
+type SortBy = "manual" | "due" | "priority" | "name";
+
+const PRIO_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
 export default function ListPage({ params }: { params: { id: string } }) {
   const [data, setData] = useState<ListDetail | null>(null);
@@ -16,12 +19,15 @@ export default function ListPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [openTask, setOpenTask] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortBy>("manual");
+  const [filterAssignee, setFilterAssignee] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
   const { toast, Toast } = useToast();
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem(`fluxo:view:${params.id}`) || localStorage.getItem("fluxo:view:last");
-      if (saved === "board" || saved === "list") setView(saved);
+      if (saved === "board" || saved === "list" || saved === "calendar") setView(saved);
     } catch {}
   }, [params.id]);
 
@@ -97,7 +103,23 @@ export default function ListPage({ params }: { params: { id: string } }) {
   if (loading && !data) return <div style={{ padding: 32, color: "var(--txt-soft)" }}>Carregando...</div>;
   if (!data) return <div style={{ padding: 32, color: "var(--txt-soft)" }}>Lista não encontrada.</div>;
 
-  const filtered = query ? data.tasks.filter((t) => t.name.toLowerCase().includes(query.toLowerCase())) : data.tasks;
+  let filtered = data.tasks;
+  if (query) filtered = filtered.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()));
+  if (filterAssignee) filtered = filtered.filter((t) => t.assignees.some((a) => a.id === filterAssignee));
+  if (filterPriority) filtered = filtered.filter((t) => (t.priority || "") === filterPriority);
+  if (sortBy !== "manual") {
+    filtered = [...filtered].sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "priority") return (PRIO_RANK[a.priority || ""] ?? 9) - (PRIO_RANK[b.priority || ""] ?? 9);
+      if (sortBy === "due") {
+        const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        return da - db;
+      }
+      return 0;
+    });
+  }
+  const filtersActive = !!(filterAssignee || filterPriority || sortBy !== "manual");
 
   return (
     <>
@@ -117,12 +139,16 @@ export default function ListPage({ params }: { params: { id: string } }) {
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar tarefa…" style={{ width: "100%" }} />
         </div>
         <div style={{ display: "flex", border: "1px solid var(--line)", borderRadius: "var(--r-pill)", overflow: "hidden", flexShrink: 0 }}>
-          <button className="fx-filterbtn" style={{ border: "none", borderRadius: 0, ...(view === "board" ? { background: "var(--roxo)", color: "#fff" } : {}) }} onClick={() => changeView("board")}>
-            Kanban
-          </button>
-          <button className="fx-filterbtn" style={{ border: "none", borderRadius: 0, ...(view === "list" ? { background: "var(--roxo)", color: "#fff" } : {}) }} onClick={() => changeView("list")}>
-            Lista
-          </button>
+          {([["board", "Kanban"], ["list", "Lista"], ["calendar", "Calendário"]] as [View, string][]).map(([v, label]) => (
+            <button
+              key={v}
+              className="fx-filterbtn"
+              style={{ border: "none", borderRadius: 0, ...(view === v ? { background: "var(--roxo)", color: "#fff" } : {}) }}
+              onClick={() => changeView(v)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <button className="fx-addbtn-top" style={{ flexShrink: 0 }} onClick={addTaskTop}>
           + Tarefa
@@ -130,10 +156,47 @@ export default function ListPage({ params }: { params: { id: string } }) {
       </div>
       <div className="fx-accent" />
 
+      {/* Filtros e ordenação */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 26px", borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".05em" }}>Filtros</span>
+        <select className="fx-select" value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)}>
+          <option value="">Todos responsáveis</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
+        <select className="fx-select" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
+          <option value="">Toda prioridade</option>
+          <option value="urgent">Urgente</option>
+          <option value="high">Alta</option>
+          <option value="normal">Normal</option>
+          <option value="low">Baixa</option>
+        </select>
+        <span style={{ width: 1, height: 18, background: "var(--line)" }} />
+        <span style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".05em" }}>Ordenar</span>
+        <select className="fx-select" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
+          <option value="manual">Manual</option>
+          <option value="due">Prazo</option>
+          <option value="priority">Prioridade</option>
+          <option value="name">Nome (A-Z)</option>
+        </select>
+        {filtersActive && (
+          <button
+            className="fx-filterbtn"
+            onClick={() => { setFilterAssignee(""); setFilterPriority(""); setSortBy("manual"); }}
+            style={{ marginLeft: "auto" }}
+          >
+            Limpar filtros
+          </button>
+        )}
+      </div>
+
       {view === "board" ? (
         <BoardView list={data} tasks={filtered} onMove={moveTask} onOpen={setOpenTask} onCreated={load} />
-      ) : (
+      ) : view === "list" ? (
         <ListView list={data} tasks={filtered} onOpen={setOpenTask} onCreated={load} onMove={moveTask} onSetPriority={setPriority} />
+      ) : (
+        <CalendarView tasks={filtered} onOpen={setOpenTask} />
       )}
 
       {openTask && (
@@ -622,6 +685,76 @@ function TreeRow({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function CalendarView({ tasks, onOpen }: { tasks: TaskT[]; onOpen: (id: string) => void }) {
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const today = new Date();
+  const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+  const first = new Date(year, month, 1);
+  const start = new Date(year, month, 1 - first.getDay());
+  const days: Date[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d);
+  }
+
+  const byDay: Record<string, TaskT[]> = {};
+  for (const t of tasks) {
+    if (!t.dueDate) continue;
+    const d = new Date(t.dueDate);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    (byDay[key] ||= []).push(t);
+  }
+  const noDue = tasks.filter((t) => !t.dueDate).length;
+  const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "16px 26px 40px", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <button className="fx-filterbtn" onClick={() => setCursor(new Date(year, month - 1, 1))}>‹</button>
+        <div className="serif" style={{ fontSize: 18, fontWeight: 500, textTransform: "capitalize", minWidth: 170 }}>{monthLabel}</div>
+        <button className="fx-filterbtn" onClick={() => setCursor(new Date(year, month + 1, 1))}>›</button>
+        <button className="fx-filterbtn" onClick={() => { const d = new Date(); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); }}>Hoje</button>
+        {noDue > 0 && <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--txt-faint)" }}>{noDue} tarefa(s) sem prazo</span>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderLeft: "1px solid var(--line)", borderTop: "1px solid var(--line)", borderRadius: "var(--r-card)", overflow: "hidden" }}>
+        {weekdays.map((w) => (
+          <div key={w} style={{ fontSize: 11, fontWeight: 600, color: "var(--txt-faint)", textTransform: "uppercase", padding: "7px 8px", borderRight: "1px solid var(--line)", borderBottom: "1px solid var(--line)", background: "var(--col)" }}>{w}</div>
+        ))}
+        {days.map((d, i) => {
+          const inMonth = d.getMonth() === month;
+          const isToday = d.toDateString() === today.toDateString();
+          const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+          const dayTasks = byDay[key] || [];
+          return (
+            <div key={i} style={{ minHeight: 98, borderRight: "1px solid var(--line)", borderBottom: "1px solid var(--line)", padding: "5px 6px", background: inMonth ? "var(--surface)" : "var(--col)", opacity: inMonth ? 1 : 0.5, display: "flex", flexDirection: "column", gap: 3 }}>
+              <div style={{ fontSize: 11.5, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : "var(--txt-soft)", background: isToday ? "var(--roxo)" : "transparent", borderRadius: 999, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", alignSelf: "flex-start" }}>
+                {d.getDate()}
+              </div>
+              {dayTasks.slice(0, 4).map((t) => {
+                const c = t.status?.color || "#a3a3a3";
+                return (
+                  <button key={t.id} onClick={() => onOpen(t.id)} title={t.name} style={{ display: "flex", alignItems: "center", gap: 5, textAlign: "left", border: "none", background: c + "20", color: "var(--txt)", borderRadius: 5, padding: "2px 6px", fontSize: 11, cursor: "pointer", overflow: "hidden" }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+                  </button>
+                );
+              })}
+              {dayTasks.length > 4 && <span style={{ fontSize: 10.5, color: "var(--txt-faint)" }}>+{dayTasks.length - 4} mais</span>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
