@@ -32,6 +32,12 @@ model User {
   clickupId    String?  @unique
   createdAt    DateTime @default(now())
 
+  // Verificação de e-mail e redefinição de senha (Resend)
+  emailVerified Boolean   @default(true)
+  verifyToken   String?   @unique
+  resetToken    String?   @unique
+  resetTokenExp DateTime?
+
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 

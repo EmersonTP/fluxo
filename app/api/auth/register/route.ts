@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, signToken, setAuthCookie } from "@/lib/auth";
+import { sendEmail, emailEnabled, emailLayout } from "@/lib/email";
 
 // Domínios autorizados para CADASTRO NOVO (quem já existe na base pode entrar de qualquer e-mail)
 const ALLOWED_DOMAINS = ["emersonhealth.com.br", "tpeducacao.com.br", "reservaclub.com.br"];
@@ -61,20 +63,45 @@ export async function POST(req: Request) {
     );
   }
 
-  // Domínio autorizado entra direto (ativo, sem aprovação), porém SEM empresa/espaços ainda:
-  // ele entra, não vê nada, e solicita acesso — o admin é quem libera empresa/espaços.
-  const user = await prisma.user.create({
+  // 1º usuário (owner) entra direto, já verificado.
+  if (isFirst) {
+    const user = await prisma.user.create({
+      data: { name, email: normalized, passwordHash: await hashPassword(password), role: "owner", status: "active", emailVerified: true },
+    });
+    const session = { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId };
+    setAuthCookie(signToken(session), remember !== false);
+    return NextResponse.json({ user: session });
+  }
+
+  // Domínio autorizado: cria a conta, manda verificar o e-mail e NÃO loga até confirmar.
+  // (sem empresa/espaços ainda — depois ele solicita acesso e o admin libera)
+  const verifyToken = randomBytes(24).toString("hex");
+  await prisma.user.create({
     data: {
       name,
       email: normalized,
       passwordHash: await hashPassword(password),
-      role: isFirst ? "owner" : "member",
+      role: "member",
       status: "active",
       companyId: null,
+      emailVerified: !emailEnabled(), // se não houver provedor de e-mail, não trava o acesso
+      verifyToken,
     },
   });
 
-  const session = { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId };
+  if (emailEnabled()) {
+    const link = `${new URL(req.url).origin}/verificar?token=${verifyToken}`;
+    await sendEmail(
+      normalized,
+      "Confirme seu e-mail · Sandra",
+      emailLayout("Confirme seu e-mail", `Olá, ${name}! Confirme seu e-mail para ativar seu acesso à Sandra.`, { label: "Confirmar e-mail", url: link })
+    );
+    return NextResponse.json({ status: "verify" });
+  }
+
+  // Sem provedor de e-mail: entra direto (já marcado como verificado acima)
+  const u2 = await prisma.user.findUnique({ where: { email: normalized } });
+  const session = { id: u2!.id, name: u2!.name, email: u2!.email, role: u2!.role, companyId: u2!.companyId };
   setAuthCookie(signToken(session), remember !== false);
   return NextResponse.json({ user: session });
 }

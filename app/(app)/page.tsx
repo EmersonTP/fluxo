@@ -66,7 +66,7 @@ export default async function Home() {
             {myTasks.map((t: (typeof myTasks)[number]) => (
               <Link
                 key={t.id}
-                href={`/list/${t.list.id}`}
+                href={`/list/${t.list.id}?task=${t.id}`}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: "1px solid var(--line)", textDecoration: "none", color: "var(--txt)" }}
               >
                 <span style={{ width: 10, height: 10, borderRadius: "50%", background: t.status?.color || "#a3a3a3", flex: "0 0 auto" }} />

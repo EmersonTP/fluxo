@@ -26,7 +26,7 @@ export default function LoginPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     }).catch(() => {});
-    setInfo("Avisamos o administrador. Ele vai redefinir sua senha e te passar a nova.");
+    setInfo("Se este e-mail estiver cadastrado, enviamos um link pra redefinir a senha. Confira a caixa de entrada (e o spam).");
   }
 
   async function submit(e: React.FormEvent) {
@@ -45,6 +45,11 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Erro ao entrar.");
+        return;
+      }
+      if (data.status === "verify") {
+        setMode("login");
+        setInfo("Conta criada! Enviamos um link de confirmação pro seu e-mail. Confirme e depois entre. (Confira o spam.)");
         return;
       }
       if (data.status === "pending") {

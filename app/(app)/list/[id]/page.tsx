@@ -564,6 +564,8 @@ function TreeRow({
   const [subName, setSubName] = useState("");
   const [menu, setMenu] = useState<null | "status" | "priority" | "assignee" | "due">(null);
   const [assignSearch, setAssignSearch] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameVal, setNameVal] = useState(task.name);
 
   const late = isLate(task.dueDate, task.dateClosed);
   const subCount = task._count?.subtasks ?? (children?.length || 0);
@@ -617,6 +619,11 @@ function TreeRow({
   function changeDue(dateStr: string) {
     applyFields({ dueDate: dateStr || null }, { dueDate: dateStr || null });
   }
+  function renameTask() {
+    setEditingName(false);
+    const v = nameVal.trim();
+    if (v && v !== task.name) applyFields({ name: v }, { name: v });
+  }
   async function addSub() {
     if (!subName.trim()) {
       setAdding(false);
@@ -653,7 +660,7 @@ function TreeRow({
               <div className="fx-popover" style={{ top: 24, left: 0 }} onClick={(e) => e.stopPropagation()}>
                 {statuses.filter((s) => s.id !== "none").map((s) => (
                   <button key={s.id} onClick={() => changeStatus(s.id)}>
-                    <StatusDot color={s.color} done={s.type === "done" || s.type === "closed"} size={14} />
+                    <span style={{ width: 13, height: 13, borderRadius: "50%", background: s.color, flexShrink: 0, border: "1px solid rgba(0,0,0,.12)" }} />
                     {s.name}
                   </button>
                 ))}
@@ -663,8 +670,33 @@ function TreeRow({
         </div>
 
         <span className="fx-lt-name">
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{task.name}</span>
-          {subCount > 0 && <span style={{ fontSize: 11, color: "var(--txt-faint)", flexShrink: 0 }}>⤷ {subCount}</span>}
+          {editingName ? (
+            <input
+              autoFocus
+              className="fx-input"
+              style={{ fontSize: 13.5, padding: "2px 6px", width: "100%" }}
+              value={nameVal}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setNameVal(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") renameTask();
+                if (e.key === "Escape") setEditingName(false);
+              }}
+              onBlur={renameTask}
+            />
+          ) : (
+            <>
+              <span
+                onDoubleClick={(e) => { e.stopPropagation(); setNameVal(task.name); setEditingName(true); }}
+                title="Duplo-clique para renomear"
+                style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}
+              >
+                {task.name}
+              </span>
+              {subCount > 0 && <span style={{ fontSize: 11, color: "var(--txt-faint)", flexShrink: 0 }}>⤷ {subCount}</span>}
+            </>
+          )}
         </span>
 
         <span className="fx-lt-cell" style={{ position: "relative" }}>

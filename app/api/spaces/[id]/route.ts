@@ -16,6 +16,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const body = await req.json().catch(() => ({}));
   const data: any = {};
+  if (body.name !== undefined && body.name.trim()) data.name = body.name.trim();
   if (body.private !== undefined) data.private = !!body.private;
   if (body.memberIds !== undefined) data.members = { set: (body.memberIds as string[]).map((id) => ({ id })) };
   const space = await prisma.space.update({

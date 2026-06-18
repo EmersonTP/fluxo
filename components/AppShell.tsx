@@ -445,15 +445,41 @@ function AddSpaceInput({ onCreate }: { onCreate: (name: string) => void }) {
 
 function SpaceNode({ sp, pathname, color, onCreateList, isAdmin, refresh }: { sp: SpaceT; pathname: string; color: string; onCreateList: CreateList; isAdmin: boolean; refresh: () => void }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(sp.name);
+  async function save() {
+    setEditing(false);
+    if (val.trim() && val.trim() !== sp.name) {
+      await fetch(`/api/spaces/${sp.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: val.trim() }) });
+      refresh();
+    }
+  }
   return (
     <div>
       <div className="fx-navitem fx-row-hover" style={{ display: "flex" }}>
-        <button onClick={() => setOpen(!open)} style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: "inherit", font: "inherit", minWidth: 0, padding: 0 }}>
-          <span className="fx-dot" style={{ background: color }} />
-          <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{sp.name}</span>
-          <span style={{ fontSize: 11, opacity: 0.5 }}>{open ? "▾" : "▸"}</span>
-        </button>
-        {isAdmin && <Kebab type="space" id={sp.id} isPrivate={!!sp.private} memberIds={(sp.members || []).map((m) => m.id)} refresh={refresh} />}
+        {editing ? (
+          <input
+            autoFocus
+            className="fx-input"
+            style={{ fontSize: 13, margin: "1px 0", flex: 1 }}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+            onBlur={save}
+          />
+        ) : (
+          <button
+            onClick={() => setOpen(!open)}
+            onDoubleClick={() => { if (isAdmin) { setVal(sp.name); setEditing(true); } }}
+            title={isAdmin ? "Duplo-clique para renomear" : undefined}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: "inherit", font: "inherit", minWidth: 0, padding: 0 }}
+          >
+            <span className="fx-dot" style={{ background: color }} />
+            <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{sp.name}</span>
+            <span style={{ fontSize: 11, opacity: 0.5 }}>{open ? "▾" : "▸"}</span>
+          </button>
+        )}
+        {isAdmin && !editing && <Kebab type="space" id={sp.id} isPrivate={!!sp.private} memberIds={(sp.members || []).map((m) => m.id)} refresh={refresh} />}
       </div>
       {open && (
         <div style={{ marginLeft: 14, borderLeft: "1px solid var(--line)", paddingLeft: 6 }}>
@@ -548,9 +574,36 @@ function ListLink({
   refresh?: () => void;
 }) {
   const active = pathname === `/list/${id}`;
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(name);
+  async function save() {
+    setEditing(false);
+    if (val.trim() && val.trim() !== name) {
+      await fetch(`/api/lists/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: val.trim() }) });
+      refresh && refresh();
+    }
+  }
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        className="fx-input"
+        style={{ fontSize: 13, margin: "2px 0" }}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+        onBlur={save}
+      />
+    );
+  }
   return (
     <div className={`fx-navitem ${active ? "active" : ""}`} style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-      <Link href={`/list/${id}`} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: "inherit", textDecoration: "none" }}>
+      <Link
+        href={`/list/${id}`}
+        onDoubleClick={(e) => { if (isAdmin) { e.preventDefault(); setVal(name); setEditing(true); } }}
+        title={isAdmin ? "Duplo-clique para renomear" : undefined}
+        style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: "inherit", textDecoration: "none" }}
+      >
         {isPrivate && <span style={{ fontSize: 10 }}>🔒</span>}
         <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
         {count !== undefined && count > 0 && <span style={{ fontSize: 11, opacity: 0.5 }}>{count}</span>}

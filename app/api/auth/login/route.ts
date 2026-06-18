@@ -17,6 +17,9 @@ export async function POST(req: Request) {
   if (user.status === "disabled") {
     return NextResponse.json({ error: "Sua conta está desativada." }, { status: 403 });
   }
+  if (user.emailVerified === false) {
+    return NextResponse.json({ error: "Confirme seu e-mail antes de entrar (enviamos um link no cadastro)." }, { status: 403 });
+  }
   const session = {
     id: user.id,
     name: user.name,
