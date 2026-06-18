@@ -1,0 +1,177 @@
+// Fluxo — schema do banco (réplica simplificada do ClickUp)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  active    Boolean  @default(true)
+  clickupId String?  @unique
+  createdAt DateTime @default(now())
+
+  workspaces Workspace[]
+  users      User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  role         String   @default("member") // owner | admin | member
+  status       String   @default("pending") // pending | active | disabled
+  color        String   @default("#6366f1")
+  clickupId    String?  @unique
+  createdAt    DateTime @default(now())
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  assignedTasks Task[]    @relation("TaskAssignees")
+  comments      Comment[]
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  clickupId String?  @unique
+  createdAt DateTime @default(now())
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  spaces Space[]
+  tags   Tag[]
+
+  @@index([companyId])
+}
+
+model Space {
+  id          String  @id @default(cuid())
+  name        String
+  color       String  @default("#6366f1")
+  order       Int     @default(0)
+  clickupId   String? @unique
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  folders Folder[]
+  lists   List[]
+}
+
+model Folder {
+  id        String  @id @default(cuid())
+  name      String
+  order     Int     @default(0)
+  clickupId String? @unique
+  spaceId   String
+  space     Space   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  lists List[]
+}
+
+model List {
+  id        String  @id @default(cuid())
+  name      String
+  order     Int     @default(0)
+  clickupId String? @unique
+  spaceId   String?
+  space     Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  folderId  String?
+  folder    Folder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  statuses Status[]
+  tasks    Task[]
+}
+
+model Status {
+  id        String  @id @default(cuid())
+  name      String
+  color     String  @default("#a3a3a3")
+  order     Int     @default(0)
+  type      String  @default("custom") // open | custom | closed | done
+  listId    String
+  list      List    @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+
+  @@index([listId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  name        String
+  description String?   @db.Text
+  priority    String?   // urgent | high | normal | low
+  dueDate     DateTime?
+  startDate   DateTime?
+  dateClosed  DateTime?
+  order       Float     @default(0)
+  customFields Json?
+  clickupId   String?   @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  listId   String
+  list     List   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  statusId String?
+  status   Status? @relation(fields: [statusId], references: [id], onDelete: SetNull)
+
+  parentId String?
+  parent   Task?   @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks Task[]  @relation("Subtasks")
+
+  assignees   User[]       @relation("TaskAssignees")
+  tags        Tag[]        @relation("TaskTags")
+  comments    Comment[]
+  attachments Attachment[]
+
+  @@index([listId])
+  @@index([statusId])
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  filename   String
+  mime       String   @default("application/octet-stream")
+  size       Int      @default(0)
+  storedName String   // unique name on disk / storage key
+  createdAt  DateTime @default(now())
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model Tag {
+  id          String @id @default(cuid())
+  name        String
+  color       String @default("#a3a3a3")
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  tasks Task[] @relation("TaskTags")
+
+  @@unique([workspaceId, name])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  text      String   @db.Text
+  clickupId String?  @unique
+  createdAt DateTime @default(now())
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+}

@@ -1,0 +1,14 @@
+{
+  "name": "fluxo-mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "fluxo-mcp": "index.mjs" },
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "engines": { "node": ">=18.18.0" }
+}
