@@ -6,12 +6,12 @@ import { priorityMeta, formatDate, isLate } from "@/lib/ui";
 export function TaskCard({
   task,
   onOpen,
-  onDragStart,
+  onMouseDown,
   showList,
 }: {
   task: TaskT;
   onOpen: (id: string) => void;
-  onDragStart?: (e: React.DragEvent) => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
   showList?: string;
 }) {
   const prio = priorityMeta(task.priority);
@@ -21,10 +21,9 @@ export function TaskCard({
   return (
     <div
       className="fx-card"
-      draggable={!!onDragStart}
-      onDragStart={onDragStart}
-      onClick={() => onOpen(task.id)}
-      style={{ ["--bar" as any]: bar }}
+      onMouseDown={onMouseDown}
+      onClick={onMouseDown ? undefined : () => onOpen(task.id)}
+      style={{ ["--bar" as any]: bar, userSelect: "none" }}
     >
       <div className="fx-card-title">{task.name}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>

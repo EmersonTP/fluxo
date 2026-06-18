@@ -17,6 +17,7 @@ model Company {
 
   workspaces Workspace[]
   users      User[]
+  channels   Channel[]
 }
 
 model User {
@@ -33,8 +34,9 @@ model User {
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
-  assignedTasks Task[]    @relation("TaskAssignees")
+  assignedTasks Task[]        @relation("TaskAssignees")
   comments      Comment[]
+  chatMessages  ChatMessage[]
 }
 
 model Workspace {
@@ -174,4 +176,30 @@ model Comment {
   user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([taskId])
+}
+
+model Channel {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  messages ChatMessage[]
+
+  @@index([companyId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  text      String   @db.Text
+  createdAt DateTime @default(now())
+
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([channelId])
 }

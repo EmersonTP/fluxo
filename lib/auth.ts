@@ -62,7 +62,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 // Returns the companyId to scope queries to, or null when the user is an
 // owner/global-admin and should see everything across companies.
-export function companyScope(user: SessionUser): string | null {
+export function companyScope(user: { role: string; companyId: string | null }): string | null {
   if (user.role === "owner" || user.role === "admin") return null;
   return user.companyId;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import type { WorkspaceT, SpaceT } from "@/lib/types";
@@ -13,16 +13,66 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   const [workspaces, setWorkspaces] = useState<WorkspaceT[]>([]);
   const [loading, setLoading] = useState(true);
   const [dark, setDark] = useState(false);
+  const [width, setWidth] = useState(248);
+  const [collapsed, setCollapsed] = useState(false);
+  const widthRef = useRef(248);
+
+  function loadHierarchy() {
+    return fetch("/api/hierarchy")
+      .then((r) => r.json())
+      .then((d) => setWorkspaces(d.workspaces || []));
+  }
+
+  async function createList(name: string, parent: { spaceId?: string; folderId?: string }) {
+    if (!name.trim()) return;
+    await fetch("/api/lists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), ...parent }),
+    });
+    await loadHierarchy();
+  }
 
   useEffect(() => {
-    fetch("/api/hierarchy")
-      .then((r) => r.json())
-      .then((d) => setWorkspaces(d.workspaces || []))
-      .finally(() => setLoading(false));
+    loadHierarchy().finally(() => setLoading(false));
     try {
       setDark(localStorage.getItem("fluxo:theme") === "dark");
+      const w = Number(localStorage.getItem("fluxo:sidebarW"));
+      if (w >= 180 && w <= 460) {
+        setWidth(w);
+        widthRef.current = w;
+      }
+      setCollapsed(localStorage.getItem("fluxo:sidebarCollapsed") === "1");
     } catch {}
   }, []);
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = widthRef.current;
+    function onMove(ev: MouseEvent) {
+      const w = Math.min(460, Math.max(180, startW + ev.clientX - startX));
+      widthRef.current = w;
+      setWidth(w);
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      try {
+        localStorage.setItem("fluxo:sidebarW", String(widthRef.current));
+      } catch {}
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function toggleCollapse() {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem("fluxo:sidebarCollapsed", next ? "1" : "0");
+    } catch {}
+  }
 
   function toggleTheme() {
     const next = !dark;
@@ -40,12 +90,28 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "248px 1fr", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100vh" }}>
       {/* Sidebar */}
-      <aside className="fx-side" style={{ display: "flex", flexDirection: "column", padding: "18px 12px", overflowY: "auto" }}>
-        <Link href="/" className="fx-brand" style={{ padding: "6px 10px 10px" }}>
-          Sandra<b>.</b>
-        </Link>
+      <aside
+        className="fx-side"
+        style={{
+          width: collapsed ? 0 : width,
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          padding: collapsed ? 0 : "18px 12px",
+          overflowX: "hidden",
+          overflowY: "auto",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 6px 10px 10px" }}>
+          <Link href="/" className="fx-brand">
+            Sandra<b>.</b>
+          </Link>
+          <button onClick={toggleCollapse} title="Recolher barra" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--txt-faint)", fontSize: 18, lineHeight: 1, padding: "2px 6px" }}>
+            «
+          </button>
+        </div>
 
         <div className="fx-navgroup">Geral</div>
         <Link href="/" className={`fx-navitem ${pathname === "/" ? "active" : ""}`}>
@@ -55,6 +121,10 @@ export default function AppShell({ user, children }: { user: User; children: Rea
         <Link href="/minhas-tarefas" className={`fx-navitem ${pathname === "/minhas-tarefas" ? "active" : ""}`}>
           <span className="fx-dot" style={{ background: "var(--coral)" }} />
           Minhas tarefas
+        </Link>
+        <Link href="/chat" className={`fx-navitem ${pathname === "/chat" ? "active" : ""}`}>
+          <span className="fx-dot" style={{ background: "var(--sage)" }} />
+          Chat
         </Link>
         {(user.role === "owner" || user.role === "admin") && (
           <Link href="/admin" className={`fx-navitem ${pathname === "/admin" ? "active" : ""}`}>
@@ -69,7 +139,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 
         {loading && <p className="fx-navgroup">Carregando...</p>}
         {workspaces.map((ws, i) => (
-          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} />
+          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} />
         ))}
         {!loading && workspaces.length === 0 && (
           <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>
@@ -101,8 +171,28 @@ export default function AppShell({ user, children }: { user: User; children: Rea
         </div>
       </aside>
 
+      {/* Resize handle */}
+      {!collapsed && (
+        <div
+          onMouseDown={startResize}
+          title="Arraste para redimensionar"
+          style={{ width: 5, flexShrink: 0, cursor: "col-resize", background: "var(--line)" }}
+        />
+      )}
+
       {/* Main */}
-      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>{children}</div>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+        {collapsed && (
+          <button
+            onClick={toggleCollapse}
+            title="Expandir barra"
+            style={{ position: "absolute", left: 8, top: 12, zIndex: 20, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", color: "var(--txt-soft)", fontSize: 16, padding: "4px 9px", boxShadow: "var(--shadow-card)" }}
+          >
+            »
+          </button>
+        )}
+        {children}
+      </div>
     </div>
   );
 }
@@ -110,7 +200,9 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 const SPACE_COLORS = ["var(--roxo)", "var(--coral)", "var(--sage)", "var(--roxo-deep)", "var(--coral-deep)"];
 const COMPANY_COLORS = ["#9250ac", "#d85a30", "#1d9e75", "#534ab7", "#ff7e59", "#3b82f6"];
 
-function WorkspaceNode({ ws, pathname, color }: { ws: WorkspaceT; pathname: string; color: string }) {
+type CreateList = (name: string, parent: { spaceId?: string; folderId?: string }) => void | Promise<void>;
+
+function WorkspaceNode({ ws, pathname, color, onCreateList }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList }) {
   const initial = ws.name.charAt(0).toUpperCase();
   return (
     <div style={{ marginTop: 12, borderRadius: 10, background: color + "12", paddingBottom: 4 }}>
@@ -138,14 +230,14 @@ function WorkspaceNode({ ws, pathname, color }: { ws: WorkspaceT; pathname: stri
       </div>
       <div style={{ borderLeft: `2px solid ${color}`, marginLeft: 20, paddingLeft: 4 }}>
         {ws.spaces.map((sp, i) => (
-          <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} />
+          <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} onCreateList={onCreateList} />
         ))}
       </div>
     </div>
   );
 }
 
-function SpaceNode({ sp, pathname, color }: { sp: SpaceT; pathname: string; color: string }) {
+function SpaceNode({ sp, pathname, color, onCreateList }: { sp: SpaceT; pathname: string; color: string; onCreateList: CreateList }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -160,15 +252,16 @@ function SpaceNode({ sp, pathname, color }: { sp: SpaceT; pathname: string; colo
             <ListLink key={l.id} id={l.id} name={l.name} count={l._count?.tasks} pathname={pathname} />
           ))}
           {sp.folders.map((f) => (
-            <FolderNode key={f.id} folder={f} pathname={pathname} />
+            <FolderNode key={f.id} folder={f} pathname={pathname} onCreateList={onCreateList} />
           ))}
+          <AddListInput onCreate={(name) => onCreateList(name, { spaceId: sp.id })} />
         </div>
       )}
     </div>
   );
 }
 
-function FolderNode({ folder, pathname }: { folder: SpaceT["folders"][number]; pathname: string }) {
+function FolderNode({ folder, pathname, onCreateList }: { folder: SpaceT["folders"][number]; pathname: string; onCreateList: CreateList }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -182,9 +275,47 @@ function FolderNode({ folder, pathname }: { folder: SpaceT["folders"][number]; p
           {folder.lists.map((l) => (
             <ListLink key={l.id} id={l.id} name={l.name} count={l._count?.tasks} pathname={pathname} />
           ))}
+          <AddListInput onCreate={(name) => onCreateList(name, { folderId: folder.id })} />
         </div>
       )}
     </div>
+  );
+}
+
+function AddListInput({ onCreate }: { onCreate: (name: string) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  if (!adding) {
+    return (
+      <button className="fx-navitem" onClick={() => setAdding(true)} style={{ fontSize: 13, color: "var(--txt-faint)" }}>
+        + Lista
+      </button>
+    );
+  }
+  return (
+    <input
+      autoFocus
+      className="fx-input"
+      style={{ fontSize: 13, margin: "2px 0" }}
+      placeholder="Nome da lista"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && name.trim()) {
+          onCreate(name.trim());
+          setName("");
+          setAdding(false);
+        }
+        if (e.key === "Escape") {
+          setAdding(false);
+          setName("");
+        }
+      }}
+      onBlur={() => {
+        setAdding(false);
+        setName("");
+      }}
+    />
   );
 }
 
