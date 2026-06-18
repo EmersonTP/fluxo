@@ -75,6 +75,99 @@ body {
   border-radius: 999px;
 }
 
+/* ---------------- ICON RAIL ---------------- */
+.fx-rail {
+  width: 66px;
+  flex-shrink: 0;
+  background: #1e1a24;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 14px;
+  gap: 2px;
+}
+.fx-rail-brand {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--roxo);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  font-size: 19px;
+  text-decoration: none;
+  margin-bottom: 6px;
+}
+.fx-rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 56px;
+  padding: 8px 0;
+  border-radius: 10px;
+  color: rgba(242, 236, 227, 0.62);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.fx-rail-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.fx-rail-item.active {
+  background: rgba(146, 80, 172, 0.45);
+  color: #fff;
+}
+.fx-rail-label {
+  font-size: 10px;
+  font-weight: 500;
+}
+.fx-rail-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--roxo);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fx-usermenu {
+  position: fixed;
+  bottom: 14px;
+  left: 70px;
+  z-index: 50;
+  width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+}
+.fx-menuitem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 13px;
+  font-size: 13.5px;
+  color: var(--txt);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+}
+.fx-menuitem:hover {
+  background: rgba(146, 80, 172, 0.1);
+}
+
 /* ---------------- SIDEBAR ---------------- */
 .fx-side {
   background: var(--side);

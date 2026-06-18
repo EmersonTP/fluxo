@@ -7,6 +7,22 @@ import type { WorkspaceT, SpaceT } from "@/lib/types";
 
 type User = { id: string; name: string; email: string; role: string };
 
+const ICONS: Record<string, string> = {
+  home: "M3 10.5 12 3l9 7.5M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5",
+  tasks: "M9 11l3 3 8-8M4 6h.01M4 12h.01M4 18h.01M9 18h11M9 6h11",
+  chat: "M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8z",
+  admin: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 8l2 2 4-4",
+  gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13a7.8 7.8 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7.5 7.5 0 0 0-1.7 1l-2.4-1-2 3.5L4.6 11a7.8 7.8 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.4 1 2-3.5z",
+};
+
+function Icon({ name, size = 21 }: { name: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={ICONS[name]} />
+    </svg>
+  );
+}
+
 export default function AppShell({ user, children }: { user: User; children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -15,6 +31,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   const [dark, setDark] = useState(false);
   const [width, setWidth] = useState(248);
   const [collapsed, setCollapsed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const widthRef = useRef(248);
 
   function loadHierarchy() {
@@ -89,9 +106,66 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     router.refresh();
   }
 
+  const isAdmin = user.role === "owner" || user.role === "admin";
+  const railItems = [
+    { icon: "home", label: "Início", href: "/" },
+    { icon: "tasks", label: "Tarefas", href: "/minhas-tarefas" },
+    { icon: "chat", label: "Chat", href: "/chat" },
+    ...(isAdmin ? [{ icon: "admin", label: "Admin", href: "/admin" }] : []),
+    { icon: "gear", label: "Config", href: "/configuracoes" },
+  ];
+
   return (
     <div style={{ display: "flex", height: "100vh" }}>
-      {/* Sidebar */}
+      {/* Icon rail */}
+      <div className="fx-rail">
+        <Link href="/" className="fx-rail-brand" title="Sandra">
+          S
+        </Link>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, width: "100%", alignItems: "center" }}>
+          {railItems.map((it) => {
+            const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
+            return (
+              <Link key={it.href} href={it.href} className={`fx-rail-item ${active ? "active" : ""}`} title={it.label}>
+                <Icon name={it.icon} />
+                <span className="fx-rail-label">{it.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: "auto", position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
+          <button onClick={() => setMenuOpen((o) => !o)} className="fx-rail-avatar" title={user.name}>
+            {user.name.charAt(0).toUpperCase()}
+          </button>
+          {menuOpen && (
+            <>
+              <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+              <div className="fx-usermenu">
+                <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt)" }}>{user.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--txt-faint)", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+                </div>
+                <Link href="/configuracoes" className="fx-menuitem" onClick={() => setMenuOpen(false)}>
+                  Configurações
+                </Link>
+                {isAdmin && (
+                  <Link href="/admin" className="fx-menuitem" onClick={() => setMenuOpen(false)}>
+                    Adicionar usuário
+                  </Link>
+                )}
+                <button className="fx-menuitem" onClick={toggleTheme}>
+                  {dark ? "Modo claro" : "Modo escuro"}
+                </button>
+                <button className="fx-menuitem" style={{ color: "var(--coral-deep)" }} onClick={logout}>
+                  Sair
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Wider sidebar (spaces) */}
       <aside
         className="fx-side"
         style={{
@@ -99,12 +173,12 @@ export default function AppShell({ user, children }: { user: User; children: Rea
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
-          padding: collapsed ? 0 : "18px 12px",
+          padding: collapsed ? 0 : "16px 12px",
           overflowX: "hidden",
           overflowY: "auto",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 6px 10px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 6px 10px 10px" }}>
           <Link href="/" className="fx-brand">
             Sandra<b>.</b>
           </Link>
@@ -113,71 +187,18 @@ export default function AppShell({ user, children }: { user: User; children: Rea
           </button>
         </div>
 
-        <div className="fx-navgroup">Geral</div>
-        <Link href="/" className={`fx-navitem ${pathname === "/" ? "active" : ""}`}>
-          <span className="fx-dot" style={{ background: "var(--roxo)" }} />
-          Início
-        </Link>
-        <Link href="/minhas-tarefas" className={`fx-navitem ${pathname === "/minhas-tarefas" ? "active" : ""}`}>
-          <span className="fx-dot" style={{ background: "var(--coral)" }} />
-          Minhas tarefas
-        </Link>
-        <Link href="/chat" className={`fx-navitem ${pathname === "/chat" ? "active" : ""}`}>
-          <span className="fx-dot" style={{ background: "var(--sage)" }} />
-          Chat
-        </Link>
-        {(user.role === "owner" || user.role === "admin") && (
-          <Link href="/admin" className={`fx-navitem ${pathname === "/admin" ? "active" : ""}`}>
-            <span className="fx-dot" style={{ background: "var(--sage)" }} />
-            Administração
-          </Link>
-        )}
-        <Link href="/configuracoes" className={`fx-navitem ${pathname === "/configuracoes" ? "active" : ""}`}>
-          <span className="fx-dot" style={{ background: "var(--roxo-deep)" }} />
-          Configurações
-        </Link>
-
         {loading && <p className="fx-navgroup">Carregando...</p>}
         {workspaces.map((ws, i) => (
           <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} />
         ))}
         {!loading && workspaces.length === 0 && (
-          <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>
-            Sem dados ainda. Rode a importação do ClickUp.
-          </p>
+          <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>Sem dados ainda. Rode a importação do ClickUp.</p>
         )}
-
-        <div style={{ marginTop: "auto", paddingTop: 14 }}>
-          <button className="fx-theme" onClick={toggleTheme}>
-            {dark ? "☀️" : "🌙"}
-            <span>{dark ? "Modo claro" : "Modo escuro"}</span>
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 10px 2px" }}>
-            <span className="fx-avatar" style={{ background: "var(--roxo)" }}>
-              {user.name.charAt(0).toUpperCase()}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {user.name}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--txt-faint)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {user.email}
-              </div>
-            </div>
-            <button onClick={logout} title="Sair" style={{ background: "none", border: "none", color: "var(--txt-soft)", cursor: "pointer", fontSize: 12 }}>
-              Sair
-            </button>
-          </div>
-        </div>
       </aside>
 
       {/* Resize handle */}
       {!collapsed && (
-        <div
-          onMouseDown={startResize}
-          title="Arraste para redimensionar"
-          style={{ width: 5, flexShrink: 0, cursor: "col-resize", background: "var(--line)" }}
-        />
+        <div onMouseDown={startResize} title="Arraste para redimensionar" style={{ width: 5, flexShrink: 0, cursor: "col-resize", background: "var(--line)" }} />
       )}
 
       {/* Main */}
