@@ -13,6 +13,8 @@ const ICONS: Record<string, string> = {
   spaces: "M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
   tasks: "M9 11l3 3 8-8M4 6h.01M4 12h.01M4 18h.01M9 18h11M9 6h11",
   chat: "M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8z",
+  reports: "M3 3v18h18M7 16V9M12 16V5M17 16v-7",
+  docs: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h6",
   admin: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 8l2 2 4-4",
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13a7.8 7.8 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7.5 7.5 0 0 0-1.7 1l-2.4-1-2 3.5L4.6 11a7.8 7.8 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.4 1 2-3.5z",
 };
@@ -113,6 +115,8 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     { icon: "home", label: "Início", href: "/" },
     { icon: "tasks", label: "Tarefas", href: "/minhas-tarefas" },
     { icon: "chat", label: "Chat", href: "/chat" },
+    { icon: "docs", label: "Docs", href: "/documentos" },
+    { icon: "reports", label: "Relatórios", href: "/relatorios" },
     ...(isAdmin ? [{ icon: "admin", label: "Admin", href: "/admin" }] : []),
     { icon: "gear", label: "Config", href: "/configuracoes" },
   ];

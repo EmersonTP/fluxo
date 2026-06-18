@@ -6,11 +6,16 @@ import { PRIORITIES, toDateInput } from "@/lib/ui";
 
 const TAG_COLORS = ["#9250ac", "#ff7e59", "#7fa08a", "#534ab7", "#d85a30", "#3b82f6"];
 
+type DepLite = { id: string; name: string; status?: { name: string; color: string; type: string } | null };
+
 type FullTask = TaskT & {
   list: { id: string; name: string; statuses: StatusT[] };
   subtasks: SubtaskT[];
   attachments: AttachmentT[];
   comments: { id: string; text: string; createdAt: string; user?: Member | null }[];
+  customFields?: Record<string, string> | null;
+  blockedBy?: DepLite[];
+  blocking?: DepLite[];
 };
 
 export default function TaskModal({
@@ -40,6 +45,11 @@ export default function TaskModal({
   const [newSubtask, setNewSubtask] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [depPickerOpen, setDepPickerOpen] = useState(false);
+  const [depSearch, setDepSearch] = useState("");
+  const [listTasks, setListTasks] = useState<DepLite[]>([]);
+  const [newCfKey, setNewCfKey] = useState("");
+  const [newCfVal, setNewCfVal] = useState("");
 
   useEffect(() => {
     fetch(`/api/tasks/${taskId}`)
@@ -97,6 +107,51 @@ export default function TaskModal({
     if (!confirm("Excluir esta tarefa?")) return;
     await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
     onDeleted(taskId);
+  }
+
+  async function reload() {
+    const d = await fetch(`/api/tasks/${taskId}`).then((r) => r.json());
+    if (d.task) setTask(d.task);
+  }
+
+  async function openDepPicker() {
+    setDepPickerOpen((s) => !s);
+    if (!depPickerOpen && task) {
+      const d = await fetch(`/api/lists/${task.list.id}`).then((r) => r.json());
+      setListTasks((d.list?.tasks || []).map((t: any) => ({ id: t.id, name: t.name, status: t.status })));
+    }
+  }
+
+  async function addDependency(id: string) {
+    await fetch(`/api/tasks/${taskId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ addDependsOn: id }) });
+    setDepSearch("");
+    setDepPickerOpen(false);
+    await reload();
+  }
+  async function removeDependency(id: string) {
+    await fetch(`/api/tasks/${taskId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ removeDependsOn: id }) });
+    await reload();
+  }
+
+  function saveCustomFields(next: Record<string, string>) {
+    setTask((prev) => (prev ? { ...prev, customFields: next } : prev));
+    patch({ customFields: next });
+  }
+  function setCfValue(key: string, value: string) {
+    const next = { ...(task?.customFields || {}), [key]: value };
+    setTask((prev) => (prev ? { ...prev, customFields: next } : prev));
+  }
+  function removeCf(key: string) {
+    const next = { ...(task?.customFields || {}) };
+    delete next[key];
+    saveCustomFields(next);
+  }
+  function addCf() {
+    const k = newCfKey.trim();
+    if (!k) return;
+    saveCustomFields({ ...(task?.customFields || {}), [k]: newCfVal });
+    setNewCfKey("");
+    setNewCfVal("");
   }
 
   function toggleAssignee(id: string) {
@@ -331,6 +386,70 @@ export default function TaskModal({
                 );
               })}
               <input className="fx-input" style={{ marginTop: 8 }} value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addSubtask()} placeholder="+ Adicionar subtarefa" />
+            </div>
+
+            <div className="fx-field-label">Dependências</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {(task.blockedBy || []).map((d) => (
+                <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                  <span style={{ fontSize: 11, color: "var(--coral-deep)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em", whiteSpace: "nowrap" }}>Espera por</span>
+                  <span className="fx-dot" style={{ background: d.status?.color || "#a3a3a3" }} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+                  <button onClick={() => removeDependency(d.id)} style={{ background: "none", border: "none", color: "var(--txt-faint)", cursor: "pointer" }}>✕</button>
+                </div>
+              ))}
+              {(task.blocking || []).map((d) => (
+                <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, opacity: 0.85 }}>
+                  <span style={{ fontSize: 11, color: "var(--roxo)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em", whiteSpace: "nowrap" }}>Trava</span>
+                  <span className="fx-dot" style={{ background: d.status?.color || "#a3a3a3" }} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+                </div>
+              ))}
+            </div>
+            <button className="fx-chip" style={{ borderStyle: "dashed", marginTop: 6 }} onClick={openDepPicker}>
+              + Adicionar dependência
+            </button>
+            {depPickerOpen && (
+              <div style={{ marginTop: 8, border: "1px solid var(--line)", borderRadius: 8, padding: 8, maxHeight: 240, overflowY: "auto" }}>
+                <input className="fx-input" placeholder="Buscar tarefa que trava esta..." value={depSearch} onChange={(e) => setDepSearch(e.target.value)} style={{ marginBottom: 8 }} autoFocus />
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {listTasks
+                    .filter((t) => t.id !== task.id && t.name.toLowerCase().includes(depSearch.toLowerCase()) && !(task.blockedBy || []).some((b) => b.id === t.id))
+                    .slice(0, 30)
+                    .map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => addDependency(t.id)}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: 13, color: "var(--txt)", textAlign: "left", width: "100%" }}
+                      >
+                        <span className="fx-dot" style={{ background: t.status?.color || "#a3a3a3" }} />
+                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            <div className="fx-field-label">Campos personalizados</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {Object.entries(task.customFields || {}).map(([key, val]) => (
+                <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 130, fontSize: 12.5, color: "var(--txt-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{key}</span>
+                  <input
+                    className="fx-input"
+                    style={{ flex: 1 }}
+                    value={val}
+                    onChange={(e) => setCfValue(key, e.target.value)}
+                    onBlur={() => saveCustomFields({ ...(task.customFields || {}) })}
+                  />
+                  <button onClick={() => removeCf(key)} style={{ background: "none", border: "none", color: "var(--txt-faint)", cursor: "pointer" }}>✕</button>
+                </div>
+              ))}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input className="fx-input" style={{ width: 130, flexShrink: 0 }} placeholder="Campo" value={newCfKey} onChange={(e) => setNewCfKey(e.target.value)} />
+                <input className="fx-input" style={{ flex: 1 }} placeholder="Valor" value={newCfVal} onChange={(e) => setNewCfVal(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCf()} />
+                <button className="fx-chip" style={{ borderStyle: "dashed" }} onClick={addCf}>+ Add</button>
+              </div>
             </div>
 
             <div className="fx-field-label">Anexos ({task.attachments.length})</div>

@@ -27,6 +27,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         orderBy: { createdAt: "asc" },
         include: { user: { select: { id: true, name: true, color: true } } },
       },
+      blockedBy: { select: { id: true, name: true, status: { select: { name: true, color: true, type: true } } } },
+      blocking: { select: { id: true, name: true, status: { select: { name: true, color: true, type: true } } } },
     },
   });
   if (!task) return NextResponse.json({ error: "Tarefa não encontrada." }, { status: 404 });
@@ -78,6 +80,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
   if (body.tagIds !== undefined) {
     data.tags = { set: body.tagIds.map((id: string) => ({ id })) };
+  }
+  if (body.customFields !== undefined) {
+    data.customFields = body.customFields;
+  }
+  // Dependências: conectar/desconectar tarefas que travam esta (blockedBy)
+  if (body.addDependsOn) {
+    data.blockedBy = { connect: { id: body.addDependsOn } };
+  }
+  if (body.removeDependsOn) {
+    data.blockedBy = { disconnect: { id: body.removeDependsOn } };
   }
 
   const task = await prisma.task.update({

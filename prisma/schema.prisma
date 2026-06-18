@@ -18,6 +18,7 @@ model Company {
   workspaces Workspace[]
   users      User[]
   channels   Channel[]
+  documents  Document[]
 }
 
 model User {
@@ -135,6 +136,10 @@ model Task {
   comments    Comment[]
   attachments Attachment[]
 
+  // Dependências (auto-relação N:N): blockedBy = tarefas que travam esta; blocking = tarefas que esta trava
+  blockedBy Task[] @relation("TaskDeps")
+  blocking  Task[] @relation("TaskDeps")
+
   @@index([listId])
   @@index([statusId])
 }
@@ -203,6 +208,20 @@ model ChatMessage {
   user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([channelId])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  authorId  String?
+
+  @@index([companyId])
 }
 
 model Notification {
