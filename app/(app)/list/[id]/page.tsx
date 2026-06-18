@@ -86,6 +86,15 @@ export default function ListPage({ params }: { params: { id: string } }) {
     });
   }
 
+  async function patchTaskFields(taskId: string, body: Record<string, unknown>, optimistic: Partial<TaskT>) {
+    setData((prev) => (prev ? { ...prev, tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, ...optimistic } : t)) } : prev));
+    await fetch(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
   async function addTaskTop() {
     if (!data) return;
     const res = await fetch("/api/tasks", {
@@ -194,7 +203,7 @@ export default function ListPage({ params }: { params: { id: string } }) {
       {view === "board" ? (
         <BoardView list={data} tasks={filtered} onMove={moveTask} onOpen={setOpenTask} onCreated={load} />
       ) : view === "list" ? (
-        <ListView list={data} tasks={filtered} onOpen={setOpenTask} onCreated={load} onMove={moveTask} onSetPriority={setPriority} />
+        <ListView list={data} tasks={filtered} members={members} onOpen={setOpenTask} onCreated={load} onMove={moveTask} onSetPriority={setPriority} onPatch={patchTaskFields} />
       ) : (
         <CalendarView tasks={filtered} onOpen={setOpenTask} />
       )}
@@ -330,17 +339,21 @@ const PRIORITIES = [
 function ListView({
   list,
   tasks,
+  members,
   onOpen,
   onCreated,
   onMove,
   onSetPriority,
+  onPatch,
 }: {
   list: ListDetail;
   tasks: TaskT[];
+  members: Member[];
   onOpen: (id: string) => void;
   onCreated: () => void;
   onMove: (taskId: string, statusId: string) => void;
   onSetPriority: (taskId: string, priority: string | null) => void;
+  onPatch: (taskId: string, body: Record<string, unknown>, optimistic: Partial<TaskT>) => void;
 }) {
   const statuses: StatusT[] = list.statuses.length
     ? list.statuses
@@ -396,10 +409,12 @@ function ListView({
                     depth={0}
                     listId={list.id}
                     statuses={statuses}
+                    members={members}
                     onOpen={onOpen}
                     onCreated={onCreated}
                     onTopMove={onMove}
                     onTopSetPriority={onSetPriority}
+                    onTopPatch={onPatch}
                   />
                 ))}
                 {groupTasks.length === 0 && (
@@ -504,19 +519,23 @@ function TreeRow({
   depth,
   listId,
   statuses,
+  members,
   onOpen,
   onCreated,
   onTopMove,
   onTopSetPriority,
+  onTopPatch,
 }: {
   task: any;
   depth: number;
   listId: string;
   statuses: StatusT[];
+  members: Member[];
   onOpen: (id: string) => void;
   onCreated: () => void;
   onTopMove?: (taskId: string, statusId: string) => void;
   onTopSetPriority?: (taskId: string, priority: string | null) => void;
+  onTopPatch?: (taskId: string, body: Record<string, unknown>, optimistic: Partial<TaskT>) => void;
 }) {
   const [task, setTask] = useState<any>(initial);
   useEffect(() => setTask(initial), [initial]);
@@ -524,7 +543,8 @@ function TreeRow({
   const [children, setChildren] = useState<any[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [subName, setSubName] = useState("");
-  const [menu, setMenu] = useState<null | "status" | "priority">(null);
+  const [menu, setMenu] = useState<null | "status" | "priority" | "assignee" | "due">(null);
+  const [assignSearch, setAssignSearch] = useState("");
 
   const late = isLate(task.dueDate, task.dateClosed);
   const subCount = task._count?.subtasks ?? (children?.length || 0);
@@ -561,6 +581,22 @@ function TreeRow({
       setTask((t: any) => ({ ...t, priority: p || undefined }));
       fetch(`/api/tasks/${task.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priority: p }) });
     }
+  }
+  function applyFields(body: Record<string, unknown>, optimistic: Partial<TaskT>) {
+    if (depth === 0 && onTopPatch) {
+      onTopPatch(task.id, body, optimistic);
+    } else {
+      setTask((t: any) => ({ ...t, ...optimistic }));
+      fetch(`/api/tasks/${task.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    }
+  }
+  function toggleAssignee(id: string) {
+    const has = (task.assignees || []).some((a: any) => a.id === id);
+    const ids = has ? task.assignees.filter((a: any) => a.id !== id).map((a: any) => a.id) : [...(task.assignees || []).map((a: any) => a.id), id];
+    applyFields({ assigneeIds: ids }, { assignees: members.filter((m) => ids.includes(m.id)) });
+  }
+  function changeDue(dateStr: string) {
+    applyFields({ dueDate: dateStr || null }, { dueDate: dateStr || null });
   }
   async function addSub() {
     if (!subName.trim()) {
@@ -612,16 +648,69 @@ function TreeRow({
           {subCount > 0 && <span style={{ fontSize: 11, color: "var(--txt-faint)", flexShrink: 0 }}>⤷ {subCount}</span>}
         </span>
 
-        <span className="fx-lt-cell">
-          {(task.assignees || []).slice(0, 3).map((a: any, i: number) => (
-            <span key={a.id} className="fx-avatar" title={a.name} style={{ width: 22, height: 22, background: a.color, marginLeft: i ? -6 : 0, border: "1.5px solid var(--surface)" }}>
-              {a.name.charAt(0).toUpperCase()}
-            </span>
-          ))}
+        <span className="fx-lt-cell" style={{ position: "relative" }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenu(menu === "assignee" ? null : "assignee"); }}
+            style={{ display: "flex", alignItems: "center", border: "none", background: "transparent", cursor: "pointer", padding: 0, minHeight: 22, minWidth: 24 }}
+            title="Atribuir"
+          >
+            {(task.assignees || []).length === 0 ? (
+              <span style={{ width: 22, height: 22, borderRadius: "50%", border: "1.5px dashed var(--line)", color: "var(--txt-faint)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>+</span>
+            ) : (
+              (task.assignees || []).slice(0, 3).map((a: any, i: number) => (
+                <span key={a.id} className="fx-avatar" title={a.name} style={{ width: 22, height: 22, background: a.color, marginLeft: i ? -6 : 0, border: "1.5px solid var(--surface)" }}>
+                  {a.name.charAt(0).toUpperCase()}
+                </span>
+              ))
+            )}
+          </button>
+          {menu === "assignee" && (
+            <>
+              <div onClick={(e) => { e.stopPropagation(); setMenu(null); }} style={{ position: "fixed", inset: 0, zIndex: 55 }} />
+              <div className="fx-popover" style={{ top: 26, left: 0, minWidth: 200, maxHeight: 240, overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+                <input className="fx-input" placeholder="Buscar pessoa…" value={assignSearch} onChange={(e) => setAssignSearch(e.target.value)} style={{ marginBottom: 6 }} autoFocus />
+                {members.filter((m) => m.name.toLowerCase().includes(assignSearch.toLowerCase())).map((m) => {
+                  const active = (task.assignees || []).some((a: any) => a.id === m.id);
+                  return (
+                    <button key={m.id} onClick={() => toggleAssignee(m.id)}>
+                      <span className="fx-avatar" style={{ width: 20, height: 20, fontSize: 9, background: m.color }}>{m.name.charAt(0).toUpperCase()}</span>
+                      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
+                      {active && <span style={{ color: "var(--roxo)" }}>✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </span>
 
-        <span className="fx-lt-cell" style={{ color: late ? "var(--coral-deep)" : "var(--txt-soft)", fontWeight: late ? 600 : 400 }}>
-          {task.dueDate ? formatDate(task.dueDate) : <span style={{ opacity: 0.35 }}>—</span>}
+        <span className="fx-lt-cell" style={{ position: "relative" }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenu(menu === "due" ? null : "due"); }}
+            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, fontSize: 12, fontFamily: "inherit", color: late ? "var(--coral-deep)" : "var(--txt-soft)", fontWeight: late ? 600 : 400 }}
+            title="Definir prazo"
+          >
+            {task.dueDate ? formatDate(task.dueDate) : <span style={{ opacity: 0.35 }}>—</span>}
+          </button>
+          {menu === "due" && (
+            <>
+              <div onClick={(e) => { e.stopPropagation(); setMenu(null); }} style={{ position: "fixed", inset: 0, zIndex: 55 }} />
+              <div className="fx-popover" style={{ top: 26, right: 0, minWidth: 180 }} onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="date"
+                  className="fx-input"
+                  value={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : ""}
+                  onChange={(e) => { changeDue(e.target.value); setMenu(null); }}
+                  autoFocus
+                />
+                {task.dueDate && (
+                  <button onClick={() => { changeDue(""); setMenu(null); }} style={{ marginTop: 4 }}>
+                    <span style={{ opacity: 0.5 }}>✕</span> Limpar prazo
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </span>
 
         <span className="fx-lt-cell" style={{ position: "relative" }}>
@@ -652,7 +741,7 @@ function TreeRow({
       {expanded && (
         <div>
           {(children || []).map((c) => (
-            <TreeRow key={c.id} task={c} depth={depth + 1} listId={listId} statuses={statuses} onOpen={onOpen} onCreated={onCreated} />
+            <TreeRow key={c.id} task={c} depth={depth + 1} listId={listId} statuses={statuses} members={members} onOpen={onOpen} onCreated={onCreated} />
           ))}
           {adding ? (
             <div className="fx-lt-row" style={{ ["--indent" as any]: (depth + 1) * 22 + "px" }}>
