@@ -50,6 +50,10 @@ export async function POST(req: Request) {
       docTipo: b.docTipo || null,
       docNumero: b.docNumero || null,
       recorrencia: b.recorrencia === "mensal" ? "mensal" : "unica",
+      prazoPagamento: b.prazoPagamento || null,
+      prioridade: b.prioridade || null,
+      observacao: b.observacao || null,
+      centroCusto: b.centroCusto || null,
       cotacaoDispensa: !!b.cotacaoDispensa,
       cotacaoJustificativa: b.cotacaoJustificativa || null,
       solicitanteId: user.id,
@@ -62,6 +66,9 @@ export async function POST(req: Request) {
   const a = await approversOf(companyId);
   const gestores = (b.spaceId && a.gestoresPorArea[b.spaceId]) || [];
   await notifyFinance(gestores, `Nova solicitação de ${user.name} em ${b.areaName} — R$ ${valor.toLocaleString("pt-BR")}`, user.id);
+
+  // Confirma pro próprio solicitante que o pedido foi enviado.
+  await notifyFinance([user.id], `Sua solicitação #${created.code} (${b.areaName} — R$ ${valor.toLocaleString("pt-BR")}) foi enviada e está aguardando o gestor.`);
 
   return NextResponse.json({ request: created });
 }

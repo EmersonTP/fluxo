@@ -14,6 +14,7 @@ type Req = {
   descricao: string; valor: number; vencimento: string | null; formaPagamento: string | null;
   categoria: string | null; centroCusto: string | null; classeGerencial: string | null;
   docTipo: string | null; docNumero: string | null; recorrencia: string; cotacaoDispensa: boolean;
+  prazoPagamento: string | null; prioridade: string | null; observacao: string | null;
   contaOrigem: string | null; dataPagamento: string | null; recusaMotivo: string | null;
   solicitanteId: string | null; gestorId: string | null; financeiroId: string | null; pagadorId: string | null;
   credor?: { nome: string; documento: string } | null; _count?: { attachments: number };
@@ -44,6 +45,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   const [statusFilter, setStatusFilter] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [flash, setFlash] = useState("");
   const tabInit = useRef(false);
 
   useEffect(() => {
@@ -185,6 +187,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
         </nav>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 26px 48px", minWidth: 0 }}>
+        {flash && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "11px 15px", fontSize: 13.5, fontWeight: 500, marginBottom: 16 }}>{flash}</div>}
         {tab === "solicitar" && (
           <>
             <button className="fx-btn fx-btn-primary" onClick={() => setShowNew(true)} style={{ marginBottom: 16 }}>+ Nova solicitação</button>
@@ -238,7 +241,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
       </div>
 
       {showNew && (
-        <NewRequest companyId={companyId} areas={areas} credores={credores} onClose={() => setShowNew(false)} onCreated={() => { setShowNew(false); refresh(); }} reloadCred={() => loadAll(companyId)} />
+        <NewRequest companyId={companyId} areas={areas} credores={credores} onClose={() => setShowNew(false)} onCreated={() => { setShowNew(false); refresh(); setFlash("Solicitação enviada ✓ — você e o gestor da área foram avisados."); setTimeout(() => setFlash(""), 4500); }} reloadCred={() => loadAll(companyId)} />
       )}
       {openId && (
         <RequestDetail
@@ -289,6 +292,10 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   const [categoria, setCategoria] = useState("");
   const [recorrencia, setRecorrencia] = useState("unica");
   const [docNumero, setDocNumero] = useState("");
+  const [prazo, setPrazo] = useState("avista");
+  const [prioridade, setPrioridade] = useState("normal");
+  const [centroCusto, setCentroCusto] = useState("");
+  const [obs, setObs] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -302,7 +309,7 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
     setBusy(true);
     const res = await fetch("/api/finance/requests", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyId, kind, spaceId, areaName: area.name, credorId: credorId || null, descricao, valor: Number(valor), vencimento: vencimento || null, formaPagamento: forma, categoria: categoria || null, recorrencia, docNumero: docNumero || null }),
+      body: JSON.stringify({ companyId, kind, spaceId, areaName: area.name, credorId: credorId || null, descricao, valor: Number(valor), vencimento: vencimento || null, formaPagamento: forma, categoria: categoria || null, recorrencia, docNumero: docNumero || null, prazoPagamento: prazo, prioridade, centroCusto: centroCusto || null, observacao: obs || null }),
     });
     const d = await res.json();
     if (res.ok) {
@@ -329,6 +336,10 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
         <Field label="Recorrência"><select className="fx-input" value={recorrencia} onChange={(e) => setRecorrencia(e.target.value)}><option value="unica">Única</option><option value="mensal">Mensal</option></select></Field></Row>
       <Row><Field label="Categoria (sugerida)"><select className="fx-input" value={categoria} onChange={(e) => setCategoria(e.target.value)}><option value="">—</option>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
         <Field label="Nº documento / NF"><input className="fx-input" value={docNumero} onChange={(e) => setDocNumero(e.target.value)} /></Field></Row>
+      <Row><Field label="Prazo de pagamento"><select className="fx-input" value={prazo} onChange={(e) => setPrazo(e.target.value)}><option value="avista">À vista</option><option value="7">7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="data">Na data do vencimento</option><option value="parcelado">Parcelado</option></select></Field>
+        <Field label="Prioridade"><select className="fx-input" value={prioridade} onChange={(e) => setPrioridade(e.target.value)}><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></Field></Row>
+      <Field label="Centro de custo (opcional)"><input className="fx-input" value={centroCusto} onChange={(e) => setCentroCusto(e.target.value)} placeholder="ex.: Sede / Obra / Cursinho" /></Field>
+      <Field label="Observações (opcional)"><textarea className="fx-input" rows={2} value={obs} onChange={(e) => setObs(e.target.value)} /></Field>
       <div style={{ marginTop: 4 }}>
         <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 5 }}>Documentos (NF, boleto, comprovante) — opcional</div>
         <DropZone onFiles={(fs) => setFiles((prev) => [...prev, ...fs])} />
@@ -417,7 +428,10 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
         <Info label="Nº documento">{r.docNumero || "—"}</Info>
         <Info label="Solicitante">{person(r.solicitanteId)}</Info>
         <Info label="Conta origem">{r.contaOrigem || "—"}</Info>
+        <Info label="Prazo de pagamento">{({ avista: "À vista", "7": "7 dias", "15": "15 dias", "30": "30 dias", data: "Na data", parcelado: "Parcelado" } as Record<string, string>)[r.prazoPagamento || ""] || "—"}</Info>
+        <Info label="Prioridade">{r.prioridade ? r.prioridade[0].toUpperCase() + r.prioridade.slice(1) : "Normal"}</Info>
       </Grid2>
+      {r.observacao && <div style={{ fontSize: 13, color: "var(--txt-soft)", marginBottom: 8 }}><b>Obs.:</b> {r.observacao}</div>}
 
       {/* Anexos */}
       <Section title="Documentos">

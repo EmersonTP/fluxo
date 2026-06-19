@@ -31,7 +31,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const b = await req.json();
   const data: any = {};
-  for (const k of ["descricao", "formaPagamento", "categoria", "centroCusto", "classeGerencial", "docTipo", "docNumero", "cotacaoJustificativa", "contaOrigem"]) if (b[k] !== undefined) data[k] = b[k];
+  for (const k of ["descricao", "formaPagamento", "categoria", "centroCusto", "classeGerencial", "docTipo", "docNumero", "cotacaoJustificativa", "contaOrigem", "prazoPagamento", "prioridade", "observacao"]) if (b[k] !== undefined) data[k] = b[k];
   if (b.valor !== undefined) data.valor = Number(b.valor);
   if (b.vencimento !== undefined) data.vencimento = b.vencimento ? new Date(b.vencimento) : null;
   if (b.credorId !== undefined) data.credorId = b.credorId || null;

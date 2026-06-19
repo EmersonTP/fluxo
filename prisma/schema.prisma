@@ -403,6 +403,9 @@ model PaymentRequest {
   cotacaoJustificativa String?
 
   recorrencia String @default("unica") // unica | mensal
+  prazoPagamento String? // à vista | 7 | 15 | 30 | data | parcelado
+  prioridade     String? // normal | alta | urgente
+  observacao     String? @db.Text
 
   // Pagamento
   contaOrigem   String?
