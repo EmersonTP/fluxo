@@ -503,16 +503,24 @@ function SpaceNode({ sp, pathname, color, onCreateList, isAdmin, refresh }: { sp
             onBlur={save}
           />
         ) : (
-          <button
-            onClick={() => setOpen(!open)}
-            onDoubleClick={() => { if (isAdmin) { setVal(sp.name); setEditing(true); } }}
-            title={isAdmin ? "Duplo-clique para renomear" : undefined}
-            style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: "inherit", font: "inherit", minWidth: 0, padding: 0 }}
-          >
-            <span className="fx-dot" style={{ background: color }} />
-            <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{sp.name}</span>
-            <span style={{ fontSize: 11, opacity: 0.5 }}>{open ? "▾" : "▸"}</span>
-          </button>
+          <>
+            <Link
+              href={`/space/${sp.id}`}
+              onDoubleClick={(e) => { if (isAdmin) { e.preventDefault(); setVal(sp.name); setEditing(true); } }}
+              title={isAdmin ? "Abrir espaço · duplo-clique pra renomear" : "Abrir espaço"}
+              style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "inherit", minWidth: 0 }}
+            >
+              <span className="fx-dot" style={{ background: color }} />
+              <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{sp.name}</span>
+            </Link>
+            <button
+              onClick={() => setOpen(!open)}
+              title={open ? "Recolher" : "Expandir"}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 11, opacity: 0.5, padding: "0 4px" }}
+            >
+              {open ? "▾" : "▸"}
+            </button>
+          </>
         )}
         {isAdmin && !editing && <Kebab type="space" id={sp.id} isPrivate={!!sp.private} memberIds={(sp.members || []).map((m) => m.id)} refresh={refresh} />}
       </div>

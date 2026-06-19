@@ -403,6 +403,7 @@ function BoardView({
           </div>
         );
       })}
+      <AddColumn listId={list.id} onCreated={onCreated} />
       {drag && (
         <div
           style={{
@@ -1013,5 +1014,51 @@ function QuickAdd({ listId, statusId, onCreated, asRow }: { listId: string; stat
       disabled={adding}
       placeholder="+ Adicionar tarefa"
     />
+  );
+}
+
+function AddColumn({ listId, onCreated }: { listId: string; onCreated: () => void }) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    const n = name.trim();
+    if (!n) { setAdding(false); return; }
+    setBusy(true);
+    await fetch(`/api/lists/${listId}/statuses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: n }),
+    });
+    setName("");
+    setBusy(false);
+    setAdding(false);
+    onCreated();
+  }
+
+  return (
+    <div className="fx-col" style={{ background: "transparent", minWidth: 230 }}>
+      {adding ? (
+        <input
+          autoFocus
+          className="fx-input"
+          style={{ fontSize: 13 }}
+          value={name}
+          disabled={busy}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={submit}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") { setName(""); setAdding(false); } }}
+          placeholder="Nome da coluna"
+        />
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          style={{ width: "100%", padding: "10px 12px", background: "none", border: "1.5px dashed var(--line)", borderRadius: 10, color: "var(--txt-soft)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+        >
+          + Coluna
+        </button>
+      )}
+    </div>
   );
 }
