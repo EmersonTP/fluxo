@@ -15,11 +15,17 @@ model Company {
   clickupId String?  @unique
   createdAt DateTime @default(now())
 
+  // Módulos ligáveis por empresa (csv): tarefas,chat,docs,financeiro...
+  modules   String   @default("tarefas,chat,docs,financeiro")
+
   workspaces Workspace[]
   users      User[]
   channels   Channel[]
   documents  Document[]
   sprints    Sprint[]
+  credores       Credor[]
+  paymentRequests PaymentRequest[]
+  approverConfigs ApproverConfig[]
 }
 
 model User {
@@ -200,8 +206,13 @@ model Attachment {
   messageId String?
   message   ChatMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
+  requestId String?
+  request   PaymentRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tag       String?  // nf | comprovante | cotacao | boleto | outro
+
   @@index([taskId])
   @@index([messageId])
+  @@index([requestId])
 }
 
 model Tag {
@@ -326,7 +337,7 @@ model Document {
 
 model Notification {
   id        String   @id @default(cuid())
-  type      String   // assigned | mention | due
+  type      String   // assigned | mention | due | finance
   text      String
   link      String?
   read      Boolean  @default(false)
@@ -336,4 +347,111 @@ model Notification {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read])
+}
+
+// ===== Módulo Financeiro =====
+
+// Credor/Favorecido — cadastro único por CPF/CNPJ (mata o "mesmo nome de 3 jeitos").
+model Credor {
+  id        String   @id @default(cuid())
+  nome      String
+  documento String   // CPF/CNPJ (chave única dentro da empresa)
+  tipo      String   @default("fornecedor") // fornecedor | profissional | funcionario | socio | locador | concessionaria | orgao
+  pixKey    String?
+  bankInfo  String?
+  categoriaPadrao String?
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requests  PaymentRequest[]
+
+  @@index([companyId])
+}
+
+// Solicitação de Pagamento (Portal) — fluxo padrão ou reembolso, 3 portões.
+model PaymentRequest {
+  id        String   @id @default(cuid())
+  code      Int      @default(autoincrement())
+  kind      String   @default("padrao") // padrao | reembolso
+  status    String   @default("solicitada") // solicitada | aprovada_gestor | conferida | paga | recusada | cancelada
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  spaceId   String?  // área = Espaço da empresa
+  areaName  String   @default("")
+
+  credorId  String?
+  credor    Credor?  @relation(fields: [credorId], references: [id], onDelete: SetNull)
+
+  descricao String   @db.Text @default("")
+  valor     Float    @default(0)
+  vencimento DateTime?
+  formaPagamento String? // pix | boleto | transferencia | guia | cartao
+
+  // Classificação (financeiro)
+  categoria       String?
+  centroCusto     String?
+  classeGerencial String?
+
+  // Documento fiscal
+  docTipo   String?  // nf | boleto | recibo | contrato | fatura
+  docNumero String?
+
+  // Cotação (padrão acima de R$ 400)
+  cotacaoDispensa      Boolean @default(false)
+  cotacaoJustificativa String?
+
+  recorrencia String @default("unica") // unica | mensal
+
+  // Pagamento
+  contaOrigem   String?
+  dataPagamento DateTime?
+
+  // Pessoas envolvidas (ids; nomes resolvidos na API)
+  solicitanteId String?
+  gestorId      String?
+  financeiroId  String?
+  pagadorId     String?
+
+  recusaMotivo String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments Attachment[]
+  steps       RequestStep[]
+
+  @@index([companyId, status])
+}
+
+// Trilha de auditoria de cada etapa da solicitação.
+model RequestStep {
+  id        String   @id @default(cuid())
+  action    String   // criada | aprovada_gestor | conferida | paga | recusada | editada | comentario
+  fromStatus String?
+  toStatus   String?
+  note      String?
+  userId    String?
+  userName  String?
+  createdAt DateTime @default(now())
+
+  requestId String
+  request   PaymentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+// Configuração de aprovadores por empresa (gestor por área; financeiro e pagador por empresa).
+model ApproverConfig {
+  id        String   @id @default(cuid())
+  role      String   // gestor | financeiro | pagador
+  spaceId   String?  // usado só p/ gestor (por área)
+  userId    String
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, role])
 }

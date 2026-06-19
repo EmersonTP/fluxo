@@ -21,6 +21,7 @@ const ICONS: Record<string, string> = {
   productivity: "M22 12h-4l-3 9L9 3l-3 9H2",
   docs: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h6",
   admin: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 8l2 2 4-4",
+  finance: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13a7.8 7.8 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7.5 7.5 0 0 0-1.7 1l-2.4-1-2 3.5L4.6 11a7.8 7.8 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.4 1 2-3.5z",
 };
 
@@ -43,7 +44,16 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [companies, setCompanies] = useState<{ id: string; name: string; modules: string }[]>([]);
+  const [activeCompany, setActiveCompany] = useState<string>("");
+  const [companyMenu, setCompanyMenu] = useState(false);
   const widthRef = useRef(248);
+
+  function switchCompany(id: string) {
+    setActiveCompany(id);
+    setCompanyMenu(false);
+    try { localStorage.setItem("fx:company", id); } catch {}
+  }
 
   function loadHierarchy() {
     return fetch("/api/hierarchy")
@@ -73,6 +83,14 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 
   useEffect(() => {
     loadHierarchy().finally(() => setLoading(false));
+    fetch("/api/companies").then((r) => r.json()).then((d) => {
+      const cs = d.companies || [];
+      setCompanies(cs);
+      let saved = "";
+      try { saved = localStorage.getItem("fx:company") || ""; } catch {}
+      const valid = cs.find((c: { id: string }) => c.id === saved);
+      setActiveCompany(valid ? saved : cs[0]?.id || "");
+    });
     try {
       setDark(localStorage.getItem("fluxo:theme") === "dark");
       const w = Number(localStorage.getItem("fluxo:sidebarW"));
@@ -163,6 +181,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     { icon: "sprint", label: "Sprints", href: "/sprints" },
     { icon: "chat", label: "Chat", href: "/chat" },
     { icon: "docs", label: "Docs", href: "/documentos" },
+    { icon: "finance", label: "Contas a Pagar", href: "/financeiro" },
     { icon: "reports", label: "Relatórios", href: "/relatorios" },
     ...(isAdmin ? [{ icon: "productivity", label: "Produtividade", href: "/produtividade" }] : []),
     ...(isAdmin ? [{ icon: "admin", label: "Admin", href: "/admin" }] : []),
@@ -269,7 +288,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
               }
         }
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 6px 10px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 6px 8px 10px" }}>
           <Link href="/" className="fx-brand">
             Sandra<b>.</b>
           </Link>
@@ -278,8 +297,38 @@ export default function AppShell({ user, children }: { user: User; children: Rea
           </button>
         </div>
 
+        {/* Switcher de empresa (abrir por empresa) */}
+        {companies.length > 0 && (
+          <div style={{ position: "relative", margin: "0 4px 12px" }}>
+            <button
+              onClick={() => setCompanyMenu((s) => !s)}
+              style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, cursor: "pointer", font: "inherit", textAlign: "left" }}
+              title="Trocar de empresa"
+            >
+              {(() => { const c = companies.find((x) => x.id === activeCompany); const color = COMPANY_COLORS[Math.max(0, companies.findIndex((x) => x.id === activeCompany)) % COMPANY_COLORS.length]; return (
+                <>
+                  <span style={{ width: 24, height: 24, borderRadius: 7, background: color, color: "#fff", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{(c?.name || "?").charAt(0).toUpperCase()}</span>
+                  <span style={{ flex: 1, fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c?.name || "Empresa"}</span>
+                  <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{companies.length > 1 ? "▾" : ""}</span>
+                </>
+              ); })()}
+            </button>
+            {companyMenu && companies.length > 1 && (
+              <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "var(--shadow-hover)", zIndex: 30, overflow: "hidden", padding: 4 }}>
+                {companies.map((c, i) => (
+                  <button key={c.id} onClick={() => switchCompany(c.id)} className="fx-navitem" style={{ width: "100%", fontSize: 13, fontWeight: c.id === activeCompany ? 700 : 400 }}>
+                    <span style={{ width: 18, height: 18, borderRadius: 5, background: COMPANY_COLORS[i % COMPANY_COLORS.length], color: "#fff", fontWeight: 600, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>{c.name.charAt(0).toUpperCase()}</span>
+                    <span style={{ flex: 1, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</span>
+                    {c.id === activeCompany && <span style={{ color: "var(--roxo)" }}>✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {loading && <p className="fx-navgroup">Carregando...</p>}
-        {workspaces.map((ws, i) => (
+        {workspaces.filter((ws) => !activeCompany || ws.companyId === activeCompany).map((ws, i) => (
           <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} onCreateSpace={createSpace} isAdmin={isAdmin} refresh={loadHierarchy} />
         ))}
         {!loading && workspaces.length === 0 && isAdmin && (
