@@ -19,6 +19,7 @@ model Company {
   users      User[]
   channels   Channel[]
   documents  Document[]
+  sprints    Sprint[]
 }
 
 model User {
@@ -137,6 +138,10 @@ model Task {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  points   Int?
+  sprintId String?
+  sprint   Sprint? @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+
   listId   String
   list     List   @relation(fields: [listId], references: [id], onDelete: Cascade)
   statusId String?
@@ -239,6 +244,21 @@ model ChatMessage {
   user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([channelId])
+}
+
+model Sprint {
+  id        String   @id @default(cuid())
+  name      String
+  startDate DateTime?
+  endDate   DateTime?
+  goal      String?
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@index([companyId])
 }
 
 model Document {

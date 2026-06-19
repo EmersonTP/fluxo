@@ -93,6 +93,8 @@ type FullTask = TaskT & {
   blockedBy?: DepLite[];
   blocking?: DepLite[];
   activities?: { id: string; type: string; text: string; createdAt: string; user?: Member | null }[];
+  points?: number | null;
+  sprint?: { id: string; name: string } | null;
 };
 
 export default function TaskModal({
@@ -127,6 +129,11 @@ export default function TaskModal({
   const [listTasks, setListTasks] = useState<DepLite[]>([]);
   const [newCfKey, setNewCfKey] = useState("");
   const [newCfVal, setNewCfVal] = useState("");
+  const [sprints, setSprints] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/sprints").then((r) => r.json()).then((d) => setSprints((d.sprints || []).map((s: any) => ({ id: s.id, name: s.name })))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch(`/api/tasks/${taskId}`)
@@ -365,6 +372,30 @@ export default function TaskModal({
               <div>
                 <div className="fx-field-label">Prazo</div>
                 <input className="fx-input" type="date" value={toDateInput(task.dueDate)} onChange={(e) => patch({ dueDate: e.target.value || null })} />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+              <div>
+                <div className="fx-field-label">Sprint</div>
+                <select className="fx-select" value={task.sprint?.id || ""} onChange={(e) => patch({ sprintId: e.target.value || null })}>
+                  <option value="">— sem sprint —</option>
+                  {sprints.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="fx-field-label">Pontos (estimativa)</div>
+                <input
+                  className="fx-input"
+                  type="number"
+                  min={0}
+                  placeholder="—"
+                  value={task.points ?? ""}
+                  onChange={(e) => setTask((prev) => (prev ? { ...prev, points: e.target.value === "" ? null : Number(e.target.value) } : prev))}
+                  onBlur={(e) => patch({ points: e.target.value === "" ? null : Number(e.target.value) })}
+                />
               </div>
             </div>
 

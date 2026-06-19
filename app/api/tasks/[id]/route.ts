@@ -39,6 +39,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       },
       blockedBy: { select: { id: true, name: true, status: { select: { name: true, color: true, type: true } } } },
       blocking: { select: { id: true, name: true, status: { select: { name: true, color: true, type: true } } } },
+      sprint: { select: { id: true, name: true } },
       activities: {
         orderBy: { createdAt: "desc" },
         take: 60,
@@ -115,6 +116,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.customFields !== undefined) {
     data.customFields = body.customFields;
   }
+  if (body.points !== undefined) data.points = body.points === null || body.points === "" ? null : Number(body.points);
+  if (body.sprintId !== undefined) data.sprintId = body.sprintId || null;
   // Dependências: conectar/desconectar tarefas que travam esta (blockedBy)
   if (body.addDependsOn) {
     data.blockedBy = { connect: { id: body.addDependsOn } };

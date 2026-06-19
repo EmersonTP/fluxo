@@ -15,6 +15,7 @@ const ICONS: Record<string, string> = {
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.3-4.3",
   spaces: "M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
   tasks: "M9 11l3 3 8-8M4 6h.01M4 12h.01M4 18h.01M9 18h11M9 6h11",
+  sprint: "M13 2 3 14h7l-1 8 10-12h-7l1-8z",
   chat: "M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8z",
   reports: "M3 3v18h18M7 16V9M12 16V5M17 16v-7",
   productivity: "M22 12h-4l-3 9L9 3l-3 9H2",
@@ -159,6 +160,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   const railItems = [
     { icon: "home", label: "Início", href: "/" },
     { icon: "tasks", label: "Tarefas", href: "/minhas-tarefas" },
+    { icon: "sprint", label: "Sprints", href: "/sprints" },
     { icon: "chat", label: "Chat", href: "/chat" },
     { icon: "docs", label: "Docs", href: "/documentos" },
     { icon: "reports", label: "Relatórios", href: "/relatorios" },
