@@ -1,7 +1,7 @@
 "use client";
 
 import type { TaskT } from "@/lib/types";
-import { priorityMeta, formatDate, isLate } from "@/lib/ui";
+import { priorityMeta, isLate, withAlpha, dueMeta } from "@/lib/ui";
 
 export function TaskCard({
   task,
@@ -19,6 +19,7 @@ export function TaskCard({
   const prio = priorityMeta(task.priority);
   const bar = task.status?.color || "var(--roxo)";
   const late = isLate(task.dueDate, task.dateClosed);
+  const due = dueMeta(task.dueDate, task.dateClosed);
 
   return (
     <div
@@ -36,7 +37,7 @@ export function TaskCard({
       <div className="fx-card-title">{task.name}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
         {task.status && (
-          <span className="fx-pill" style={{ color: task.status.color, background: "rgba(146,80,172,.10)" }}>
+          <span className="fx-pill" style={{ color: task.status.color, background: withAlpha(task.status.color, 0.13) }}>
             {task.status.name}
           </span>
         )}
@@ -46,7 +47,7 @@ export function TaskCard({
           </span>
         )}
         {task.tags.slice(0, 2).map((t) => (
-          <span key={t.id} className="fx-pill" style={{ color: t.color, background: "rgba(51,51,51,.05)" }}>
+          <span key={t.id} className="fx-pill" style={{ color: t.color, background: withAlpha(t.color, 0.13) }}>
             {t.name}
           </span>
         ))}
@@ -63,8 +64,10 @@ export function TaskCard({
         <span className="fx-meta" style={{ marginLeft: "auto" }}>
           {task._count && task._count.comments > 0 ? `💬 ${task._count.comments}  ` : ""}
         </span>
-        {task.dueDate && (
-          <span className={`fx-meta ${late ? "late" : ""}`}>{late ? "venceu " : ""}{formatDate(task.dueDate)}</span>
+        {due && (
+          <span className="fx-meta" style={{ color: due.color, fontWeight: late ? 600 : 500, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            📅 {due.label}
+          </span>
         )}
       </div>
     </div>

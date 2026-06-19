@@ -36,3 +36,58 @@ export function isLate(dueDate?: string | null, dateClosed?: string | null) {
   if (!dueDate || dateClosed) return false;
   return new Date(dueDate).getTime() < Date.now();
 }
+
+// ===== Regras de cores estilo ClickUp =====
+
+// Converte #rrggbb (ou rgb()) para rgba com transparência — usado nas pílulas suaves.
+export function withAlpha(hex: string | null | undefined, alpha: number): string {
+  if (!hex) return `rgba(146,80,172,${alpha})`;
+  let h = hex.trim();
+  if (h.startsWith("rgb")) return h.replace(/rgba?\(([^)]+)\)/, (_m, p) => `rgba(${p.split(",").slice(0, 3).join(",")},${alpha})`);
+  h = h.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16) || 0;
+  const g = parseInt(h.slice(2, 4), 16) || 0;
+  const b = parseInt(h.slice(4, 6), 16) || 0;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Texto legível (preto/branco) sobre uma cor sólida — luminância relativa.
+export function textOn(hex: string | null | undefined): string {
+  if (!hex) return "#fff";
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16) || 0;
+  const g = parseInt(h.slice(2, 4), 16) || 0;
+  const b = parseInt(h.slice(4, 6), 16) || 0;
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.62 ? "#1f1b16" : "#ffffff";
+}
+
+// Ícone do grupo conforme o tipo do status (igual ClickUp: aberto ○, ativo ◓, concluído ✓).
+export function statusIcon(type?: string | null): string {
+  switch (type) {
+    case "done":
+    case "closed":
+      return "✓";
+    case "open":
+      return "○";
+    default:
+      return "◓";
+  }
+}
+
+// Cor da data conforme regra ClickUp: vencido = vermelho, hoje = laranja, futuro = verde, concluído = neutro.
+export function dueMeta(dueDate?: string | null, dateClosed?: string | null): { color: string; label: string } | null {
+  if (!dueDate) return null;
+  const d = new Date(dueDate);
+  const txt = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  if (dateClosed) return { color: "var(--txt-faint)", label: txt };
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const endToday = startToday + 86400000;
+  const t = d.getTime();
+  if (t < startToday) return { color: "#e5484d", label: txt };
+  if (t < endToday) return { color: "#e8910c", label: "Hoje" };
+  return { color: "#169d6b", label: txt };
+}

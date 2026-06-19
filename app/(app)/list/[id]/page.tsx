@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { ListDetail, TaskT, Member, StatusT } from "@/lib/types";
 import TaskModal from "@/components/TaskModal";
 import { TaskCard } from "@/components/TaskCard";
-import { formatDate, isLate } from "@/lib/ui";
+import { formatDate, isLate, textOn, statusIcon, withAlpha } from "@/lib/ui";
 import { useToast } from "@/components/Toast";
 
 type View = "board" | "list" | "calendar";
@@ -381,9 +381,11 @@ function BoardView({
         return (
           <div key={st.id} className="fx-col" data-status={st.id}>
             <div className="fx-colhead">
-              <span className="fx-dot" style={{ background: st.color }} />
-              <span className="fx-coltitle">{st.name}</span>
-              <span className="fx-colcount">{colTasks.length}</span>
+              <span className="fx-statuspill" style={{ background: st.color, color: textOn(st.color) }}>
+                <span style={{ fontSize: 11, lineHeight: 1 }}>{statusIcon(st.type)}</span>
+                {st.name}
+              </span>
+              <span className="fx-colcount" style={{ color: st.color, background: withAlpha(st.color, 0.14) }}>{colTasks.length}</span>
             </div>
             <div className={`fx-colbody scrollbar-thin ${drag && overCol === st.id ? "drag-over" : ""}`}>
               {visible.map((t, i) => (
@@ -596,10 +598,11 @@ function GroupTitle({ st, onCreated }: { st: StatusT; onCreated: () => void }) {
   return (
     <button
       className="fx-lt-statuspill"
-      style={{ color: "#fff", background: st.color, cursor: st.id !== "none" ? "text" : "default" }}
+      style={{ color: textOn(st.color), background: st.color, cursor: st.id !== "none" ? "text" : "default", display: "inline-flex", alignItems: "center", gap: 6 }}
       onClick={() => st.id !== "none" && setEditing(true)}
       title={st.id !== "none" ? "Clique para renomear" : ""}
     >
+      <span style={{ fontSize: 10, lineHeight: 1 }}>{statusIcon(st.type)}</span>
       {st.name}
     </button>
   );
@@ -1049,14 +1052,14 @@ function AddColumn({ listId, onCreated }: { listId: string; onCreated: () => voi
           onChange={(e) => setName(e.target.value)}
           onBlur={submit}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") { setName(""); setAdding(false); } }}
-          placeholder="Nome da coluna"
+          placeholder="Nome do grupo"
         />
       ) : (
         <button
           onClick={() => setAdding(true)}
-          style={{ width: "100%", padding: "10px 12px", background: "none", border: "1.5px dashed var(--line)", borderRadius: 10, color: "var(--txt-soft)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+          style={{ width: "100%", padding: "11px 13px", background: "none", border: "1.5px dashed var(--line)", borderRadius: 10, color: "var(--txt-soft)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
         >
-          + Coluna
+          + Adicionar grupo
         </button>
       )}
     </div>
