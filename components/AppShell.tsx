@@ -327,14 +327,22 @@ export default function AppShell({ user, children }: { user: User; children: Rea
           </div>
         )}
 
-        {loading && <p className="fx-navgroup">Carregando...</p>}
-        {workspaces.filter((ws) => !activeCompany || ws.companyId === activeCompany).map((ws, i) => (
-          <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} onCreateSpace={createSpace} isAdmin={isAdmin} refresh={loadHierarchy} />
-        ))}
-        {!loading && workspaces.length === 0 && isAdmin && (
-          <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>Sem dados ainda. Rode a importação do ClickUp.</p>
+        {pathname.startsWith("/financeiro") ? (
+          <div style={{ fontSize: 12, color: "var(--txt-faint)", padding: "10px 10px", lineHeight: 1.5 }}>
+            Módulo <b style={{ color: "var(--txt)" }}>Financeiro</b> da empresa ativa. Use o menu ao lado (Solicitar, Aprovações, Contas a Pagar…). Troque a empresa no seletor acima.
+          </div>
+        ) : (
+          <>
+            {loading && <p className="fx-navgroup">Carregando...</p>}
+            {workspaces.filter((ws) => !activeCompany || ws.companyId === activeCompany).map((ws, i) => (
+              <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} onCreateSpace={createSpace} isAdmin={isAdmin} refresh={loadHierarchy} />
+            ))}
+            {!loading && workspaces.length === 0 && isAdmin && (
+              <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>Sem dados ainda. Rode a importação do ClickUp.</p>
+            )}
+            {!loading && workspaces.length === 0 && !isAdmin && <AccessRequest />}
+          </>
         )}
-        {!loading && workspaces.length === 0 && !isAdmin && <AccessRequest />}
       </aside>
 
       {/* Resize handle (apenas desktop) */}

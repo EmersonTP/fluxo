@@ -83,10 +83,11 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
 
   // Tela inicial por papel: aprovador cai em "Aprovações"; demais em "Solicitar".
   useEffect(() => {
-    if (tabInit.current || config.length === 0) return;
+    if (tabInit.current) return;
+    if (config.length === 0 && !isAdmin) return;
     tabInit.current = true;
     if (isApprover) setTab("aprov");
-  }, [config, isApprover]);
+  }, [config, isApprover, isAdmin]);
 
   function refresh() { loadRequests(companyId); loadAll(companyId); }
 
@@ -250,6 +251,23 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   );
 }
 
+function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
+  const [over, setOver] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); const fs = Array.from(e.dataTransfer.files); if (fs.length) onFiles(fs); }}
+      onClick={() => ref.current?.click()}
+      style={{ border: `1.5px dashed ${over ? "var(--roxo)" : "var(--line)"}`, background: over ? "rgba(146,80,172,.07)" : "var(--surface)", borderRadius: 10, padding: "16px", textAlign: "center", cursor: "pointer", fontSize: 13, color: over ? "var(--roxo)" : "var(--txt-soft)" }}
+    >
+      📎 Arraste um PDF/arquivo aqui ou clique para anexar
+      <input ref={ref} type="file" hidden multiple onChange={(e) => { const fs = Array.from(e.target.files || []); if (fs.length) onFiles(fs); e.currentTarget.value = ""; }} />
+    </div>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ background: "var(--col)", borderRadius: "var(--r-card)", padding: "12px 18px", minWidth: 130 }}>
@@ -271,6 +289,7 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   const [categoria, setCategoria] = useState("");
   const [recorrencia, setRecorrencia] = useState("unica");
   const [docNumero, setDocNumero] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -286,8 +305,16 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
       body: JSON.stringify({ companyId, kind, spaceId, areaName: area.name, credorId: credorId || null, descricao, valor: Number(valor), vencimento: vencimento || null, formaPagamento: forma, categoria: categoria || null, recorrencia, docNumero: docNumero || null }),
     });
     const d = await res.json();
-    setBusy(false);
-    if (res.ok) onCreated(); else setErr(d.error || "Erro ao criar.");
+    if (res.ok) {
+      if (files.length && d.request?.id) {
+        for (const f of files) {
+          const fd = new FormData(); fd.append("file", f); fd.append("tag", kind === "reembolso" ? "comprovante" : "nf");
+          await fetch(`/api/finance/requests/${d.request.id}/upload`, { method: "POST", body: fd }).catch(() => {});
+        }
+      }
+      setBusy(false);
+      onCreated();
+    } else { setBusy(false); setErr(d.error || "Erro ao criar."); }
   }
 
   return (
@@ -302,7 +329,20 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
         <Field label="Recorrência"><select className="fx-input" value={recorrencia} onChange={(e) => setRecorrencia(e.target.value)}><option value="unica">Única</option><option value="mensal">Mensal</option></select></Field></Row>
       <Row><Field label="Categoria (sugerida)"><select className="fx-input" value={categoria} onChange={(e) => setCategoria(e.target.value)}><option value="">—</option>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
         <Field label="Nº documento / NF"><input className="fx-input" value={docNumero} onChange={(e) => setDocNumero(e.target.value)} /></Field></Row>
-      <p style={{ fontSize: 12, color: "var(--txt-faint)", margin: "4px 0 0" }}>Acima de R$ 400 (padrão), o gestor vai exigir cotações ou dispensa. Anexos (NF, comprovante, cotação) você adiciona depois de criar, abrindo a solicitação.</p>
+      <div style={{ marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 5 }}>Documentos (NF, boleto, comprovante) — opcional</div>
+        <DropZone onFiles={(fs) => setFiles((prev) => [...prev, ...fs])} />
+        {files.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            {files.map((f, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, background: "var(--col)", borderRadius: 999, padding: "3px 6px 3px 11px" }}>
+                {f.name}<button onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--txt-faint)" }}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <p style={{ fontSize: 12, color: "var(--txt-faint)", margin: "8px 0 0" }}>Acima de R$ 400 (padrão), o gestor vai exigir cotações ou dispensa.</p>
       {err && <p style={{ color: "var(--coral-deep)", fontSize: 13 }}>{err}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <button className="fx-btn fx-btn-primary" disabled={busy} onClick={submit}>Enviar solicitação</button>
@@ -326,7 +366,6 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
   const [conta, setConta] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
   const [tag, setTag] = useState("nf");
 
   const load = useCallback(() => {
@@ -344,9 +383,11 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
     const d = await res.json(); setBusy(false);
     if (res.ok) { setNote(""); load(); onChanged(); } else setErr(d.error || "Erro.");
   }
-  async function upload(f: File) {
-    const fd = new FormData(); fd.append("file", f); fd.append("tag", tag);
-    await fetch(`/api/finance/requests/${id}/upload`, { method: "POST", body: fd });
+  async function upload(files: File[]) {
+    for (const f of files) {
+      const fd = new FormData(); fd.append("file", f); fd.append("tag", tag);
+      await fetch(`/api/finance/requests/${id}/upload`, { method: "POST", body: fd });
+    }
     load();
   }
 
@@ -381,13 +422,13 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
       {/* Anexos */}
       <Section title="Documentos">
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-          <select className="fx-input" value={tag} onChange={(e) => setTag(e.target.value)} style={{ maxWidth: 140 }}>
+          <span style={{ fontSize: 12, color: "var(--txt-soft)" }}>Tipo:</span>
+          <select className="fx-input" value={tag} onChange={(e) => setTag(e.target.value)} style={{ maxWidth: 150 }}>
             <option value="nf">NF</option><option value="boleto">Boleto</option><option value="comprovante">Comprovante</option><option value="cotacao">Cotação</option><option value="outro">Outro</option>
           </select>
-          <button className="fx-btn" onClick={() => fileRef.current?.click()}>📎 Anexar</button>
-          <input ref={fileRef} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.currentTarget.value = ""; }} />
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <DropZone onFiles={(fs) => upload(fs)} />
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
           {atts.map((a) => (
             <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, padding: "5px 10px", border: "1px solid var(--line)", borderRadius: 8, textDecoration: "none", color: "var(--txt)", background: "var(--col)" }}>
               {a.tag ? `[${a.tag}] ` : ""}{a.filename}
