@@ -24,6 +24,19 @@ export async function POST(req: Request) {
   if (!["gestor", "financeiro", "pagador"].includes(role)) return NextResponse.json({ error: "Papel inválido." }, { status: 400 });
   if (role === "gestor" && !spaceId) return NextResponse.json({ error: "Gestor precisa de área." }, { status: 400 });
 
+  // O usuário precisa ser da empresa (ou owner/admin, que atuam em qualquer empresa).
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true, role: true } });
+  if (!target || (target.companyId !== companyId && target.role !== "owner" && target.role !== "admin")) {
+    return NextResponse.json({ error: "Essa pessoa não é da empresa." }, { status: 400 });
+  }
+  // A área (espaço) precisa pertencer à empresa.
+  if (role === "gestor") {
+    const sp = await prisma.space.findUnique({ where: { id: spaceId }, select: { workspace: { select: { companyId: true } } } });
+    if (!sp || sp.workspace.companyId !== companyId) {
+      return NextResponse.json({ error: "Área não pertence a esta empresa." }, { status: 400 });
+    }
+  }
+
   const dup = await prisma.approverConfig.findFirst({ where: { companyId, role, userId, spaceId: role === "gestor" ? spaceId : null } });
   if (dup) return NextResponse.json({ config: dup });
 

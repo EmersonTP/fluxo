@@ -394,6 +394,10 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
     const d = await res.json(); setBusy(false);
     if (res.ok) { setNote(""); load(); onChanged(); } else setErr(d.error || "Erro.");
   }
+  function recusar() {
+    if (!note.trim()) { setErr("Informe o motivo da recusa no campo de observação abaixo."); return; }
+    act("recusar");
+  }
   async function upload(files: File[]) {
     for (const f of files) {
       const fd = new FormData(); fd.append("file", f); fd.append("tag", tag);
@@ -463,7 +467,7 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
           </Grid2>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <button className="fx-btn fx-btn-primary" disabled={busy} onClick={() => act("aprovar_gestor", { categoria: cat, centroCusto: cc, classeGerencial: cg })}>Aprovar e enviar ao financeiro</button>
-            <button className="fx-btn" style={{ color: "var(--coral-deep)" }} disabled={busy} onClick={() => act("recusar")}>Recusar</button>
+            <button className="fx-btn" style={{ color: "var(--coral-deep)" }} disabled={busy} onClick={recusar}>Recusar</button>
           </div>
         </Section>
       )}
@@ -472,7 +476,7 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
           <Field label="Conta de origem (de qual conta sai)"><input className="fx-input" value={conta} onChange={(e) => setConta(e.target.value)} placeholder="ex.: Inter PJ / Cora" /></Field>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <button className="fx-btn fx-btn-primary" disabled={busy} onClick={() => act("conferir", { contaOrigem: conta })}>Conferir e enviar ao pagador</button>
-            <button className="fx-btn" style={{ color: "var(--coral-deep)" }} disabled={busy} onClick={() => act("recusar")}>Recusar</button>
+            <button className="fx-btn" style={{ color: "var(--coral-deep)" }} disabled={busy} onClick={recusar}>Recusar</button>
           </div>
         </Section>
       )}
@@ -480,7 +484,7 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
         <Section title="Pagamento (sócio)">
           <div style={{ display: "flex", gap: 8 }}>
             <button className="fx-btn fx-btn-primary" disabled={busy} onClick={() => act("pagar")}>Marcar como PAGO</button>
-            <button className="fx-btn" style={{ color: "var(--coral-deep)" }} disabled={busy} onClick={() => act("recusar")}>Recusar</button>
+            <button className="fx-btn" style={{ color: "var(--coral-deep)" }} disabled={busy} onClick={recusar}>Recusar</button>
           </div>
         </Section>
       )}
