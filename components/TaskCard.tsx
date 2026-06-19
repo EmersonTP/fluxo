@@ -8,11 +8,13 @@ export function TaskCard({
   onOpen,
   onPointerDown,
   showList,
+  dragging,
 }: {
   task: TaskT;
   onOpen: (id: string) => void;
   onPointerDown?: (e: React.PointerEvent) => void;
   showList?: string;
+  dragging?: boolean;
 }) {
   const prio = priorityMeta(task.priority);
   const bar = task.status?.color || "var(--roxo)";
@@ -23,7 +25,13 @@ export function TaskCard({
       className="fx-card"
       onPointerDown={onPointerDown}
       onClick={onPointerDown ? undefined : () => onOpen(task.id)}
-      style={{ ["--bar" as any]: bar, userSelect: "none", touchAction: "none" }}
+      style={{
+        ["--bar" as any]: bar,
+        userSelect: "none",
+        touchAction: "none",
+        cursor: onPointerDown ? "grab" : "pointer",
+        ...(dragging ? { opacity: 0.4, borderStyle: "dashed", borderColor: "var(--roxo)" } : {}),
+      }}
     >
       <div className="fx-card-title">{task.name}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>

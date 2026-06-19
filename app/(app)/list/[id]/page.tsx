@@ -111,6 +111,23 @@ function ListPageInner({ params }: { params: { id: string } }) {
     });
   }
 
+  async function reorderColumn(statusId: string, orderedIds: string[]) {
+    const st = data?.statuses.find((s) => s.id === statusId) || null;
+    setData((prev) => {
+      if (!prev) return prev;
+      const idxMap = new Map(orderedIds.map((id, i) => [id, i] as const));
+      const tasks = prev.tasks
+        .map((t) => (idxMap.has(t.id) ? { ...t, statusId, status: st, order: (idxMap.get(t.id) as number) * 100 } : t))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      return { ...prev, tasks };
+    });
+    await fetch(`/api/lists/${params.id}/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statusId, orderedIds }),
+    });
+  }
+
   async function addTaskTop() {
     if (!data) return;
     const res = await fetch("/api/tasks", {
@@ -217,7 +234,7 @@ function ListPageInner({ params }: { params: { id: string } }) {
       </div>
 
       {view === "board" ? (
-        <BoardView list={data} tasks={filtered} onMove={moveTask} onOpen={setOpenTask} onCreated={load} />
+        <BoardView list={data} tasks={filtered} onReorder={reorderColumn} onOpen={setOpenTask} onCreated={load} />
       ) : view === "list" ? (
         <ListView list={data} tasks={filtered} members={members} onOpen={setOpenTask} onCreated={load} onMove={moveTask} onSetPriority={setPriority} onPatch={patchTaskFields} />
       ) : (
@@ -244,39 +261,55 @@ function ListPageInner({ params }: { params: { id: string } }) {
 function BoardView({
   list,
   tasks,
-  onMove,
+  onReorder,
   onOpen,
   onCreated,
 }: {
   list: ListDetail;
   tasks: TaskT[];
-  onMove: (taskId: string, statusId: string) => void;
+  onReorder: (statusId: string, orderedIds: string[]) => void;
   onOpen: (id: string) => void;
   onCreated: () => void;
 }) {
   const statuses = list.statuses.length ? list.statuses : [{ id: "none", name: "Sem status", color: "#a3a3a3", order: 0, type: "open" }];
-  const [drag, setDrag] = useState<{ taskId: string; name: string; x: number; y: number } | null>(null);
+  const [drag, setDrag] = useState<{ taskId: string; name: string; color: string; x: number; y: number } | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
   const overRef = useRef<string | null>(null);
+  const idxRef = useRef<number>(0);
 
   function handleCardPointerDown(e: React.PointerEvent, task: TaskT) {
     if (e.button !== 0 && e.pointerType === "mouse") return;
     const startX = e.clientX;
     const startY = e.clientY;
+    const color = task.status?.color || "#9250ac";
     let started = false;
     function move(ev: PointerEvent) {
       if (!started && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 6) {
         started = true;
         document.body.style.userSelect = "none";
+        document.body.style.cursor = "grabbing";
       }
       if (started) {
         ev.preventDefault();
-        setDrag({ taskId: task.id, name: task.name, x: ev.clientX, y: ev.clientY });
+        setDrag({ taskId: task.id, name: task.name, color, x: ev.clientX, y: ev.clientY });
         const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
         const col = el?.closest("[data-status]") as HTMLElement | null;
         const sid = col?.getAttribute("data-status") || null;
         overRef.current = sid;
         setOverCol(sid);
+        // posição de inserção entre os cartões visíveis (já sem o que está sendo arrastado)
+        let idx = 0;
+        if (col) {
+          const cards = Array.from(col.querySelectorAll("[data-card-id]")) as HTMLElement[];
+          idx = cards.length;
+          for (let i = 0; i < cards.length; i++) {
+            const r = cards[i].getBoundingClientRect();
+            if (ev.clientY < r.top + r.height / 2) { idx = i; break; }
+          }
+        }
+        idxRef.current = idx;
+        setOverIdx(idx);
       }
     }
     function up() {
@@ -284,11 +317,18 @@ function BoardView({
       document.removeEventListener("pointerup", up);
       document.removeEventListener("pointercancel", up);
       document.body.style.userSelect = "";
+      document.body.style.cursor = "";
       if (started) {
         const target = overRef.current;
+        const idx = idxRef.current;
         setDrag(null);
         setOverCol(null);
-        if (target && target !== "none" && target !== (task.statusId || "none")) onMove(task.id, target);
+        setOverIdx(null);
+        if (target && target !== "none") {
+          const ids = tasks.filter((t) => (t.statusId || "none") === target && t.id !== task.id).map((t) => t.id);
+          ids.splice(Math.min(idx, ids.length), 0, task.id);
+          onReorder(target, ids);
+        }
       } else {
         onOpen(task.id);
       }
@@ -303,6 +343,8 @@ function BoardView({
     <div className="fx-board scrollbar-thin">
       {statuses.map((st) => {
         const colTasks = tasks.filter((t) => (t.statusId || "none") === st.id);
+        const visible = drag ? colTasks.filter((t) => t.id !== drag.taskId) : colTasks;
+        const lineAt = drag && overCol === st.id ? (overIdx ?? visible.length) : -1;
         return (
           <div key={st.id} className="fx-col" data-status={st.id}>
             <div className="fx-colhead">
@@ -311,9 +353,18 @@ function BoardView({
               <span className="fx-colcount">{colTasks.length}</span>
             </div>
             <div className={`fx-colbody scrollbar-thin ${drag && overCol === st.id ? "drag-over" : ""}`}>
-              {colTasks.map((t) => (
-                <TaskCard key={t.id} task={t} onOpen={onOpen} onPointerDown={(e) => handleCardPointerDown(e, t)} />
+              {visible.map((t, i) => (
+                <div key={t.id} data-card-id={t.id}>
+                  {lineAt === i && <div className="fx-dropline" style={{ background: st.color }} />}
+                  <TaskCard task={t} onOpen={onOpen} onPointerDown={(e) => handleCardPointerDown(e, t)} />
+                </div>
               ))}
+              {lineAt === visible.length && <div className="fx-dropline" style={{ background: st.color }} />}
+              {drag && overCol === st.id && visible.length === 0 && (
+                <div style={{ border: `2px dashed ${st.color}`, borderRadius: 10, padding: "14px 12px", textAlign: "center", fontSize: 12.5, fontWeight: 600, color: st.color, background: st.color + "10" }}>
+                  Soltar aqui
+                </div>
+              )}
             </div>
             {st.id !== "none" && <QuickAdd listId={list.id} statusId={st.id} onCreated={onCreated} />}
           </div>
@@ -323,19 +374,23 @@ function BoardView({
         <div
           style={{
             position: "fixed",
-            left: drag.x + 10,
-            top: drag.y + 10,
+            left: drag.x + 12,
+            top: drag.y - 6,
             zIndex: 1000,
             pointerEvents: "none",
+            width: 240,
             background: "var(--surface)",
-            border: "1px solid var(--roxo)",
             borderRadius: 10,
-            padding: "8px 12px",
+            borderLeft: `4px solid ${drag.color}`,
+            border: "1px solid var(--line)",
+            borderLeftWidth: 4,
+            borderLeftColor: drag.color,
+            padding: "10px 12px",
             fontSize: 13,
             fontWeight: 500,
             color: "var(--txt)",
-            boxShadow: "var(--shadow-hover)",
-            maxWidth: 240,
+            boxShadow: "0 12px 28px rgba(0,0,0,.22)",
+            transform: "rotate(2.5deg)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",

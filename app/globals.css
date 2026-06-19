@@ -361,6 +361,12 @@ body {
   align-items: flex-start;
   flex: 1;
 }
+.fx-dropline {
+  height: 3px;
+  border-radius: 3px;
+  margin: 3px 4px 6px;
+  opacity: 0.9;
+}
 .fx-col {
   flex: 0 0 282px;
   background: var(--col);
