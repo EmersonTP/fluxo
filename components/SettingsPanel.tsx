@@ -174,7 +174,7 @@ export default function SettingsPanel({
 
         <Section title="Conectar ao Claude (IA por comando)">
           <p style={{ fontSize: 13.5, color: "var(--txt-soft)", margin: 0 }}>
-            Gere seu token pessoal e adicione como conector no Claude. Assim você pede pro Claude criar/mover/buscar tarefas — e ele age <b>como você</b>, respeitando o que você tem acesso.
+            Essa é a <b>sua chave pessoal</b> — todo mundo do time gera a sua aqui, você <b>não</b> precisa de chave do admin. Adicione a URL como conector no Claude e peça pra ele criar/mover/buscar tarefas: ele age <b>como você</b>, respeitando só o que você tem acesso.
           </p>
           {!token ? (
             <button className="fx-btn fx-btn-primary" onClick={genToken}>Gerar meu token</button>
@@ -206,6 +206,8 @@ export default function SettingsPanel({
             </Link>
           </Section>
         )}
+
+        {isAdmin && <AdminActivity />}
       </div>
     </>
   );
@@ -237,5 +239,85 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ width: 18, height: 18, accentColor: "var(--roxo)" }} />
       {label}
     </label>
+  );
+}
+
+type Act = {
+  id: string;
+  type: string;
+  text: string;
+  createdAt: string;
+  user?: { id: string; name: string; color: string } | null;
+  task?: { id: string; name: string; listId: string; list?: { name: string } | null } | null;
+};
+type Mem = { id: string; name: string };
+
+const ACT_ICON: Record<string, string> = {
+  created: "✨", renamed: "✏️", status: "🔄", priority: "🚩", assignees: "👤", due: "📅", moved: "↔️", comment: "💬",
+};
+
+function timeAgo(iso: string) {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "agora";
+  if (s < 3600) return `há ${Math.floor(s / 60)} min`;
+  if (s < 86400) return `há ${Math.floor(s / 3600)} h`;
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function AdminActivity() {
+  const [acts, setActs] = useState<Act[]>([]);
+  const [members, setMembers] = useState<Mem[]>([]);
+  const [filter, setFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  function load(userId = "") {
+    setLoading(true);
+    fetch(`/api/admin/activity${userId ? `?user=${userId}` : ""}`)
+      .then((r) => r.json())
+      .then((d) => setActs(d.activities || []))
+      .finally(() => setLoading(false));
+  }
+  useEffect(() => {
+    load();
+    fetch("/api/members").then((r) => r.json()).then((d) => setMembers(d.members || []));
+  }, []);
+
+  return (
+    <Section title="Atividade da equipe (quem está mexendo)">
+      <p style={{ fontSize: 13.5, color: "var(--txt-soft)", margin: 0 }}>
+        Acompanhe o que cada pessoa fez nos espaços: criou, moveu, mudou status, comentou…
+      </p>
+      <div style={{ width: "100%" }}>
+        <select
+          className="fx-input"
+          value={filter}
+          onChange={(e) => { setFilter(e.target.value); load(e.target.value); }}
+          style={{ maxWidth: 240 }}
+        >
+          <option value="">Todas as pessoas</option>
+          {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      </div>
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 2, maxHeight: 360, overflowY: "auto" }}>
+        {loading && <p style={{ fontSize: 13, color: "var(--txt-faint)" }}>Carregando…</p>}
+        {!loading && acts.length === 0 && <p style={{ fontSize: 13, color: "var(--txt-faint)" }}>Nenhuma atividade ainda.</p>}
+        {acts.map((a) => (
+          <a
+            key={a.id}
+            href={a.task ? `/list/${a.task.listId}?task=${a.task.id}` : "#"}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--line)", textDecoration: "none", color: "inherit", fontSize: 13.5 }}
+          >
+            <span className="fx-avatar" style={{ background: a.user?.color || "var(--roxo)", width: 24, height: 24, fontSize: 10, flexShrink: 0 }}>
+              {(a.user?.name || "?").charAt(0).toUpperCase()}
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <b>{a.user?.name || "Alguém"}</b> {ACT_ICON[a.type] || "•"} {a.text}
+              {a.task && <span style={{ color: "var(--txt-faint)" }}> · {a.task.name}</span>}
+            </span>
+            <span style={{ fontSize: 11.5, color: "var(--txt-faint)", flexShrink: 0 }}>{timeAgo(a.createdAt)}</span>
+          </a>
+        ))}
+      </div>
+    </Section>
   );
 }
