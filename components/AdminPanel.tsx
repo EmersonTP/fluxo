@@ -24,6 +24,8 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [openCompany, setOpenCompany] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [addingUser, setAddingUser] = useState(false);
+  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "member", companyId: "" });
 
   // ClickUp import
   const [token, setToken] = useState("");
@@ -119,6 +121,24 @@ export default function AdminPanel() {
     const data = await res.json();
     if (data.user) setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data.user } : u)));
     else if (data.error) alert(data.error);
+  }
+
+  async function createUser() {
+    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.password) {
+      alert("Preencha nome, e-mail e senha.");
+      return;
+    }
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newUser),
+    });
+    const data = await res.json();
+    if (data.user) {
+      setNewUser({ name: "", email: "", password: "", role: "member", companyId: "" });
+      setAddingUser(false);
+      load();
+    } else alert(data.error || "Não foi possível adicionar.");
   }
 
   async function resetPassword(u: AdminUser) {
@@ -246,6 +266,31 @@ export default function AdminPanel() {
       )}
 
       {!loading && tab === "users" && (
+        <>
+        <div className="mb-4">
+          {!addingUser ? (
+            <button onClick={() => setAddingUser(true)} className="bg-brand-600 text-white rounded-lg px-4 py-2 text-sm">+ Adicionar pessoa</button>
+          ) : (
+            <div className="bg-white rounded-xl border border-neutral-200 p-4 flex flex-wrap gap-2 items-end">
+              <div><div className="text-xs text-neutral-500 mb-1">Nome</div><input className="border border-neutral-300 rounded-md px-2 py-1.5 text-sm" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} /></div>
+              <div><div className="text-xs text-neutral-500 mb-1">E-mail</div><input className="border border-neutral-300 rounded-md px-2 py-1.5 text-sm" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} /></div>
+              <div><div className="text-xs text-neutral-500 mb-1">Senha</div><input className="border border-neutral-300 rounded-md px-2 py-1.5 text-sm" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /></div>
+              <div><div className="text-xs text-neutral-500 mb-1">Empresa</div>
+                <select className="border border-neutral-300 rounded-md px-2 py-1.5 text-sm" value={newUser.companyId} onChange={(e) => setNewUser({ ...newUser, companyId: e.target.value })}>
+                  <option value="">— sem empresa —</option>
+                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div><div className="text-xs text-neutral-500 mb-1">Papel</div>
+                <select className="border border-neutral-300 rounded-md px-2 py-1.5 text-sm" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
+                  {Object.entries(ROLE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <button onClick={createUser} className="bg-brand-600 text-white rounded-md px-3 py-1.5 text-sm">Adicionar</button>
+              <button onClick={() => setAddingUser(false)} className="border border-neutral-300 rounded-md px-3 py-1.5 text-sm">Cancelar</button>
+            </div>
+          )}
+        </div>
         <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-neutral-50 text-neutral-500 text-xs uppercase">
@@ -331,6 +376,7 @@ export default function AdminPanel() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {!loading && tab === "import" && (

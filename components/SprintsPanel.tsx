@@ -29,6 +29,8 @@ export default function SprintsPanel() {
   const [form, setForm] = useState({ name: "", startDate: "", endDate: "", goal: "", companyId: "" });
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editVal, setEditVal] = useState("");
 
   function load() {
     setLoading(true);
@@ -57,6 +59,18 @@ export default function SprintsPanel() {
       setCreating(false);
       load();
     } else alert(d.error || "Erro ao criar sprint.");
+  }
+
+  async function renameSprint(id: string) {
+    const name = editVal.trim();
+    setEditingId(null);
+    if (!name) return;
+    setSprints((prev) => prev.map((s) => (s.id === id ? { ...s, name } : s)));
+    await fetch(`/api/sprints/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
   }
 
   async function removeSprint(s: Sprint) {
@@ -113,7 +127,25 @@ export default function SprintsPanel() {
               <div key={s.id} style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--r-card)", overflow: "hidden" }}>
                 <div style={{ padding: "16px 18px", cursor: "pointer" }} onClick={() => setOpenId(open ? null : s.id)}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="serif" style={{ fontSize: 17, fontWeight: 500, flex: 1 }}>{s.name}</span>
+                    {editingId === s.id ? (
+                      <input
+                        autoFocus
+                        className="fx-input"
+                        style={{ flex: 1, fontSize: 16 }}
+                        value={editVal}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setEditVal(e.target.value)}
+                        onBlur={() => renameSprint(s.id)}
+                        onKeyDown={(e) => { if (e.key === "Enter") renameSprint(s.id); if (e.key === "Escape") setEditingId(null); }}
+                      />
+                    ) : (
+                      <span
+                        className="serif"
+                        style={{ fontSize: 17, fontWeight: 500, flex: 1 }}
+                        title="Duplo-clique para renomear"
+                        onDoubleClick={(e) => { e.stopPropagation(); setEditingId(s.id); setEditVal(s.name); }}
+                      >{s.name}</span>
+                    )}
                     {companies.length > 0 && s.company && <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{s.company.name}</span>}
                     <span style={{ fontSize: 12.5, color: "var(--txt-soft)" }}>{fmt(s.startDate)} – {fmt(s.endDate)}</span>
                     <button onClick={(e) => { e.stopPropagation(); removeSprint(s); }} style={{ background: "none", border: "none", color: "var(--txt-faint)", cursor: "pointer", fontSize: 12 }}>excluir</button>

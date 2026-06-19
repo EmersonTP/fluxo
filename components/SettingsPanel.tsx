@@ -26,14 +26,29 @@ export default function SettingsPanel({
   const [notif, setNotif] = useState({ assigned: true, mentions: true, daily: false });
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [token, setToken] = useState<string | null>(null);
+  const [origin, setOrigin] = useState("");
 
   useEffect(() => {
     try {
       setDark(localStorage.getItem("fluxo:theme") === "dark");
       const n = localStorage.getItem("fluxo:notif");
       if (n) setNotif(JSON.parse(n));
+      setOrigin(window.location.origin);
     } catch {}
+    fetch("/api/account/token").then((r) => r.json()).then((d) => setToken(d.token || null)).catch(() => {});
   }, []);
+
+  async function genToken() {
+    const d = await fetch("/api/account/token", { method: "POST" }).then((r) => r.json());
+    setToken(d.token);
+  }
+  async function revokeToken() {
+    if (!confirm("Revogar seu token? O conector do Claude vai parar de funcionar até você gerar outro.")) return;
+    await fetch("/api/account/token", { method: "DELETE" });
+    setToken(null);
+  }
+  const connectorUrl = token ? `${origin}/api/mcp?key=${token}` : "";
 
   function flash(setter: (v: string) => void, text: string) {
     setter(text);
@@ -155,6 +170,30 @@ export default function SettingsPanel({
           <button className="fx-btn" onClick={toggleTheme}>
             {dark ? "☀️ Mudar para modo claro" : "🌙 Mudar para modo escuro"}
           </button>
+        </Section>
+
+        <Section title="Conectar ao Claude (IA por comando)">
+          <p style={{ fontSize: 13.5, color: "var(--txt-soft)", margin: 0 }}>
+            Gere seu token pessoal e adicione como conector no Claude. Assim você pede pro Claude criar/mover/buscar tarefas — e ele age <b>como você</b>, respeitando o que você tem acesso.
+          </p>
+          {!token ? (
+            <button className="fx-btn fx-btn-primary" onClick={genToken}>Gerar meu token</button>
+          ) : (
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 12, color: "var(--txt-soft)" }}>Sua URL de conector (cole no Claude → Conectores → Adicionar conector personalizado):</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input className="fx-input" readOnly value={connectorUrl} onFocus={(e) => e.currentTarget.select()} style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }} />
+                <button className="fx-btn" onClick={() => navigator.clipboard?.writeText(connectorUrl)}>Copiar</button>
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--coral-deep)" }}>
+                ⚠️ Esse link é secreto (é a sua chave). Não compartilhe com ninguém.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="fx-btn" onClick={genToken}>Gerar novo (invalida o atual)</button>
+                <button className="fx-btn" style={{ color: "var(--coral-deep)" }} onClick={revokeToken}>Revogar</button>
+              </div>
+            </div>
+          )}
         </Section>
 
         {isAdmin && (

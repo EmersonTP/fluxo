@@ -364,35 +364,68 @@ function Kebab({ type, id, isPrivate, memberIds, refresh }: { type: "space" | "l
 function WorkspaceNode({ ws, pathname, color, onCreateList, onCreateSpace, isAdmin, refresh }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList; onCreateSpace: (name: string, workspaceId: string) => void | Promise<void>; isAdmin: boolean; refresh: () => void }) {
   const initial = ws.name.charAt(0).toUpperCase();
   const [open, setOpen] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(ws.name);
+  const active = pathname === `/workspace/${ws.id}`;
+  async function save() {
+    setEditing(false);
+    if (val.trim() && val.trim() !== ws.name) {
+      await fetch(`/api/workspaces/${ws.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: val.trim() }) });
+      refresh();
+    }
+  }
   return (
     <div style={{ marginTop: 12, borderRadius: 10, background: color + "12", paddingBottom: open ? 4 : 0 }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", width: "100%", background: "none", border: "none", cursor: "pointer", font: "inherit", textAlign: "left" }}
-        title={open ? "Recolher" : "Expandir"}
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", width: "100%", background: active ? color + "20" : "none", borderRadius: 8 }}
       >
-        <span
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: 6,
-            background: color,
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: 12,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: "0 0 auto",
-          }}
+        {editing ? (
+          <input
+            autoFocus
+            className="fx-input"
+            style={{ fontSize: 12.5, margin: "1px 0", flex: 1 }}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+            onBlur={save}
+          />
+        ) : (
+          <Link
+            href={`/workspace/${ws.id}`}
+            onDoubleClick={(e) => { if (isAdmin) { e.preventDefault(); setVal(ws.name); setEditing(true); } }}
+            style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, textDecoration: "none", cursor: "pointer" }}
+            title={isAdmin ? "Abrir workspace · duplo-clique pra renomear" : "Abrir workspace"}
+          >
+            <span
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                background: color,
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 12,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto",
+              }}
+            >
+              {initial}
+            </span>
+            <span style={{ flex: 1, fontWeight: 600, fontSize: 12.5, color: "var(--txt)", textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {ws.name}
+            </span>
+          </Link>
+        )}
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--txt-faint)", padding: "2px 4px" }}
+          title={open ? "Recolher" : "Expandir"}
         >
-          {initial}
-        </span>
-        <span style={{ flex: 1, fontWeight: 600, fontSize: 12.5, color: "var(--txt)", textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {ws.name}
-        </span>
-        <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{open ? "▾" : "▸"}</span>
-      </button>
+          {open ? "▾" : "▸"}
+        </button>
+      </div>
       {open && (
         <div style={{ borderLeft: `2px solid ${color}`, marginLeft: 20, paddingLeft: 4 }}>
           {ws.spaces.map((sp, i) => (
@@ -500,13 +533,40 @@ function SpaceNode({ sp, pathname, color, onCreateList, isAdmin, refresh }: { sp
 
 function FolderNode({ folder, pathname, onCreateList, isAdmin, refresh }: { folder: SpaceT["folders"][number]; pathname: string; onCreateList: CreateList; isAdmin: boolean; refresh: () => void }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(folder.name);
+  async function save() {
+    setEditing(false);
+    if (val.trim() && val.trim() !== folder.name) {
+      await fetch(`/api/folders/${folder.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: val.trim() }) });
+      refresh();
+    }
+  }
   return (
     <div>
-      <button className="fx-navitem" onClick={() => setOpen(!open)} style={{ fontSize: 13 }}>
-        <span style={{ opacity: 0.6 }}>📁</span>
-        <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{folder.name}</span>
-        <span style={{ fontSize: 11, opacity: 0.5 }}>{open ? "▾" : "▸"}</span>
-      </button>
+      {editing ? (
+        <input
+          autoFocus
+          className="fx-input"
+          style={{ fontSize: 13, margin: "2px 0" }}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+          onBlur={save}
+        />
+      ) : (
+        <button
+          className="fx-navitem"
+          onClick={() => setOpen(!open)}
+          onDoubleClick={() => { if (isAdmin) { setVal(folder.name); setEditing(true); } }}
+          title={isAdmin ? "Duplo-clique para renomear" : undefined}
+          style={{ fontSize: 13 }}
+        >
+          <span style={{ opacity: 0.6 }}>📁</span>
+          <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{folder.name}</span>
+          <span style={{ fontSize: 11, opacity: 0.5 }}>{open ? "▾" : "▸"}</span>
+        </button>
+      )}
       {open && (
         <div style={{ marginLeft: 14, borderLeft: "1px solid var(--line)", paddingLeft: 6 }}>
           {folder.lists.map((l) => (

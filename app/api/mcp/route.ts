@@ -7,8 +7,6 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const KEY = process.env.FLUXO_API_KEY || "";
-
 const TOOLS = [
   { name: "fluxo_list_hierarchy", description: "Lista a estrutura completa: workspaces, spaces, folders e listas (com IDs).", inputSchema: { type: "object", properties: {} } },
   { name: "fluxo_list_tasks", description: "Lista as tarefas de uma lista, com status, responsáveis e tags.", inputSchema: { type: "object", properties: { listId: { type: "string", description: "ID da lista" } }, required: ["listId"] } },
@@ -21,10 +19,10 @@ const TOOLS = [
   { name: "fluxo_list_members", description: "Lista os usuários/membros (com IDs) para usar como responsáveis.", inputSchema: { type: "object", properties: {} } },
 ];
 
-async function api(origin: string, path: string, method = "GET", body?: any) {
+async function api(origin: string, key: string, path: string, method = "GET", body?: any) {
   const res = await fetch(`${origin}${path}`, {
     method,
-    headers: { "x-api-key": KEY, "Content-Type": "application/json" },
+    headers: { "x-api-key": key, "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -38,27 +36,27 @@ async function api(origin: string, path: string, method = "GET", body?: any) {
   return data;
 }
 
-async function callTool(origin: string, name: string, a: any = {}) {
+async function callTool(origin: string, key: string, name: string, a: any = {}) {
   switch (name) {
     case "fluxo_list_hierarchy":
-      return api(origin, "/api/hierarchy");
+      return api(origin, key, "/api/hierarchy");
     case "fluxo_list_tasks":
-      return api(origin, `/api/lists/${a.listId}`);
+      return api(origin, key, `/api/lists/${a.listId}`);
     case "fluxo_search_tasks":
-      return api(origin, `/api/search?q=${encodeURIComponent(a.query)}&limit=${a.limit || 50}`);
+      return api(origin, key, `/api/search?q=${encodeURIComponent(a.query)}&limit=${a.limit || 50}`);
     case "fluxo_get_task":
-      return api(origin, `/api/tasks/${a.taskId}`);
+      return api(origin, key, `/api/tasks/${a.taskId}`);
     case "fluxo_create_task":
-      return api(origin, "/api/tasks", "POST", a);
+      return api(origin, key, "/api/tasks", "POST", a);
     case "fluxo_update_task":
     case "fluxo_move_task": {
       const { taskId, ...body } = a;
-      return api(origin, `/api/tasks/${taskId}`, "PATCH", body);
+      return api(origin, key, `/api/tasks/${taskId}`, "PATCH", body);
     }
     case "fluxo_add_comment":
-      return api(origin, "/api/comments", "POST", a);
+      return api(origin, key, "/api/comments", "POST", a);
     case "fluxo_list_members":
-      return api(origin, "/api/members");
+      return api(origin, key, "/api/members");
     default:
       throw new Error(`Ferramenta desconhecida: ${name}`);
   }
@@ -66,7 +64,7 @@ async function callTool(origin: string, name: string, a: any = {}) {
 
 const SERVER_INFO = { name: "sandra", version: "1.0.0" };
 
-async function handle(msg: any, origin: string, authorized: boolean) {
+async function handle(msg: any, origin: string, key: string) {
   const { id, method, params } = msg || {};
   // Notificações (sem id) não exigem resposta
   if (id === undefined || id === null) return null;
@@ -87,11 +85,11 @@ async function handle(msg: any, origin: string, authorized: boolean) {
     if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
     if (method === "tools/call") {
       // A chave só é exigida pra EXECUTAR ferramentas (acessar dados), não pra conectar
-      if (!authorized) {
-        return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: "Erro: chave de acesso inválida ou ausente na URL do conector (?key=...)." }], isError: true } };
+      if (!key) {
+        return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: "Erro: token ausente na URL do conector (?key=...)." }], isError: true } };
       }
       try {
-        const result = await callTool(origin, params?.name, params?.arguments || {});
+        const result = await callTool(origin, key, params?.name, params?.arguments || {});
         return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } };
       } catch (e: any) {
         return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: `Erro: ${e.message}` }], isError: true } };
@@ -103,32 +101,31 @@ async function handle(msg: any, origin: string, authorized: boolean) {
   }
 }
 
-function authed(req: Request) {
+function reqKey(req: Request) {
   const url = new URL(req.url);
-  const key = url.searchParams.get("key") || req.headers.get("x-api-key") || (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  return !!KEY && key === KEY;
+  return url.searchParams.get("key") || req.headers.get("x-api-key") || (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
 }
 
 export async function POST(req: Request) {
   // NUNCA devolvemos 401 aqui: um 401 faz o Claude achar que é um servidor OAuth e tentar "fazer login".
-  // A conexão (initialize/tools/list) é sempre aberta; a chave só vale na execução de ferramentas.
-  const authorized = authed(req);
+  // A conexão (initialize/tools/list) é sempre aberta; a chave (mestra OU token pessoal) vale na execução.
+  const key = reqKey(req);
   const origin = new URL(req.url).origin;
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ jsonrpc: "2.0", error: { code: -32700, message: "JSON inválido." } }, { status: 400 });
 
   // Suporta uma mensagem ou um lote (array)
   if (Array.isArray(body)) {
-    const out = (await Promise.all(body.map((m) => handle(m, origin, authorized)))).filter(Boolean);
+    const out = (await Promise.all(body.map((m) => handle(m, origin, key)))).filter(Boolean);
     return out.length ? NextResponse.json(out) : new NextResponse(null, { status: 202 });
   }
-  const res = await handle(body, origin, authorized);
+  const res = await handle(body, origin, key);
   return res ? NextResponse.json(res) : new NextResponse(null, { status: 202 });
 }
 
 // Health check (sem 401, pra não acionar fluxo de login no cliente)
 export async function GET(req: Request) {
-  return NextResponse.json({ ok: true, server: SERVER_INFO, authorized: authed(req), tools: TOOLS.map((t) => t.name) });
+  return NextResponse.json({ ok: true, server: SERVER_INFO, hasKey: !!reqKey(req), tools: TOOLS.map((t) => t.name) });
 }
 
 export async function OPTIONS() {

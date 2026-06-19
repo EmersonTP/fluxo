@@ -32,7 +32,21 @@ function ListPageInner({ params }: { params: { id: string } }) {
   const [sortBy, setSortBy] = useState<SortBy>("manual");
   const [filterAssignee, setFilterAssignee] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleVal, setTitleVal] = useState("");
   const { toast, Toast } = useToast();
+
+  async function renameList() {
+    setEditingTitle(false);
+    const v = titleVal.trim();
+    if (!data || !v || v === data.name) return;
+    setData((prev) => (prev ? { ...prev, name: v } : prev));
+    await fetch(`/api/lists/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: v }),
+    });
+  }
 
   useEffect(() => {
     try {
@@ -171,7 +185,26 @@ function ListPageInner({ params }: { params: { id: string } }) {
             {data.space?.name}
             {data.folder ? ` / ${data.folder.name}` : ""}
           </div>
-          <div className="fx-title" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{data.name}</div>
+          {editingTitle ? (
+            <input
+              autoFocus
+              className="fx-input fx-title"
+              style={{ padding: "2px 8px", maxWidth: 360 }}
+              value={titleVal}
+              onChange={(e) => setTitleVal(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") renameList(); if (e.key === "Escape") setEditingTitle(false); }}
+              onBlur={renameList}
+            />
+          ) : (
+            <div
+              className="fx-title"
+              style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "text" }}
+              onDoubleClick={() => { setTitleVal(data.name); setEditingTitle(true); }}
+              title="Duplo-clique para renomear"
+            >
+              {data.name}
+            </div>
+          )}
         </div>
         <div className="fx-search" style={{ position: "relative", flex: "1 1 150px", minWidth: 0, maxWidth: 300, marginLeft: "auto" }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.4 }}>

@@ -8,13 +8,22 @@ import { prisma } from "./prisma";
 // This is what the Fluxo MCP server uses to let Claude operate the tool.
 export async function requireUser(): Promise<SessionUser | NextResponse> {
   const apiKey = headers().get("x-api-key");
-  if (apiKey && process.env.FLUXO_API_KEY && apiKey === process.env.FLUXO_API_KEY) {
-    const owner =
-      (await prisma.user.findFirst({ where: { role: "owner" } })) ||
-      (await prisma.user.findFirst({ orderBy: { createdAt: "asc" } }));
-    if (owner)
-      return { id: owner.id, name: owner.name, email: owner.email, role: owner.role, companyId: owner.companyId };
-    return { id: "system", name: "MCP", email: "mcp@fluxo.app", role: "owner", companyId: null };
+  if (apiKey) {
+    // Chave mestra (FLUXO_API_KEY) → owner (conector "admin")
+    if (process.env.FLUXO_API_KEY && apiKey === process.env.FLUXO_API_KEY) {
+      const owner =
+        (await prisma.user.findFirst({ where: { role: "owner" } })) ||
+        (await prisma.user.findFirst({ orderBy: { createdAt: "asc" } }));
+      if (owner)
+        return { id: owner.id, name: owner.name, email: owner.email, role: owner.role, companyId: owner.companyId };
+      return { id: "system", name: "MCP", email: "mcp@fluxo.app", role: "owner", companyId: null };
+    }
+    // Token pessoal → opera como aquele usuário (com as permissões dele)
+    const u = await prisma.user.findUnique({ where: { mcpToken: apiKey } });
+    if (u && u.status === "active") {
+      return { id: u.id, name: u.name, email: u.email, role: u.role, companyId: u.companyId };
+    }
+    return NextResponse.json({ error: "Chave inválida." }, { status: 401 });
   }
 
   const user = await getSessionUser();
