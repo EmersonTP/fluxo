@@ -2,8 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type Channel = { id: string; name: string; company?: { name: string } | null; _count?: { messages: number } };
-type Msg = { id: string; text: string; createdAt: string; user?: { id: string; name: string; color: string } | null };
+type Member = { id: string; name: string; color: string };
+type Reaction = { id: string; emoji: string; userId: string };
+type Att = { id: string; filename: string; mime: string; size: number };
+type Msg = {
+  id: string;
+  text: string;
+  createdAt: string;
+  editedAt?: string | null;
+  parentId?: string | null;
+  user?: Member | null;
+  reactions: Reaction[];
+  attachments: Att[];
+  _count?: { replies: number };
+};
+type Channel = { id: string; name: string; company?: { name: string } | null; unread?: number };
+type Dm = { id: string; other: Member; unread: number; lastAt: string | null };
+type Active = { id: string; kind: "channel" | "dm"; name: string; sub: string } | null;
+
+const EMOJIS = ["👍", "❤️", "😂", "🎉", "✅", "👀", "🔥", "🙏"];
 
 function dayLabel(d: Date) {
   const today = new Date();
@@ -16,221 +33,417 @@ function dayLabel(d: Date) {
 
 export default function ChatPanel({ meId }: { meId: string }) {
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [active, setActive] = useState<string | null>(null);
+  const [dms, setDms] = useState<Dm[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [active, setActive] = useState<Active>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [newChannel, setNewChannel] = useState("");
   const [creating, setCreating] = useState(false);
+  const [pickPeople, setPickPeople] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; val: string } | null>(null);
+  const [reactFor, setReactFor] = useState<string | null>(null);
+  const [thread, setThread] = useState<Msg | null>(null);
+  const [replies, setReplies] = useState<Msg[]>([]);
+  const [threadText, setThreadText] = useState("");
+  const [mention, setMention] = useState<{ q: string } | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<string | null>(null);
-  const countRef = useRef(0);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const loadChannels = useCallback(() => {
-    fetch("/api/channels")
-      .then((r) => r.json())
-      .then((d) => {
-        setChannels(d.channels || []);
-        if (!activeRef.current && d.channels?.length) {
-          activeRef.current = d.channels[0].id;
-          setActive(d.channels[0].id);
-        }
-      });
+  const loadLists = useCallback(() => {
+    fetch("/api/channels").then((r) => r.json()).then((d) => {
+      setChannels(d.channels || []);
+      if (!activeRef.current && d.channels?.length) {
+        const c = d.channels[0];
+        activeRef.current = c.id;
+        setActive({ id: c.id, kind: "channel", name: c.name, sub: c.company?.name || "Geral" });
+      }
+    });
+    fetch("/api/dm").then((r) => r.json()).then((d) => setDms(d.dms || []));
   }, []);
 
   const loadMessages = useCallback((channelId: string) => {
-    fetch(`/api/channels/${channelId}/messages`)
-      .then((r) => r.json())
-      .then((d) => {
-        const msgs: Msg[] = d.messages || [];
-        if (msgs.length !== countRef.current) {
-          countRef.current = msgs.length;
-          setMessages(msgs);
-        }
-      });
+    fetch(`/api/channels/${channelId}/messages`).then((r) => r.json()).then((d) => setMessages(d.messages || []));
   }, []);
 
   useEffect(() => {
-    loadChannels();
-  }, [loadChannels]);
+    loadLists();
+    fetch("/api/members").then((r) => r.json()).then((d) => setMembers(d.members || []));
+  }, [loadLists]);
 
   useEffect(() => {
     if (!active) return;
-    activeRef.current = active;
-    countRef.current = -1;
-    loadMessages(active);
+    activeRef.current = active.id;
+    loadMessages(active.id);
     const t = setInterval(() => {
-      if (activeRef.current) loadMessages(activeRef.current);
+      if (activeRef.current) {
+        loadMessages(activeRef.current);
+        loadLists();
+      }
     }, 3500);
     return () => clearInterval(t);
-  }, [active, loadMessages]);
+  }, [active, loadMessages, loadLists]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  function openChannel(c: Channel) {
+    setThread(null);
+    setActive({ id: c.id, kind: "channel", name: c.name, sub: c.company?.name || "Geral" });
+    setChannels((cs) => cs.map((x) => (x.id === c.id ? { ...x, unread: 0 } : x)));
+  }
+  async function openDm(userId: string) {
+    setThread(null);
+    setPickPeople(false);
+    const d = await fetch("/api/dm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId }) }).then((r) => r.json());
+    if (d.id) {
+      setActive({ id: d.id, kind: "dm", name: d.other.name, sub: "Mensagem direta" });
+      loadLists();
+    }
+  }
+
   async function send() {
     if (!text.trim() || !active) return;
     const body = text;
     setText("");
-    const res = await fetch(`/api/channels/${active}/messages`, {
+    setMention(null);
+    const d = await fetch(`/api/channels/${active.id}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: body }),
-    });
-    const d = await res.json();
-    if (d.message) {
-      setMessages((m) => [...m, d.message]);
-      countRef.current += 1;
-    }
+    }).then((r) => r.json());
+    if (d.message) setMessages((m) => [...m, d.message]);
   }
 
-  async function createChannel() {
-    if (!newChannel.trim()) return;
-    const res = await fetch("/api/channels", {
+  async function sendReply() {
+    if (!threadText.trim() || !active || !thread) return;
+    const body = threadText;
+    setThreadText("");
+    const d = await fetch(`/api/channels/${active.id}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newChannel }),
-    });
-    const d = await res.json();
-    setNewChannel("");
-    setCreating(false);
-    if (d.channel) {
-      await loadChannels();
-      setActive(d.channel.id);
+      body: JSON.stringify({ text: body, parentId: thread.id }),
+    }).then((r) => r.json());
+    if (d.message) {
+      setReplies((r) => [...r, d.message]);
+      setMessages((m) => m.map((x) => (x.id === thread.id ? { ...x, _count: { replies: (x._count?.replies || 0) + 1 } } : x)));
     }
   }
 
-  const activeChannel = channels.find((c) => c.id === active);
-  const activeName = activeChannel?.name;
+  async function uploadFile(file: File) {
+    if (!active) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    const d = await fetch(`/api/channels/${active.id}/upload`, { method: "POST", body: fd }).then((r) => r.json());
+    if (d.message) setMessages((m) => [...m, d.message]);
+  }
+
+  async function react(msg: Msg, emoji: string, inThread = false) {
+    setReactFor(null);
+    const d = await fetch(`/api/messages/${msg.id}/react`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji }),
+    }).then((r) => r.json());
+    if (d.reactions) {
+      const upd = (arr: Msg[]) => arr.map((x) => (x.id === msg.id ? { ...x, reactions: d.reactions } : x));
+      inThread ? setReplies(upd) : setMessages(upd);
+      if (thread?.id === msg.id) setThread({ ...thread, reactions: d.reactions });
+    }
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    const { id, val } = editing;
+    setEditing(null);
+    if (!val.trim()) return;
+    const d = await fetch(`/api/messages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: val }),
+    }).then((r) => r.json());
+    if (d.message) setMessages((m) => m.map((x) => (x.id === id ? d.message : x)));
+  }
+
+  async function del(id: string, inThread = false) {
+    if (!confirm("Apagar esta mensagem?")) return;
+    await fetch(`/api/messages/${id}`, { method: "DELETE" });
+    if (inThread) setReplies((r) => r.filter((x) => x.id !== id));
+    else setMessages((m) => m.filter((x) => x.id !== id));
+  }
+
+  async function openThread(msg: Msg) {
+    setThread(msg);
+    const d = await fetch(`/api/messages/${msg.id}/replies`).then((r) => r.json());
+    setReplies(d.replies || []);
+  }
+
+  // Autocomplete de @menção
+  function onTextChange(v: string) {
+    setText(v);
+    const m = v.match(/@([\p{L}\d_.-]*)$/u);
+    setMention(m ? { q: m[1].toLowerCase() } : null);
+  }
+  function pickMention(name: string) {
+    const first = name.split(" ")[0];
+    setText((t) => t.replace(/@([\p{L}\d_.-]*)$/u, `@${first} `));
+    setMention(null);
+  }
+  const mentionList = mention ? members.filter((m) => m.name.toLowerCase().includes(mention.q)).slice(0, 6) : [];
 
   return (
     <>
       <div className="fx-topbar">
         <div>
-          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>
-            {activeChannel?.company ? activeChannel.company.name : "Geral"}
-          </div>
-          <div className="fx-title">{activeName ? `# ${activeName}` : "Chat"}</div>
+          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>{active?.sub || "Chat"}</div>
+          <div className="fx-title">{active ? (active.kind === "dm" ? active.name : `# ${active.name}`) : "Chat"}</div>
         </div>
       </div>
       <div className="fx-accent" />
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-        {/* Channels */}
-        <div style={{ width: 220, borderRight: "1px solid var(--line)", overflowY: "auto", padding: "12px 8px", flexShrink: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 8px 8px" }}>
-            <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt-faint)" }}>Canais</span>
-            <button onClick={() => setCreating((s) => !s)} title="Novo canal" style={{ background: "none", border: "none", color: "var(--roxo)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
-              +
-            </button>
-          </div>
+        {/* Sidebar: canais + DMs */}
+        <div style={{ width: 224, borderRight: "1px solid var(--line)", overflowY: "auto", padding: "12px 8px", flexShrink: 0 }}>
+          <Header label="Canais" onAdd={() => setCreating((s) => !s)} />
           {creating && (
             <div style={{ padding: "0 6px 8px" }}>
-              <input
-                className="fx-input"
-                placeholder="nome-do-canal"
-                value={newChannel}
+              <input className="fx-input" placeholder="nome-do-canal" value={newChannel} autoFocus
                 onChange={(e) => setNewChannel(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") createChannel();
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter" && newChannel.trim()) {
+                    const d = await fetch("/api/channels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newChannel }) }).then((r) => r.json());
+                    setNewChannel(""); setCreating(false);
+                    if (d.channel) { loadLists(); openChannel(d.channel); }
+                  }
                   if (e.key === "Escape") setCreating(false);
-                }}
-                autoFocus
-              />
+                }} />
             </div>
           )}
           {channels.map((c) => (
-            <button key={c.id} onClick={() => setActive(c.id)} className={`fx-navitem ${active === c.id ? "active" : ""}`} style={{ fontSize: 13.5 }}>
+            <button key={c.id} onClick={() => openChannel(c)} className={`fx-navitem ${active?.id === c.id ? "active" : ""}`} style={{ fontSize: 13.5 }}>
               <span style={{ opacity: 0.55 }}>#</span>
-              <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{c.name}</span>
-              {c.company && <span style={{ fontSize: 10, color: "var(--txt-faint)" }}>{c.company.name.split(" ")[0]}</span>}
+              <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left", fontWeight: c.unread ? 700 : 400 }}>{c.name}</span>
+              {!!c.unread && <span className="fx-unread">{c.unread}</span>}
             </button>
           ))}
-          {channels.length === 0 && !creating && (
-            <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "8px" }}>Nenhum canal. Crie o primeiro no “+”.</p>
+          {channels.length === 0 && !creating && <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: 8 }}>Nenhum canal ainda.</p>}
+
+          <div style={{ height: 14 }} />
+          <Header label="Mensagens diretas" onAdd={() => setPickPeople((s) => !s)} />
+          {pickPeople && (
+            <div style={{ padding: "0 6px 8px", maxHeight: 220, overflowY: "auto" }}>
+              {members.filter((m) => m.id !== meId).map((m) => (
+                <button key={m.id} onClick={() => openDm(m.id)} className="fx-navitem" style={{ fontSize: 13 }}>
+                  <span className="fx-avatar" style={{ background: m.color, width: 20, height: 20, fontSize: 9 }}>{m.name.charAt(0).toUpperCase()}</span>
+                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{m.name}</span>
+                </button>
+              ))}
+            </div>
           )}
+          {dms.map((d) => (
+            <button key={d.id} onClick={() => { setThread(null); setActive({ id: d.id, kind: "dm", name: d.other.name, sub: "Mensagem direta" }); setDms((xs) => xs.map((x) => x.id === d.id ? { ...x, unread: 0 } : x)); }}
+              className={`fx-navitem ${active?.id === d.id ? "active" : ""}`} style={{ fontSize: 13.5 }}>
+              <span className="fx-avatar" style={{ background: d.other.color, width: 20, height: 20, fontSize: 9 }}>{d.other.name.charAt(0).toUpperCase()}</span>
+              <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left", fontWeight: d.unread ? 700 : 400 }}>{d.other.name}</span>
+              {!!d.unread && <span className="fx-unread">{d.unread}</span>}
+            </button>
+          ))}
+          {dms.length === 0 && !pickPeople && <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: 8 }}>Comece uma conversa no “+”.</p>}
         </div>
 
-        {/* Messages */}
+        {/* Mensagens */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
           <div style={{ flex: 1, overflowY: "auto", padding: "18px 22px" }}>
             {!active && <p style={{ color: "var(--txt-soft)" }}>Selecione ou crie um canal.</p>}
             {active && messages.length === 0 && (
               <div style={{ textAlign: "center", color: "var(--txt-faint)", marginTop: 40 }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
-                <p style={{ fontSize: 14 }}>Seja o primeiro a falar em #{activeName}.</p>
+                <p style={{ fontSize: 14 }}>Seja o primeiro a falar {active.kind === "dm" ? `com ${active.name}` : `em #${active.name}`}.</p>
               </div>
             )}
             {messages.map((m, i) => {
               const prev = messages[i - 1];
               const d = new Date(m.createdAt);
               const newDay = !prev || new Date(prev.createdAt).toDateString() !== d.toDateString();
-              const grouped =
-                !newDay &&
-                prev &&
-                prev.user?.id === m.user?.id &&
-                d.getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
-              const mine = m.user?.id === meId;
               return (
                 <div key={m.id}>
                   {newDay && (
                     <div style={{ textAlign: "center", margin: "16px 0 12px" }}>
-                      <span style={{ fontSize: 11, color: "var(--txt-faint)", background: "var(--col)", padding: "3px 12px", borderRadius: 999 }}>
-                        {dayLabel(d)}
-                      </span>
+                      <span style={{ fontSize: 11, color: "var(--txt-faint)", background: "var(--col)", padding: "3px 12px", borderRadius: 999 }}>{dayLabel(d)}</span>
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 10, marginTop: grouped ? 2 : 10, flexDirection: mine ? "row-reverse" : "row" }}>
-                    <span style={{ width: 32, flexShrink: 0 }}>
-                      {!grouped && (
-                        <span className="fx-avatar" style={{ background: m.user?.color || "var(--roxo)" }}>
-                          {(m.user?.name || "?").charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </span>
-                    <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
-                      {!grouped && (
-                        <div style={{ fontSize: 11, color: "var(--txt-faint)", marginBottom: 3 }}>
-                          {m.user?.name || "Desconhecido"} · {d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      )}
-                      <div
-                        style={{
-                          background: mine ? "var(--roxo)" : "var(--col)",
-                          color: mine ? "#fff" : "var(--txt)",
-                          borderRadius: 12,
-                          padding: "9px 13px",
-                          fontSize: 14,
-                          lineHeight: 1.45,
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {m.text}
-                      </div>
-                    </div>
-                  </div>
+                  <MessageRow
+                    m={m} meId={meId} members={members}
+                    editing={editing} setEditing={setEditing} saveEdit={saveEdit}
+                    reactFor={reactFor} setReactFor={setReactFor} onReact={(e) => react(m, e)}
+                    onDelete={() => del(m.id)} onReply={() => openThread(m)} showThread
+                  />
                 </div>
               );
             })}
             <div ref={bottomRef} />
           </div>
+
           {active && (
-            <div style={{ borderTop: "1px solid var(--line)", padding: "12px 20px", display: "flex", gap: 8 }}>
-              <input
-                className="fx-input"
-                placeholder={`Mensagem em #${activeName}`}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-              />
-              <button className="fx-btn fx-btn-primary" onClick={send}>
-                Enviar
-              </button>
+            <div style={{ borderTop: "1px solid var(--line)", padding: "12px 20px", position: "relative" }}>
+              {mention && mentionList.length > 0 && (
+                <div style={{ position: "absolute", bottom: 58, left: 20, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "var(--shadow-hover)", overflow: "hidden", zIndex: 5, minWidth: 200 }}>
+                  {mentionList.map((m) => (
+                    <button key={m.id} onClick={() => pickMention(m.name)} className="fx-navitem" style={{ width: "100%", fontSize: 13 }}>
+                      <span className="fx-avatar" style={{ background: m.color, width: 20, height: 20, fontSize: 9 }}>{m.name.charAt(0).toUpperCase()}</span>
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button className="fx-btn" title="Anexar arquivo" onClick={() => fileRef.current?.click()} style={{ padding: "8px 11px" }}>📎</button>
+                <input ref={fileRef} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.currentTarget.value = ""; }} />
+                <input className="fx-input" placeholder={active.kind === "dm" ? `Mensagem para ${active.name}` : `Mensagem em #${active.name}  (use @ para mencionar)`}
+                  value={text} onChange={(e) => onTextChange(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
+                <button className="fx-btn fx-btn-primary" onClick={send}>Enviar</button>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Painel de thread */}
+        {thread && (
+          <div style={{ width: 340, borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>Thread</span>
+              <button onClick={() => setThread(null)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--txt-faint)", fontSize: 18 }}>×</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px" }}>
+              <MessageRow m={thread} meId={meId} members={members} editing={editing} setEditing={setEditing} saveEdit={saveEdit}
+                reactFor={reactFor} setReactFor={setReactFor} onReact={(e) => react(thread, e)} onDelete={() => { del(thread.id); setThread(null); }} onReply={() => {}} />
+              <div style={{ borderTop: "1px solid var(--line)", margin: "12px 0", paddingTop: 4, fontSize: 11, color: "var(--txt-faint)" }}>{replies.length} resposta(s)</div>
+              {replies.map((r) => (
+                <MessageRow key={r.id} m={r} meId={meId} members={members} editing={editing} setEditing={setEditing} saveEdit={saveEdit}
+                  reactFor={reactFor} setReactFor={setReactFor} onReact={(e) => react(r, e, true)} onDelete={() => del(r.id, true)} onReply={() => {}} />
+              ))}
+            </div>
+            <div style={{ borderTop: "1px solid var(--line)", padding: "10px 14px", display: "flex", gap: 8 }}>
+              <input className="fx-input" placeholder="Responder…" value={threadText} onChange={(e) => setThreadText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendReply()} />
+              <button className="fx-btn fx-btn-primary" onClick={sendReply}>↑</button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
 }
+
+function Header({ label, onAdd }: { label: string; onAdd: () => void }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 8px 6px" }}>
+      <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt-faint)" }}>{label}</span>
+      <button onClick={onAdd} title={`Novo em ${label}`} style={{ background: "none", border: "none", color: "var(--roxo)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>+</button>
+    </div>
+  );
+}
+
+function renderText(text: string, members: Member[]) {
+  // Realça @menções
+  const parts = text.split(/(@[\p{L}\d_.-]+)/u);
+  return parts.map((p, i) => {
+    if (p.startsWith("@")) {
+      const name = p.slice(1).toLowerCase();
+      const hit = members.some((m) => m.name.split(" ")[0].toLowerCase().startsWith(name));
+      if (hit) return <span key={i} style={{ color: "var(--roxo)", fontWeight: 600 }}>{p}</span>;
+    }
+    return <span key={i}>{p}</span>;
+  });
+}
+
+function MessageRow({
+  m, meId, members, editing, setEditing, saveEdit, reactFor, setReactFor, onReact, onDelete, onReply, showThread,
+}: {
+  m: Msg; meId: string; members: Member[];
+  editing: { id: string; val: string } | null; setEditing: (e: { id: string; val: string } | null) => void; saveEdit: () => void;
+  reactFor: string | null; setReactFor: (id: string | null) => void; onReact: (emoji: string) => void;
+  onDelete: () => void; onReply: () => void; showThread?: boolean;
+}) {
+  const mine = m.user?.id === meId;
+  const d = new Date(m.createdAt);
+  const grouped: Record<string, { emoji: string; mine: boolean; n: number }> = {};
+  for (const r of m.reactions || []) {
+    grouped[r.emoji] = grouped[r.emoji] || { emoji: r.emoji, mine: false, n: 0 };
+    grouped[r.emoji].n++;
+    if (r.userId === meId) grouped[r.emoji].mine = true;
+  }
+
+  return (
+    <div className="fx-msg" style={{ display: "flex", gap: 10, marginTop: 10, position: "relative" }}>
+      <span className="fx-avatar" style={{ background: m.user?.color || "var(--roxo)", flexShrink: 0 }}>{(m.user?.name || "?").charAt(0).toUpperCase()}</span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 11.5, color: "var(--txt-faint)", marginBottom: 3 }}>
+          {m.user?.name || "Desconhecido"} · {d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          {m.editedAt && <span> · editado</span>}
+        </div>
+
+        {editing?.id === m.id ? (
+          <div style={{ display: "flex", gap: 6 }}>
+            <input className="fx-input" autoFocus value={editing.val} onChange={(e) => setEditing({ id: m.id, val: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditing(null); }} onBlur={saveEdit} />
+          </div>
+        ) : (
+          <>
+            {m.text && <div style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "var(--txt)" }}>{renderText(m.text, members)}</div>}
+            {m.attachments?.map((a) => (
+              a.mime.startsWith("image/") ? (
+                <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
+                  <img src={`/api/attachments/${a.id}`} alt={a.filename} style={{ maxWidth: 280, maxHeight: 200, borderRadius: 10, marginTop: 6, border: "1px solid var(--line)" }} />
+                </a>
+              ) : (
+                <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 6, padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13, color: "var(--txt)", textDecoration: "none", background: "var(--col)" }}>
+                  📄 {a.filename}
+                </a>
+              )
+            ))}
+          </>
+        )}
+
+        {/* Reações */}
+        {Object.keys(grouped).length > 0 && (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 6 }}>
+            {Object.values(grouped).map((g) => (
+              <button key={g.emoji} onClick={() => onReact(g.emoji)}
+                style={{ display: "inline-flex", gap: 4, alignItems: "center", fontSize: 12.5, padding: "1px 8px", borderRadius: 999, cursor: "pointer", border: `1px solid ${g.mine ? "var(--roxo)" : "var(--line)"}`, background: g.mine ? "rgba(146,80,172,.12)" : "var(--surface)" }}>
+                {g.emoji} <span style={{ fontSize: 11, color: "var(--txt-soft)" }}>{g.n}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Contador de thread */}
+        {showThread && !!m._count?.replies && (
+          <button onClick={onReply} style={{ marginTop: 6, background: "none", border: "none", color: "var(--roxo)", cursor: "pointer", fontSize: 12.5, fontWeight: 600, padding: 0 }}>
+            💬 {m._count.replies} resposta(s)
+          </button>
+        )}
+      </div>
+
+      {/* Ações no hover */}
+      <div className="fx-msg-actions" style={{ position: "absolute", top: -6, right: 0, display: "flex", gap: 2, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, padding: 2, boxShadow: "var(--shadow-card)" }}>
+        <div style={{ position: "relative" }}>
+          <button title="Reagir" onClick={() => setReactFor(reactFor === m.id ? null : m.id)} style={actBtn}>😀</button>
+          {reactFor === m.id && (
+            <div style={{ position: "absolute", bottom: 28, right: 0, display: "flex", gap: 2, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: 5, boxShadow: "var(--shadow-hover)", zIndex: 6 }}>
+              {EMOJIS.map((e) => <button key={e} onClick={() => onReact(e)} style={{ ...actBtn, fontSize: 16 }}>{e}</button>)}
+            </div>
+          )}
+        </div>
+        {showThread && <button title="Responder" onClick={onReply} style={actBtn}>💬</button>}
+        {mine && <button title="Editar" onClick={() => setEditing({ id: m.id, val: m.text })} style={actBtn}>✏️</button>}
+        {mine && <button title="Apagar" onClick={onDelete} style={actBtn}>🗑️</button>}
+      </div>
+    </div>
+  );
+}
+
+const actBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "3px 5px", borderRadius: 6 };

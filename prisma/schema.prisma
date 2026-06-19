@@ -52,6 +52,9 @@ model User {
   spaceAccess   Space[]       @relation("SpaceMembers")
   listAccess    List[]        @relation("ListMembers")
   activities    Activity[]
+  channelMemberships Channel[]     @relation("ChannelMembers")
+  reactions          Reaction[]
+  channelReads       ChannelRead[]
 }
 
 model Workspace {
@@ -191,10 +194,14 @@ model Attachment {
   storedName String   // unique name on disk / storage key
   createdAt  DateTime @default(now())
 
-  taskId String
-  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  messageId String?
+  message   ChatMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
+  @@index([messageId])
 }
 
 model Tag {
@@ -226,12 +233,15 @@ model Comment {
 model Channel {
   id        String   @id @default(cuid())
   name      String
+  kind      String   @default("channel") // channel | dm
   createdAt DateTime @default(now())
 
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  members  User[]        @relation("ChannelMembers")
   messages ChatMessage[]
+  reads    ChannelRead[]
 
   @@index([companyId])
 }
@@ -240,13 +250,49 @@ model ChatMessage {
   id        String   @id @default(cuid())
   text      String   @db.Text
   createdAt DateTime @default(now())
+  editedAt  DateTime?
 
   channelId String
   channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   userId    String?
   user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  parentId String?
+  parent   ChatMessage?  @relation("MsgThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  ChatMessage[] @relation("MsgThread")
+
+  reactions   Reaction[]
+  attachments Attachment[]
+
   @@index([channelId])
+  @@index([parentId])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  emoji     String
+  createdAt DateTime @default(now())
+
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model ChannelRead {
+  id         String   @id @default(cuid())
+  lastReadAt DateTime @default(now())
+
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([userId])
 }
 
 model Sprint {

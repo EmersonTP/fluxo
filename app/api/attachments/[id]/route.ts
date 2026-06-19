@@ -3,6 +3,7 @@ import { readFile, unlink } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse, canAccessList } from "@/lib/api";
+import { canAccessChannel } from "@/lib/chat";
 import { UPLOAD_DIR } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -11,9 +12,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const user = await requireUser();
   if (isResponse(user)) return user;
 
-  const att = await prisma.attachment.findUnique({ where: { id: params.id }, include: { task: { select: { listId: true } } } });
+  const att = await prisma.attachment.findUnique({
+    where: { id: params.id },
+    include: { task: { select: { listId: true } }, message: { select: { channelId: true } } },
+  });
   if (!att) return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
-  if (!(await canAccessList(user, att.task.listId))) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  const ok = att.task
+    ? await canAccessList(user, att.task.listId)
+    : att.message
+      ? await canAccessChannel(user, att.message.channelId)
+      : false;
+  if (!ok) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
 
   try {
     const data = await readFile(path.join(UPLOAD_DIR, att.storedName));
