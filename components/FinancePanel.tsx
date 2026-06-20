@@ -392,8 +392,134 @@ function CategoriasTab({ companyId, isAdmin }: { companyId: string; isAdmin: boo
   );
 }
 
-/* ---------- Contas a Receber (Iugu) ---------- */
+/* ---------- Contas a Receber ---------- */
 function ContasReceber({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
+  const [prov, setProv] = useState<"inter" | "iugu">("inter");
+  return (
+    <>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {([["inter", "Inter (banco)"], ["iugu", "Iugu (gateway)"]] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setProv(k)} className="fx-btn" style={{ fontWeight: prov === k ? 700 : 400, background: prov === k ? "rgba(146,80,172,.12)" : "var(--surface)" }}>{l}</button>
+        ))}
+      </div>
+      {prov === "inter" ? <InterPanel companyId={companyId} isAdmin={isAdmin} /> : <IuguPanel companyId={companyId} isAdmin={isAdmin} />}
+    </>
+  );
+}
+
+function BRLcents(c: number) { return (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
+
+/* ---------- Inter (banco direto, Pix) ---------- */
+function InterPanel({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+  const [st, setSt] = useState<{ connected: boolean; contaCorrente: string | null; pixKey: string | null; testMode: boolean; lastSyncAt: string | null }>({ connected: false, contaCorrente: null, pixKey: null, testMode: false, lastSyncAt: null });
+  const [recebiveis, setRecebiveis] = useState<{ id: string; descricao: string; valorCents: number; status: string; pixCopiaECola: string | null; createdAt: string }[]>([]);
+  // form de conexão
+  const [f, setF] = useState({ clientId: "", clientSecret: "", certPem: "", keyPem: "", contaCorrente: "", pixKey: "", testMode: true });
+  // form de cobrança
+  const [cob, setCob] = useState({ valorReais: "", descricao: "", devedorNome: "", devedorDoc: "" });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(""); const [err, setErr] = useState("");
+
+  const load = useCallback(() => {
+    setLoaded(false);
+    fetch(`/api/finance/inter?company=${companyId}`).then((r) => r.json()).then((d) => setSt(d)).finally(() => setLoaded(true));
+    fetch(`/api/finance/inter/cobranca?company=${companyId}`).then((r) => r.json()).then((d) => setRecebiveis(d.recebiveis || [])).catch(() => {});
+  }, [companyId]);
+  useEffect(load, [load]);
+
+  async function connect() {
+    setBusy(true); setErr(""); setMsg("");
+    const res = await fetch("/api/finance/inter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...f }) });
+    const d = await res.json(); setBusy(false);
+    if (res.ok) { setF((x) => ({ ...x, clientSecret: "", certPem: "", keyPem: "" })); setMsg(d.webhookRegistered ? "Inter conectado e webhook Pix registrado ✓" : `Inter conectado ✓ (webhook não registrou: ${d.webhookError || "—"})`); load(); }
+    else setErr(d.error || "Não foi possível conectar.");
+  }
+  async function disconnect() {
+    if (!confirm("Desconectar o Inter? Os recebíveis já registrados continuam salvos.")) return;
+    await fetch(`/api/finance/inter?company=${companyId}`, { method: "DELETE" }); load();
+  }
+  async function emitir() {
+    setBusy(true); setErr(""); setMsg("");
+    const res = await fetch("/api/finance/inter/cobranca", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...cob }) });
+    const d = await res.json(); setBusy(false);
+    if (res.ok) { setCob({ valorReais: "", descricao: "", devedorNome: "", devedorDoc: "" }); setMsg("Cobrança Pix criada ✓"); load(); }
+    else setErr(d.error || "Erro ao emitir.");
+  }
+
+  if (!loaded) return <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>;
+
+  return (
+    <>
+      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 14, maxWidth: 640 }}>
+        Recebimento <b>direto no Banco Inter</b> via Pix (mTLS, escopo só de recebimento). A cobrança nasce na Sandra, o cliente paga, e o Inter confirma o pagamento por webhook — o dinheiro cai direto na conta da empresa.
+      </div>
+      {msg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>{msg}</div>}
+      {err && <div style={{ background: "#f3dcd8", color: "#a8332c", border: "1px solid #e4b8b1", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>{err}</div>}
+
+      {st.connected ? (
+        <>
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, maxWidth: 640, background: "var(--surface)", marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#0f6b50" }} />
+              <b style={{ fontSize: 14 }}>Inter conectado</b>
+              {st.testMode && <span style={{ fontSize: 10.5, fontWeight: 700, color: "#b5781f", background: "#f6e7cd", borderRadius: 999, padding: "1px 7px" }}>homologação</span>}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--txt-soft)" }}>Chave Pix: {st.pixKey || "—"} · Conta: {st.contaCorrente || "—"}</div>
+            <div style={{ fontSize: 12.5, color: "var(--txt-faint)", marginTop: 2 }}>Última sincronização: {st.lastSyncAt ? new Date(st.lastSyncAt).toLocaleString("pt-BR") : "ainda sem eventos"}</div>
+            {isAdmin && <button className="fx-btn" style={{ marginTop: 12, color: "var(--coral-deep)" }} onClick={disconnect}>Desconectar</button>}
+          </div>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, maxWidth: 640, marginBottom: 18 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 10 }}>Nova cobrança Pix</div>
+            <Row><Field label="Valor (R$)*"><input className="fx-input" type="number" value={cob.valorReais} onChange={(e) => setCob({ ...cob, valorReais: e.target.value })} /></Field>
+              <Field label="Descrição"><input className="fx-input" value={cob.descricao} onChange={(e) => setCob({ ...cob, descricao: e.target.value })} placeholder="ex.: Mensalidade junho" /></Field></Row>
+            <Row><Field label="Pagador (nome, opcional)"><input className="fx-input" value={cob.devedorNome} onChange={(e) => setCob({ ...cob, devedorNome: e.target.value })} /></Field>
+              <Field label="CPF/CNPJ do pagador (opcional)"><input className="fx-input" value={cob.devedorDoc} onChange={(e) => setCob({ ...cob, devedorDoc: e.target.value })} /></Field></Row>
+            <button className="fx-btn fx-btn-primary" disabled={busy || !Number(cob.valorReais)} onClick={emitir}>{busy ? "Emitindo…" : "Emitir cobrança Pix"}</button>
+          </div>
+
+          <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", marginBottom: 8 }}>Recebíveis</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 720 }}>
+            {recebiveis.length === 0 && <p style={{ color: "var(--txt-faint)" }}>Nenhuma cobrança ainda.</p>}
+            {recebiveis.map((r) => {
+              const tone = r.status === "paga" ? { bg: "#d7ebe2", fg: "#0f6b50" } : r.status === "vencida" ? { bg: "#f3dcd8", fg: "#a8332c" } : { bg: "#f6e7cd", fg: "#b5781f" };
+              return (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 13px", background: "var(--surface)" }}>
+                  <span style={{ flex: 1, fontSize: 13.5 }}>{r.descricao}</span>
+                  {r.pixCopiaECola && r.status !== "paga" && <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => { navigator.clipboard?.writeText(r.pixCopiaECola || ""); setMsg("Pix copia-e-cola copiado ✓"); }}>Copiar Pix</button>}
+                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>{BRLcents(r.valorCents)}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: tone.fg, background: tone.bg, borderRadius: 999, padding: "2px 9px" }}>{r.status}</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : isAdmin ? (
+        <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, maxWidth: 640 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 4 }}>Conectar Banco Inter</div>
+          <p style={{ fontSize: 11.5, color: "var(--txt-faint)", margin: "0 0 12px" }}>No Inter Empresas → Integrações/API, crie uma aplicação com escopos <b>só de cobrança/Pix recebimento</b> (não marque pagamento), baixe o certificado e cole abaixo. Tudo fica guardado só no servidor.</p>
+          <Row><Field label="Client ID"><input className="fx-input" value={f.clientId} onChange={(e) => setF({ ...f, clientId: e.target.value })} autoComplete="off" /></Field>
+            <Field label="Client Secret"><input className="fx-input" type="password" value={f.clientSecret} onChange={(e) => setF({ ...f, clientSecret: e.target.value })} autoComplete="off" /></Field></Row>
+          <Field label="Certificado (.crt — conteúdo PEM)"><textarea className="fx-input" rows={3} value={f.certPem} onChange={(e) => setF({ ...f, certPem: e.target.value })} placeholder="-----BEGIN CERTIFICATE-----" /></Field>
+          <Field label="Chave privada (.key — conteúdo PEM)"><textarea className="fx-input" rows={3} value={f.keyPem} onChange={(e) => setF({ ...f, keyPem: e.target.value })} placeholder="-----BEGIN PRIVATE KEY-----" /></Field>
+          <Row><Field label="Conta corrente (opcional)"><input className="fx-input" value={f.contaCorrente} onChange={(e) => setF({ ...f, contaCorrente: e.target.value })} /></Field>
+            <Field label="Chave Pix de recebimento*"><input className="fx-input" value={f.pixKey} onChange={(e) => setF({ ...f, pixKey: e.target.value })} placeholder="e-mail, CNPJ ou aleatória" /></Field></Row>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--txt-soft)", margin: "4px 0 12px", cursor: "pointer" }}>
+            <input type="checkbox" checked={f.testMode} onChange={(e) => setF({ ...f, testMode: e.target.checked })} style={{ width: 15, height: 15, accentColor: "var(--roxo)" }} />
+            Credenciais de homologação (recomendado pra testar antes)
+          </label>
+          <button className="fx-btn fx-btn-primary" disabled={busy} onClick={connect}>{busy ? "Validando com o Inter…" : "Conectar e validar"}</button>
+        </div>
+      ) : (
+        <p style={{ color: "var(--txt-faint)" }}>O Inter ainda não foi conectado. Peça a um admin.</p>
+      )}
+    </>
+  );
+}
+
+/* ---------- Iugu (gateway) ---------- */
+function IuguPanel({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<{ connected: boolean; accountId: string | null; testMode: boolean; lastSyncAt: string | null }>({ connected: false, accountId: null, testMode: false, lastSyncAt: null });
   const [token, setToken] = useState("");
@@ -414,12 +540,11 @@ function ContasReceber({ companyId, isAdmin }: { companyId: string; isAdmin: boo
     const res = await fetch("/api/finance/iugu", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, apiToken: token.trim(), accountId: accountId.trim() || null, testMode }) });
     const d = await res.json();
     setBusy(false);
-    if (res.ok) { setToken(""); setMsg(d.webhookRegistered ? "Iugu conectada e webhook registrado ✓" : "Iugu conectada ✓ (não consegui registrar o webhook automaticamente — dá pra fazer manual no painel da Iugu)"); load(); }
+    if (res.ok) { setToken(""); setMsg(d.webhookRegistered ? "Iugu conectada e webhook registrado ✓" : "Iugu conectada ✓ (webhook manual no painel da Iugu)"); load(); }
     else setErr(d.error || "Não foi possível conectar.");
   }
-
   async function disconnect() {
-    if (!confirm("Desconectar a Iugu desta empresa? As contas a receber já recebidas continuam salvas.")) return;
+    if (!confirm("Desconectar a Iugu desta empresa?")) return;
     await fetch(`/api/finance/iugu?company=${companyId}`, { method: "DELETE" });
     load();
   }
@@ -428,39 +553,31 @@ function ContasReceber({ companyId, isAdmin }: { companyId: string; isAdmin: boo
 
   return (
     <>
-      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 14, maxWidth: 620 }}>
-        Contas a Receber conecta a <b>Iugu</b> da empresa. Assinaturas e cobranças emitidas pela Sandra geram faturas na Iugu, e a confirmação de pagamento volta automaticamente por webhook.
-      </div>
-
       {msg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>{msg}</div>}
       {err && <div style={{ background: "#f3dcd8", color: "#a8332c", border: "1px solid #e4b8b1", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>{err}</div>}
-
       {status.connected ? (
         <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, maxWidth: 620, background: "var(--surface)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#0f6b50", display: "inline-block" }} />
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#0f6b50" }} />
             <b style={{ fontSize: 14 }}>Iugu conectada</b>
             {status.testMode && <span style={{ fontSize: 10.5, fontWeight: 700, color: "#b5781f", background: "#f6e7cd", borderRadius: 999, padding: "1px 7px" }}>modo teste</span>}
           </div>
           <div style={{ fontSize: 12.5, color: "var(--txt-soft)" }}>Conta: {status.accountId || "—"}</div>
-          <div style={{ fontSize: 12.5, color: "var(--txt-faint)", marginTop: 2 }}>Última sincronização: {status.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString("pt-BR") : "ainda sem eventos"}</div>
-          <div style={{ fontSize: 12.5, color: "var(--txt-faint)", marginTop: 10, lineHeight: 1.5 }}>Em breve: lista de recebíveis (recebido / em aberto / vencido), clientes, planos e assinaturas.</div>
           {isAdmin && <button className="fx-btn" style={{ marginTop: 12, color: "var(--coral-deep)" }} onClick={disconnect}>Desconectar</button>}
         </div>
       ) : isAdmin ? (
         <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, maxWidth: 620 }}>
           <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 10 }}>Conectar Iugu</div>
-          <Field label="API Token (Live ou Test)"><input className="fx-input" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="cole o token da Iugu" autoComplete="off" /></Field>
-          <Field label="Account ID (opcional)"><input className="fx-input" value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="ID da conta na Iugu" /></Field>
+          <Field label="API Token"><input className="fx-input" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="cole o token da Iugu" autoComplete="off" /></Field>
+          <Field label="Account ID (opcional)"><input className="fx-input" value={accountId} onChange={(e) => setAccountId(e.target.value)} /></Field>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--txt-soft)", margin: "4px 0 12px", cursor: "pointer" }}>
             <input type="checkbox" checked={testMode} onChange={(e) => setTestMode(e.target.checked)} style={{ width: 15, height: 15, accentColor: "var(--roxo)" }} />
-            É um token de teste (sandbox)
+            Token de teste (sandbox)
           </label>
-          <p style={{ fontSize: 11.5, color: "var(--txt-faint)", margin: "0 0 12px" }}>O token é guardado apenas no servidor e nunca é exibido de volta. Validamos com a Iugu antes de salvar.</p>
           <button className="fx-btn fx-btn-primary" disabled={busy || token.trim().length < 10} onClick={connect}>{busy ? "Conectando…" : "Conectar e validar"}</button>
         </div>
       ) : (
-        <p style={{ color: "var(--txt-faint)" }}>A Iugu ainda não foi conectada. Peça a um admin para configurar.</p>
+        <p style={{ color: "var(--txt-faint)" }}>A Iugu ainda não foi conectada. Peça a um admin.</p>
       )}
     </>
   );

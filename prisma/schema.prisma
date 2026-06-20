@@ -495,13 +495,21 @@ model ApproverConfig {
 // Credenciais e config de integração de pagamento por empresa. O token NUNCA é exposto ao cliente.
 model IntegrationConfig {
   id           String   @id @default(cuid())
-  provider     String   @default("iugu") // iugu | (futuro: outros)
-  apiToken     String   // segredo — só usado no servidor
+  provider     String   @default("iugu") // iugu | inter
+  apiToken     String   @default("")  // Iugu: token. (segredo — só servidor)
   accountId    String?  // Account ID da Iugu (opcional)
   webhookToken String   // segredo aleatório usado na URL do webhook
   testMode     Boolean  @default(false)
   connectedAt  DateTime @default(now())
   lastSyncAt   DateTime?
+
+  // Credenciais de banco (Inter): mTLS + OAuth. Tudo segredo, nunca exposto ao cliente.
+  clientId      String?
+  clientSecret  String?
+  certPem       String?  @db.Text
+  keyPem        String?  @db.Text
+  contaCorrente String?
+  pixKey        String?  // chave Pix de recebimento
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -580,8 +588,12 @@ model Receivable {
   metodo        String?  // bank_slip | pix | credit_card
   vencimento    DateTime?
   pagoEm        DateTime?
+  provider      String   @default("iugu") // iugu | inter
+  externalId    String?  // txid (Inter) / invoice id (Iugu)
+  endToEndId    String?  // Pix E2E (conciliação exata)
+  pixCopiaECola String?  @db.Text
   iuguInvoiceId String?  @unique
-  secureUrl     String?  // link da fatura (boleto/pix) na Iugu
+  secureUrl     String?  // link da fatura / QR (Pix/boleto)
   origem        String   @default("avulsa") // avulsa | assinatura
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -593,6 +605,7 @@ model Receivable {
   assinaturaId String?
   assinatura   Assinatura? @relation(fields: [assinaturaId], references: [id], onDelete: SetNull)
 
+  @@unique([provider, externalId])
   @@index([companyId, status])
   @@index([companyId, vencimento])
 }
