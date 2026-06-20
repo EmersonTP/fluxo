@@ -520,6 +520,15 @@ body {
   color: var(--coral-deep);
   font-weight: 600;
 }
+.fx-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--roxo);
+  animation: fx-spin 0.7s linear infinite;
+}
+@keyframes fx-spin { to { transform: rotate(360deg); } }
 .fx-title-edit:hover {
   background: rgba(146, 80, 172, 0.06) !important;
   border-color: var(--line) !important;

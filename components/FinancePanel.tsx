@@ -46,6 +46,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   const [openId, setOpenId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [flash, setFlash] = useState("");
+  const [companiesLoaded, setCompaniesLoaded] = useState(false);
   const tabInit = useRef(false);
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
       let saved = "";
       try { saved = localStorage.getItem("fx:company") || localStorage.getItem("fx:fin:company") || ""; } catch {}
       setCompanyId(cs.find((c) => c.id === saved)?.id || cs[0]?.id || "");
-    });
+    }).finally(() => setCompaniesLoaded(true));
   }, []);
 
   const loadAll = useCallback((cid: string) => {
@@ -110,7 +111,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
       <>
         <div className="fx-topbar"><div><div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>Financeiro</div><div className="fx-title">Financeiro</div></div></div>
         <div className="fx-accent" />
-        <div style={{ padding: 26, color: "var(--txt-soft)" }}>O módulo Financeiro não está habilitado para nenhuma empresa sua. Peça pro admin habilitar.</div>
+        <div style={{ padding: 26, color: "var(--txt-soft)" }}>{companiesLoaded ? "O módulo Financeiro não está habilitado para nenhuma empresa sua. Peça pro admin habilitar." : "Carregando…"}</div>
       </>
     );
   }

@@ -77,6 +77,9 @@ function ListPageInner({ params }: { params: { id: string } }) {
       .finally(() => setLoading(false));
   }, [params.id]);
 
+  // Ao trocar de lista, limpa o conteúdo antigo pra mostrar o "Carregando" (e não a lista anterior).
+  useEffect(() => { setData(null); }, [params.id]);
+
   useEffect(() => {
     load();
     fetch("/api/members").then((r) => r.json()).then((d) => setMembers(d.members || []));
@@ -156,7 +159,12 @@ function ListPageInner({ params }: { params: { id: string } }) {
     }
   }
 
-  if (loading && !data) return <div style={{ padding: 32, color: "var(--txt-soft)" }}>Carregando...</div>;
+  if (loading && !data) return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: "var(--txt-faint)" }}>
+      <span className="fx-spinner" />
+      <span style={{ fontSize: 13 }}>Carregando…</span>
+    </div>
+  );
   if (!data) return <div style={{ padding: 32, color: "var(--txt-soft)" }}>Lista não encontrada.</div>;
 
   let filtered = data.tasks;

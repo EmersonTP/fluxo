@@ -33,6 +33,7 @@ function dayLabel(d: Date) {
 
 export default function ChatPanel({ meId }: { meId: string }) {
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [listsLoaded, setListsLoaded] = useState(false);
   const [dms, setDms] = useState<Dm[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [active, setActive] = useState<Active>(null);
@@ -60,7 +61,7 @@ export default function ChatPanel({ meId }: { meId: string }) {
         activeRef.current = c.id;
         setActive({ id: c.id, kind: "channel", name: c.name, sub: c.company?.name || "Geral" });
       }
-    });
+    }).finally(() => setListsLoaded(true));
     fetch("/api/dm").then((r) => r.json()).then((d) => setDms(d.dms || []));
   }, []);
 
@@ -229,7 +230,7 @@ export default function ChatPanel({ meId }: { meId: string }) {
               {!!c.unread && <span className="fx-unread">{c.unread}</span>}
             </button>
           ))}
-          {channels.length === 0 && !creating && <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: 8 }}>Nenhum canal ainda.</p>}
+          {listsLoaded && channels.length === 0 && !creating && <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: 8 }}>Nenhum canal ainda.</p>}
 
           <div style={{ height: 14 }} />
           <Header label="Mensagens diretas" onAdd={() => setPickPeople((s) => !s)} />
