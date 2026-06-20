@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 export async function GET() {
   const user = await requireUser();
   if (isResponse(user)) return user;
 
-  const scope = companyScope(user);
-  const where = scope === null ? {} : { OR: [{ companyId: scope }, { companyId: null }] };
+  const ids = accessibleCompanyIds(user);
+  const where = ids === null ? {} : { OR: [{ companyId: { in: ids } }, { companyId: null }] };
   const documents = await prisma.document.findMany({
     where,
     orderBy: { updatedAt: "desc" },

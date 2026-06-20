@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { getSessionUser, SessionUser } from "./auth";
+import { getSessionUser, SessionUser, accessibleCompanyIds } from "./auth";
 import { prisma } from "./prisma";
 
 // Authenticates either via login cookie OR an API key (x-api-key header).
@@ -19,9 +19,10 @@ export async function requireUser(): Promise<SessionUser | NextResponse> {
       return { id: "system", name: "MCP", email: "mcp@fluxo.app", role: "owner", companyId: null };
     }
     // Token pessoal → opera como aquele usuário (com as permissões dele)
-    const u = await prisma.user.findUnique({ where: { mcpToken: apiKey } });
+    const u = await prisma.user.findUnique({ where: { mcpToken: apiKey }, include: { companyAccess: { select: { id: true } } } });
     if (u && u.status === "active") {
-      return { id: u.id, name: u.name, email: u.email, role: u.role, companyId: u.companyId };
+      const companyIds = [...new Set([u.companyId, ...u.companyAccess.map((c: { id: string }) => c.id)].filter(Boolean) as string[])];
+      return { id: u.id, name: u.name, email: u.email, role: u.role, companyId: u.companyId, companyIds };
     }
     return NextResponse.json({ error: "Chave inválida." }, { status: 401 });
   }
@@ -59,11 +60,12 @@ export async function companyIdForList(listId: string): Promise<string | null> {
 
 // True if a company-scoped user may access the given list, respecting privacy.
 export async function canAccessList(
-  user: { id?: string; role: string; companyId: string | null },
+  user: { id?: string; role: string; companyId: string | null; companyIds?: string[] },
   listId: string
 ): Promise<boolean> {
   if (user.role === "owner" || user.role === "admin") return true;
-  if (!user.companyId) return false;
+  const allowed = accessibleCompanyIds(user) || [];
+  if (!allowed.length) return false;
   const l = await prisma.list.findUnique({
     where: { id: listId },
     select: {
@@ -75,7 +77,7 @@ export async function canAccessList(
   });
   if (!l) return false;
   const space = l.space || l.folder?.space;
-  if ((space?.workspace.companyId ?? null) !== user.companyId) return false;
+  if (!allowed.includes(space?.workspace.companyId ?? "")) return false;
   const uid = user.id;
   if (space?.private && !space.members.some((m: { id: string }) => m.id === uid)) return false;
   if (l.private && !l.members.some((m: { id: string }) => m.id === uid)) return false;
@@ -83,14 +85,15 @@ export async function canAccessList(
 }
 
 // IDs of lists a member can see (privacy-aware). Returns null for owner/admin (= all).
-export async function accessibleListIds(user: { id?: string; role: string; companyId: string | null }): Promise<string[] | null> {
+export async function accessibleListIds(user: { id?: string; role: string; companyId: string | null; companyIds?: string[] }): Promise<string[] | null> {
   if (user.role === "owner" || user.role === "admin") return null;
-  if (!user.companyId) return [];
+  const allowed = accessibleCompanyIds(user) || [];
+  if (!allowed.length) return [];
   const lists = await prisma.list.findMany({
     where: {
       OR: [
-        { space: { workspace: { companyId: user.companyId } } },
-        { folder: { space: { workspace: { companyId: user.companyId } } } },
+        { space: { workspace: { companyId: { in: allowed } } } },
+        { folder: { space: { workspace: { companyId: { in: allowed } } } } },
       ],
     },
     select: {

@@ -11,6 +11,7 @@ type AdminUser = {
   status: string;
   companyId: string | null;
   company?: { id: string; name: string } | null;
+  companyAccess?: { id: string }[];
 };
 
 const ROLE_LABEL: Record<string, string> = { owner: "Admin master", admin: "Admin", member: "Membro" };
@@ -121,6 +122,13 @@ export default function AdminPanel() {
     const data = await res.json();
     if (data.user) setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data.user } : u)));
     else if (data.error) alert(data.error);
+  }
+
+  async function toggleAccess(u: AdminUser, companyId: string, on: boolean) {
+    const cur = (u.companyAccess || []).map((a) => a.id);
+    const next = on ? [...new Set([...cur, companyId])] : cur.filter((id) => id !== companyId);
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, companyAccess: next.map((id) => ({ id })) } : x)));
+    await fetch(`/api/admin/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyAccessIds: next }) });
   }
 
   async function createUser() {
@@ -322,6 +330,19 @@ export default function AdminPanel() {
                         </option>
                       ))}
                     </select>
+                    {u.role === "member" && companies.length > 1 && (
+                      <details className="mt-1">
+                        <summary className="text-[11px] text-neutral-500 cursor-pointer">+ acesso a outras empresas ({(u.companyAccess || []).filter((a) => a.id !== u.companyId).length})</summary>
+                        <div className="mt-1 flex flex-col gap-1 pl-1">
+                          {companies.filter((c) => c.id !== u.companyId).map((c) => (
+                            <label key={c.id} className="text-xs flex items-center gap-1.5 cursor-pointer">
+                              <input type="checkbox" checked={(u.companyAccess || []).some((a) => a.id === c.id)} onChange={(e) => toggleAccess(u, c.id, e.target.checked)} />
+                              {c.name}
+                            </label>
+                          ))}
+                        </div>
+                      </details>
+                    )}
                   </td>
                   <td className="px-4 py-2.5">
                     <select

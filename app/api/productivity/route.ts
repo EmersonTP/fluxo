@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 // Admin-only: productivity per employee, scoped to the admin's company.
 export async function GET(req: Request) {
@@ -16,15 +16,15 @@ export async function GET(req: Request) {
   else if (period === "current") since = new Date(now.getFullYear(), now.getMonth(), 1);
   else since = null; // "all"
 
-  const scope = companyScope(admin);
+  const ids = accessibleCompanyIds(admin);
   const listFilter =
-    scope === null
+    ids === null
       ? {}
       : {
           list: {
             OR: [
-              { space: { workspace: { companyId: scope } } },
-              { folder: { space: { workspace: { companyId: scope } } } },
+              { space: { workspace: { companyId: { in: ids } } } },
+              { folder: { space: { workspace: { companyId: { in: ids } } } } },
             ],
           },
         };

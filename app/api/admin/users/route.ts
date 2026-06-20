@@ -18,6 +18,7 @@ export async function GET() {
       color: true,
       companyId: true,
       company: { select: { id: true, name: true } },
+      companyAccess: { select: { id: true } },
     },
   });
   return NextResponse.json({ users });

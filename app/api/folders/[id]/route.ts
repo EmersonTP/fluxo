@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 async function companyOfFolder(id: string) {
   const f = await prisma.folder.findUnique({
@@ -14,8 +14,8 @@ async function companyOfFolder(id: string) {
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (isResponse(user)) return user;
-  const scope = companyScope(user);
-  if (scope !== null && (await companyOfFolder(params.id)) !== scope) {
+  const ids = accessibleCompanyIds(user);
+  if (ids !== null && !ids.includes((await companyOfFolder(params.id)) ?? "")) {
     return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   }
   const body = await req.json().catch(() => ({}));
@@ -28,8 +28,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
   if (isResponse(user)) return user;
-  const scope = companyScope(user);
-  if (scope !== null && (await companyOfFolder(params.id)) !== scope) {
+  const ids = accessibleCompanyIds(user);
+  if (ids !== null && !ids.includes((await companyOfFolder(params.id)) ?? "")) {
     return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   }
   await prisma.folder.delete({ where: { id: params.id } });

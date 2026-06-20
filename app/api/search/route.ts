@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse, accessibleListIds } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 // GET /api/search?q=...&limit=50  -> tasks matching name, scoped to the user's company
 export async function GET(req: Request) {
@@ -13,15 +13,15 @@ export async function GET(req: Request) {
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
   if (q.length < 2) return NextResponse.json({ tasks: [] });
 
-  const scope = companyScope(user);
+  const ids = accessibleCompanyIds(user);
   const listFilter =
-    scope === null
+    ids === null
       ? {}
       : {
           list: {
             OR: [
-              { space: { workspace: { companyId: scope } } },
-              { folder: { space: { workspace: { companyId: scope } } } },
+              { space: { workspace: { companyId: { in: ids } } } },
+              { folder: { space: { workspace: { companyId: { in: ids } } } } },
             ],
           },
         };

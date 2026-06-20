@@ -1,25 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 // Feed de atividade pro admin: quem mexeu em quê (criou, moveu, mudou status, comentou…).
 export async function GET(req: Request) {
   const user = await requireAdmin();
   if (isResponse(user)) return user;
 
-  const scope = companyScope(user);
+  const ids = accessibleCompanyIds(user);
   const url = new URL(req.url);
   const userId = url.searchParams.get("user") || undefined;
 
   const where: any = {};
   if (userId) where.userId = userId;
-  if (scope) {
+  if (ids !== null) {
     where.task = {
       list: {
         OR: [
-          { space: { workspace: { companyId: scope } } },
-          { folder: { space: { workspace: { companyId: scope } } } },
+          { space: { workspace: { companyId: { in: ids } } } },
+          { folder: { space: { workspace: { companyId: { in: ids } } } } },
         ],
       },
     };

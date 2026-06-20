@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 async function companyOfWorkspace(id: string) {
   const w = await prisma.workspace.findUnique({ where: { id }, select: { companyId: true } });
@@ -14,8 +14,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (user.role !== "owner" && user.role !== "admin") {
     return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
   }
-  const scope = companyScope(user);
-  if (scope !== null && (await companyOfWorkspace(params.id)) !== scope) {
+  const ids = accessibleCompanyIds(user);
+  if (ids !== null && !ids.includes((await companyOfWorkspace(params.id)) ?? "")) {
     return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   }
   const body = await req.json().catch(() => ({}));
@@ -31,8 +31,8 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   if (user.role !== "owner" && user.role !== "admin") {
     return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
   }
-  const scope = companyScope(user);
-  if (scope !== null && (await companyOfWorkspace(params.id)) !== scope) {
+  const ids = accessibleCompanyIds(user);
+  if (ids !== null && !ids.includes((await companyOfWorkspace(params.id)) ?? "")) {
     return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   }
   await prisma.workspace.delete({ where: { id: params.id } });

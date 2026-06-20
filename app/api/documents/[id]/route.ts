@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 async function canAccess(user: { role: string; companyId: string | null }, docId: string) {
   const doc = await prisma.document.findUnique({ where: { id: docId } });
   if (!doc) return null;
-  const scope = companyScope(user);
-  if (scope === null) return doc;
-  if (doc.companyId === null || doc.companyId === scope) return doc;
+  const ids = accessibleCompanyIds(user);
+  if (ids === null) return doc;
+  if (doc.companyId === null || ids.includes(doc.companyId)) return doc;
   return false;
 }
 

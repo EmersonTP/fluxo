@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 async function canAccess(user: { role: string; companyId: string | null }, id: string) {
   const sp = await prisma.sprint.findUnique({ where: { id }, select: { companyId: true } });
   if (!sp) return null;
-  const scope = companyScope(user);
-  if (scope === null) return sp;
-  return sp.companyId === scope ? sp : false;
+  const ids = accessibleCompanyIds(user);
+  if (ids === null) return sp;
+  return ids.includes(sp.companyId ?? "") ? sp : false;
 }
 
 // Detalhe do sprint com as tarefas

@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 export async function GET() {
   const user = await requireUser();
   if (isResponse(user)) return user;
 
-  const scope = companyScope(user);
-  // Company-scoped users with no company assigned see nothing.
-  if (scope === null && user.role === "member") return NextResponse.json({ workspaces: [] });
+  const ids = accessibleCompanyIds(user);
+  // Usuário sem nenhuma empresa não vê nada.
+  if (ids !== null && ids.length === 0) return NextResponse.json({ workspaces: [] });
 
   const workspaces = await prisma.workspace.findMany({
-    where: scope ? { companyId: scope } : undefined,
+    where: ids === null ? undefined : { companyId: { in: ids } },
     orderBy: { name: "asc" },
     include: {
       spaces: {

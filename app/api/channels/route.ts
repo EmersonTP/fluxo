@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 // GET: list channels the user can see (their company + global) + unread counts. Owner/admin see all.
 export async function GET() {
   const user = await requireUser();
   if (isResponse(user)) return user;
 
-  const scope = companyScope(user);
+  const ids = accessibleCompanyIds(user);
   const where: any = { kind: "channel" };
-  if (scope) where.OR = [{ companyId: scope }, { companyId: null }];
+  if (ids !== null) where.OR = [{ companyId: { in: ids } }, { companyId: null }];
   const channels = await prisma.channel.findMany({
     where,
     orderBy: { name: "asc" },

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 type Member = { id: string; name: string; color: string };
 
@@ -41,10 +41,10 @@ export async function POST(req: Request) {
   if (!userId || userId === user.id) return NextResponse.json({ error: "Selecione uma pessoa válida." }, { status: 400 });
 
   // Isolamento: membro só fala com gente da própria empresa.
-  const scope = companyScope(user);
+  const ids = accessibleCompanyIds(user);
   const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, color: true, companyId: true } });
   if (!target) return NextResponse.json({ error: "Pessoa não encontrada." }, { status: 404 });
-  if (scope !== null && target.companyId !== scope) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  if (ids !== null && !ids.includes(target.companyId ?? "")) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
 
   let channel = await prisma.channel.findFirst({
     where: { kind: "dm", AND: [{ members: { some: { id: user.id } } }, { members: { some: { id: userId } } }] },

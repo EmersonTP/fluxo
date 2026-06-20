@@ -1,25 +1,26 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser, companyScope } from "@/lib/auth";
+import { getSessionUser, accessibleCompanyIds } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const user = await getSessionUser();
-  const scope = user ? companyScope(user) : null;
-  const noAccess = user?.role === "member" && !user.companyId;
-  const effScope = noAccess ? "__none__" : scope;
+  const ids = user ? accessibleCompanyIds(user) : null;
+  // Membro sem nenhuma empresa não vê nada; usa um id impossível para zerar as contagens.
+  const effIds = ids === null ? null : ids.length ? ids : ["__none__"];
 
-  const spaceWhere = effScope ? { workspace: { companyId: effScope } } : undefined;
-  const listWhere = effScope
-    ? {
-        OR: [
-          { space: { workspace: { companyId: effScope } } },
-          { folder: { space: { workspace: { companyId: effScope } } } },
-        ],
-      }
-    : undefined;
-  const taskWhere = effScope ? { list: listWhere } : undefined;
+  const spaceWhere = effIds === null ? undefined : { workspace: { companyId: { in: effIds } } };
+  const listWhere =
+    effIds === null
+      ? undefined
+      : {
+          OR: [
+            { space: { workspace: { companyId: { in: effIds } } } },
+            { folder: { space: { workspace: { companyId: { in: effIds } } } } },
+          ],
+        };
+  const taskWhere = effIds === null ? undefined : { list: listWhere };
 
   const [spaces, lists, tasks, openTasks, myTasks] = await Promise.all([
     prisma.space.count({ where: spaceWhere }),

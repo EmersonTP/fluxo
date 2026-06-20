@@ -12,6 +12,8 @@ export type SessionUser = {
   email: string;
   role: string;
   companyId: string | null;
+  // Empresas que a pessoa pode acessar (empresa-base + acessos extras). Vazio p/ owner/admin (veem todas).
+  companyIds?: string[];
 };
 
 export function hashPassword(pw: string) {
@@ -47,14 +49,16 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const payload = jwt.verify(token, SECRET) as SessionUser;
     // Ensure the user still exists and is allowed in
-    const user = await prisma.user.findUnique({ where: { id: payload.id } });
+    const user = await prisma.user.findUnique({ where: { id: payload.id }, include: { companyAccess: { select: { id: true } } } });
     if (!user || user.status !== "active") return null;
+    const companyIds = [...new Set([user.companyId, ...user.companyAccess.map((c: { id: string }) => c.id)].filter(Boolean) as string[])];
     return {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
       companyId: user.companyId,
+      companyIds,
     };
   } catch {
     return null;
@@ -66,4 +70,12 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 export function companyScope(user: { role: string; companyId: string | null }): string | null {
   if (user.role === "owner" || user.role === "admin") return null;
   return user.companyId;
+}
+
+// Conjunto de empresas que o usuário pode acessar. null = todas (owner/admin).
+// Caso contrário, a empresa-base + os acessos extras (companyIds da sessão).
+export function accessibleCompanyIds(user: { role: string; companyId: string | null; companyIds?: string[] }): string[] | null {
+  if (user.role === "owner" || user.role === "admin") return null;
+  if (user.companyIds && user.companyIds.length) return user.companyIds;
+  return user.companyId ? [user.companyId] : [];
 }

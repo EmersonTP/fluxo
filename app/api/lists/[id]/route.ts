@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, requireAdmin, isResponse, canAccessList, companyIdForList } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 // Privacidade da lista: tornar privada e definir quem acessa (admin/owner).
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
-  const scope = companyScope(admin);
-  if (scope !== null && (await companyIdForList(params.id)) !== scope) {
+  const ids = accessibleCompanyIds(admin);
+  if (ids !== null && !ids.includes((await companyIdForList(params.id)) ?? "")) {
     return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   }
   const body = await req.json().catch(() => ({}));

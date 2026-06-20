@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { companyScope } from "./auth";
+import { accessibleCompanyIds } from "./auth";
 
 type U = { id: string; role: string; companyId: string | null };
 
@@ -11,9 +11,9 @@ export async function canAccessChannel(user: U, channelId: string): Promise<bool
   });
   if (!ch) return false;
   if (ch.kind === "dm") return ch.members.some((m: { id: string }) => m.id === user.id);
-  const scope = companyScope(user);
-  if (scope === null) return true; // owner/admin
-  return ch.companyId === scope || ch.companyId === null;
+  const ids = accessibleCompanyIds(user);
+  if (ids === null) return true; // owner/admin
+  return ch.companyId === null || (!!ch.companyId && ids.includes(ch.companyId));
 }
 
 export const MSG_INCLUDE = {

@@ -1,24 +1,27 @@
 import { prisma } from "./prisma";
 import { createNotifications } from "./notify";
 import { sendEmail, emailLayout, emailEnabled } from "./email";
+import { accessibleCompanyIds } from "./auth";
 
-type U = { id: string; role: string; companyId: string | null };
+type U = { id: string; role: string; companyId: string | null; companyIds?: string[] };
 
 export function isAdmin(u: U) {
   return u.role === "owner" || u.role === "admin";
 }
 
-// Empresa que o usuário pode operar no financeiro.
+// Empresa que o usuário pode operar no financeiro (empresa-base + acessos extras).
 export function canAccessCompany(u: U, companyId: string) {
-  if (isAdmin(u)) return true;
-  return u.companyId === companyId;
+  const ids = accessibleCompanyIds(u);
+  if (ids === null) return true; // owner/admin
+  return ids.includes(companyId);
 }
 
 // Empresas que o usuário pode escolher no seletor do módulo.
 export async function financeCompanies(u: U) {
-  if (isAdmin(u)) return prisma.company.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, modules: true } });
-  if (!u.companyId) return [];
-  return prisma.company.findMany({ where: { id: u.companyId }, select: { id: true, name: true, modules: true } });
+  const ids = accessibleCompanyIds(u);
+  if (ids === null) return prisma.company.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, modules: true } });
+  if (!ids.length) return [];
+  return prisma.company.findMany({ where: { id: { in: ids } }, orderBy: { name: "asc" }, select: { id: true, name: true, modules: true } });
 }
 
 export const STATUS_LABEL: Record<string, string> = {

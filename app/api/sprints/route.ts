@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { companyScope } from "@/lib/auth";
+import { accessibleCompanyIds } from "@/lib/auth";
 
 const DONE = (t: { type?: string | null }) => t.type === "done" || t.type === "closed";
 
 export async function GET() {
   const user = await requireUser();
   if (isResponse(user)) return user;
-  const scope = companyScope(user);
-  if (scope === null && user.role === "member") return NextResponse.json({ sprints: [] });
+  const companyIds = accessibleCompanyIds(user);
+  if (companyIds !== null && companyIds.length === 0) return NextResponse.json({ sprints: [] });
 
   const sprints = await prisma.sprint.findMany({
-    where: scope ? { companyId: scope } : undefined,
+    where: companyIds === null ? undefined : { companyId: { in: companyIds } },
     orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
     include: { company: { select: { name: true } } },
   });
@@ -44,9 +44,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   if (!body.name?.trim()) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
 
-  const scope = companyScope(user);
-  let companyId: string | null = scope; // membro = sua empresa
-  if (scope === null) companyId = body.companyId || null; // owner/admin escolhe
+  const ids = accessibleCompanyIds(user);
+  let companyId: string | null = user.companyId; // membro = sua empresa-base
+  if (ids === null) companyId = body.companyId || null; // owner/admin escolhe
   if (!companyId) return NextResponse.json({ error: "Escolha a empresa do sprint." }, { status: 400 });
 
   const sprint = await prisma.sprint.create({

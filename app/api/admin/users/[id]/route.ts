@@ -13,6 +13,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.status !== undefined) data.status = body.status; // pending | active | disabled
   if (body.role !== undefined) data.role = body.role; // owner | admin | member
   if (body.companyId !== undefined) data.companyId = body.companyId || null;
+  if (Array.isArray(body.companyAccessIds)) data.companyAccess = { set: body.companyAccessIds.map((id: string) => ({ id })) };
   if (body.name !== undefined) data.name = body.name;
   if (body.password) {
     if (String(body.password).length < 6) return NextResponse.json({ error: "Senha muito curta (mín. 6)." }, { status: 400 });
