@@ -181,7 +181,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     { icon: "sprint", label: "Sprints", href: "/sprints" },
     { icon: "chat", label: "Chat", href: "/chat" },
     { icon: "docs", label: "Docs", href: "/documentos" },
-    { icon: "finance", label: "Contas a Pagar", href: "/financeiro" },
+    { icon: "finance", label: "Finanças", href: "/financeiro" },
     { icon: "reports", label: "Relatórios", href: "/relatorios" },
     ...(isAdmin ? [{ icon: "productivity", label: "Produtividade", href: "/produtividade" }] : []),
     ...(isAdmin ? [{ icon: "admin", label: "Admin", href: "/admin" }] : []),
@@ -195,6 +195,23 @@ export default function AppShell({ user, children }: { user: User; children: Rea
         <Link href="/" className="fx-rail-brand" title="Sandra">
           S
         </Link>
+        {companies.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 10, width: "100%", alignItems: "center", paddingBottom: 10, marginBottom: 2, borderBottom: "1px solid rgba(255,255,255,.1)" }}>
+            {companies.map((c, i) => {
+              const on = c.id === activeCompany;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => switchCompany(c.id)}
+                  title={c.name}
+                  style={{ width: 34, height: 34, borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, color: "#fff", background: COMPANY_COLORS[i % COMPANY_COLORS.length], opacity: on ? 1 : 0.4, boxShadow: on ? "0 0 0 2px rgba(255,255,255,.6)" : "none", transition: "opacity .15s" }}
+                >
+                  {c.name.charAt(0).toUpperCase()}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, width: "100%", alignItems: "center" }}>
           <button className="fx-rail-item" title="Buscar (⌘K)" onClick={() => setSearchOpen(true)}>
             <Icon name="search" />
@@ -297,35 +314,18 @@ export default function AppShell({ user, children }: { user: User; children: Rea
           </button>
         </div>
 
-        {/* Switcher de empresa (abrir por empresa) */}
-        {companies.length > 0 && (
-          <div style={{ position: "relative", margin: "0 4px 12px" }}>
-            <button
-              onClick={() => setCompanyMenu((s) => !s)}
-              style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, cursor: "pointer", font: "inherit", textAlign: "left" }}
-              title="Trocar de empresa"
-            >
-              {(() => { const c = companies.find((x) => x.id === activeCompany); const color = COMPANY_COLORS[Math.max(0, companies.findIndex((x) => x.id === activeCompany)) % COMPANY_COLORS.length]; return (
-                <>
-                  <span style={{ width: 24, height: 24, borderRadius: 7, background: color, color: "#fff", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{(c?.name || "?").charAt(0).toUpperCase()}</span>
-                  <span style={{ flex: 1, fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c?.name || "Empresa"}</span>
-                  <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{companies.length > 1 ? "▾" : ""}</span>
-                </>
-              ); })()}
-            </button>
-            {companyMenu && companies.length > 1 && (
-              <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "var(--shadow-hover)", zIndex: 30, overflow: "hidden", padding: 4 }}>
-                {companies.map((c, i) => (
-                  <button key={c.id} onClick={() => switchCompany(c.id)} className="fx-navitem" style={{ width: "100%", fontSize: 13, fontWeight: c.id === activeCompany ? 700 : 400 }}>
-                    <span style={{ width: 18, height: 18, borderRadius: 5, background: COMPANY_COLORS[i % COMPANY_COLORS.length], color: "#fff", fontWeight: 600, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>{c.name.charAt(0).toUpperCase()}</span>
-                    <span style={{ flex: 1, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</span>
-                    {c.id === activeCompany && <span style={{ color: "var(--roxo)" }}>✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Empresa ativa (troca na coluna de ícones à esquerda) */}
+        {companies.length > 0 && (() => {
+          const c = companies.find((x) => x.id === activeCompany);
+          const color = COMPANY_COLORS[Math.max(0, companies.findIndex((x) => x.id === activeCompany)) % COMPANY_COLORS.length];
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 9, margin: "0 4px 12px", padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10 }}>
+              <span style={{ width: 24, height: 24, borderRadius: 7, background: color, color: "#fff", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{(c?.name || "?").charAt(0).toUpperCase()}</span>
+              <span style={{ flex: 1, fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c?.name || "Empresa"}</span>
+              {companies.length > 1 && <span style={{ fontSize: 10, color: "var(--txt-faint)" }} title="Troque pela coluna de empresas à esquerda">↤</span>}
+            </div>
+          );
+        })()}
 
         {pathname.startsWith("/financeiro") ? (
           <div style={{ fontSize: 12, color: "var(--txt-faint)", padding: "10px 10px", lineHeight: 1.5 }}>

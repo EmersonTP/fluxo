@@ -354,9 +354,12 @@ export default function TaskModal({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onBlur={() => name !== task.name && patch({ name })}
-              className="serif"
-              style={{ fontSize: 24, fontWeight: 500, width: "100%", border: "none", background: "transparent", color: "var(--txt)", outline: "none", paddingRight: 30 }}
+              onBlur={() => name.trim() && name !== task.name && patch({ name: name.trim() })}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }}
+              title="Clique para editar o título"
+              placeholder="Título da tarefa"
+              className="serif fx-title-edit"
+              style={{ fontSize: 24, fontWeight: 500, width: "100%", border: "1px solid transparent", borderRadius: 8, background: "transparent", color: "var(--txt)", outline: "none", padding: "2px 8px", marginLeft: -8, paddingRight: 30 }}
             />
             <div style={{ fontSize: 12, color: "var(--txt-faint)", marginBottom: 8 }}>{task.list.name}</div>
 

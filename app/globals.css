@@ -520,6 +520,14 @@ body {
   color: var(--coral-deep);
   font-weight: 600;
 }
+.fx-title-edit:hover {
+  background: rgba(146, 80, 172, 0.06) !important;
+  border-color: var(--line) !important;
+}
+.fx-title-edit:focus {
+  background: var(--surface) !important;
+  border-color: var(--roxo) !important;
+}
 .fx-unread {
   min-width: 18px;
   height: 18px;
