@@ -103,8 +103,20 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   const minhas = requests.filter((r) => r.solicitanteId === meId);
   const aprovacoes = requests.filter(pendingOnMe);
   const painel = statusFilter ? requests.filter((r) => r.status === statusFilter) : requests;
-  const abertoTotal = requests.filter((r) => ["solicitada", "aprovada_gestor", "conferida"].includes(r.status)).reduce((s, r) => s + r.valor, 0);
+  const emAberto = requests.filter((r) => ["solicitada", "aprovada_gestor", "conferida"].includes(r.status));
+  const abertoTotal = emAberto.reduce((s, r) => s + r.valor, 0);
   const pagoTotal = requests.filter((r) => r.status === "paga").reduce((s, r) => s + r.valor, 0);
+  const hojeYMD = new Date().toISOString().slice(0, 10);
+  const mesAtual = hojeYMD.slice(0, 7);
+  const vencidasTotal = emAberto.filter((r) => r.vencimento && r.vencimento.slice(0, 10) < hojeYMD).reduce((s, r) => s + r.valor, 0);
+  const pagoMesTotal = requests.filter((r) => r.status === "paga" && (r.dataPagamento || "").slice(0, 7) === mesAtual).reduce((s, r) => s + r.valor, 0);
+  const porGrupo = Object.entries(
+    emAberto.reduce((acc: Record<string, number>, r) => {
+      const g = (r.categoria || "Sem categoria").split(" › ")[0];
+      acc[g] = (acc[g] || 0) + r.valor;
+      return acc;
+    }, {})
+  ).map(([grupo, total]) => ({ grupo, total })).sort((a, b) => b.total - a.total).slice(0, 8);
 
   if (companies.length === 0) {
     return (
@@ -144,14 +156,13 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
     ...(isAdmin || isFinanceiro ? [{ k: "painel", l: "Contas a Pagar" }] : []),
     { k: "cred", l: "Credores" },
     { k: "receber", l: "Contas a Receber", soon: true },
-    { k: "categorias", l: "Categorias", soon: true },
+    { k: "categorias", l: "Categorias" },
     ...(isTP ? [{ k: "aulas", l: "Aulas Particulares", soon: true }] : []),
     { k: "relatorios", l: "Relatórios", soon: true },
     ...(isAdmin ? [{ k: "cfg", l: "Configuração" }] : []),
   ];
   const SOON: Record<string, string> = {
     receber: "Contas a Receber — mensalidades e títulos a receber, com régua de cobrança. Próxima fase.",
-    categorias: "Plano de contas em árvore (Grupo → Categoria → Subcategoria), importado das suas planilhas. Próxima fase.",
     aulas: "Aulas Particulares — registro de aula gera conta a receber (aluno) + conta a pagar (professor) pela tabela de valores. Só TP. Próxima fase.",
     relatorios: "Relatórios — DRE por centro de custo / classe gerencial, aging e dashboard. Próxima fase.",
   };
@@ -217,9 +228,26 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
           <>
             <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
               <Metric label="Em aberto" value={BRL(abertoTotal)} />
+              <Metric label="Vencidas" value={BRL(vencidasTotal)} tone={vencidasTotal > 0 ? "alert" : undefined} />
+              <Metric label="Pago no mês" value={BRL(pagoMesTotal)} />
               <Metric label="Pago (total)" value={BRL(pagoTotal)} />
-              <Metric label="Solicitações" value={String(requests.length)} />
             </div>
+            {porGrupo.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", marginBottom: 8 }}>Em aberto por grupo</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {porGrupo.map((g) => (
+                    <div key={g.grupo} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 12.5, color: "var(--txt-soft)", width: 220, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.grupo}</span>
+                      <span style={{ flex: 1, height: 8, borderRadius: 999, background: "var(--col)", overflow: "hidden" }}>
+                        <span style={{ display: "block", height: "100%", width: `${Math.max(4, (g.total / porGrupo[0].total) * 100)}%`, background: "var(--roxo)" }} />
+                      </span>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, width: 110, textAlign: "right", flexShrink: 0 }}>{BRL(g.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <select className="fx-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 220, marginBottom: 14 }}>
               <option value="">Todos os status</option>
               {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -231,6 +259,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
           </>
         )}
 
+        {tab === "categorias" && <CategoriasTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "cred" && <CredoresTab companyId={companyId} credores={credores} reload={() => loadAll(companyId)} />}
         {tab === "cfg" && isAdmin && <ConfigTab companyId={companyId} areas={areas} members={members} config={config} reload={() => loadAll(companyId)} />}
         {SOON[tab] && (
@@ -272,12 +301,93 @@ function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, tone }: { label: string; value: string; tone?: "alert" }) {
+  const alert = tone === "alert";
   return (
-    <div style={{ background: "var(--col)", borderRadius: "var(--r-card)", padding: "12px 18px", minWidth: 130 }}>
-      <div style={{ fontSize: 12, color: "var(--txt-faint)" }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 600, marginTop: 2 }}>{value}</div>
+    <div style={{ background: alert ? "#f3dcd8" : "var(--col)", borderRadius: "var(--r-card)", padding: "12px 18px", minWidth: 130 }}>
+      <div style={{ fontSize: 12, color: alert ? "#a8332c" : "var(--txt-faint)" }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 600, marginTop: 2, color: alert ? "#a8332c" : "var(--txt)" }}>{value}</div>
     </div>
+  );
+}
+
+/* ---------- Categorias (plano de contas) ---------- */
+function CategoriasTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
+  const [cats, setCats] = useState<{ id: string; grupo: string; nome: string; tipo: string; dre: string | null }[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+
+  const load = useCallback(() => {
+    setLoaded(false);
+    fetch(`/api/finance/categorias?company=${companyId}`).then((r) => r.json()).then((d) => setCats(d.categorias || [])).finally(() => setLoaded(true));
+  }, [companyId]);
+  useEffect(load, [load]);
+
+  async function importar() {
+    setBusy(true); setMsg("");
+    const res = await fetch("/api/finance/categorias/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId }) });
+    const d = await res.json();
+    setBusy(false);
+    if (res.ok) { setMsg(`Plano de contas importado: ${d.total} categorias.`); load(); }
+    else setMsg(d.error || "Não foi possível importar.");
+  }
+
+  const grupos: { grupo: string; tipo: string; itens: typeof cats }[] = [];
+  for (const c of cats) {
+    let g = grupos.find((x) => x.grupo === c.grupo);
+    if (!g) { g = { grupo: c.grupo, tipo: c.tipo, itens: [] }; grupos.push(g); }
+    g.itens.push(c);
+  }
+  const despesas = grupos.filter((g) => g.tipo === "despesa");
+  const receitas = grupos.filter((g) => g.tipo === "receita");
+
+  function Bloco({ titulo, lista }: { titulo: string; lista: typeof grupos }) {
+    if (lista.length === 0) return null;
+    return (
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", marginBottom: 8 }}>{titulo}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {lista.map((g) => {
+            const aberto = open[g.grupo] ?? false;
+            return (
+              <div key={g.grupo} style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", overflow: "hidden" }}>
+                <button onClick={() => setOpen((o) => ({ ...o, [g.grupo]: !aberto }))} className="fx-hoverable" style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 13px", background: "var(--surface)", border: "none", cursor: "pointer" }}>
+                  <span style={{ fontSize: 11, color: "var(--txt-faint)", transform: aberto ? "rotate(90deg)" : "none", transition: "transform .12s" }}>▶</span>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1 }}>{g.grupo}</span>
+                  <span style={{ fontSize: 11.5, color: "var(--txt-faint)" }}>{g.itens.length}</span>
+                </button>
+                {aberto && (
+                  <div style={{ padding: "4px 13px 10px 30px", display: "flex", flexDirection: "column", gap: 2 }}>
+                    {g.itens.map((c) => (
+                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "3px 0" }}>
+                        <span style={{ flex: 1 }}>{c.nome}</span>
+                        {c.dre && <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>{c.dre}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 13.5, color: "var(--txt-soft)", flex: 1, minWidth: 220 }}>Plano de contas (Grupo › Categoria), no padrão do seu Omie. Usado na classificação das solicitações.</div>
+        {isAdmin && <button className="fx-btn fx-btn-primary" disabled={busy} onClick={importar}>{busy ? "Importando…" : cats.length ? "Reimportar do padrão" : "Importar plano de contas"}</button>}
+      </div>
+      {msg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>{msg}</div>}
+      {!loaded && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
+      {loaded && cats.length === 0 && <p style={{ color: "var(--txt-faint)" }}>Nenhuma categoria ainda. {isAdmin ? "Clique em “Importar plano de contas”." : "Peça ao admin para importar."}</p>}
+      <Bloco titulo="Despesas" lista={despesas} />
+      <Bloco titulo="Receitas" lista={receitas} />
+    </>
   );
 }
 
@@ -291,6 +401,10 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   const [vencimento, setVencimento] = useState("");
   const [forma, setForma] = useState("pix");
   const [categoria, setCategoria] = useState("");
+  const [cats, setCats] = useState<{ id: string; grupo: string; nome: string }[]>([]);
+  const [catsLoaded, setCatsLoaded] = useState(false);
+  const [grupo, setGrupo] = useState("");
+  const [categoriaId, setCategoriaId] = useState("");
   const [recorrencia, setRecorrencia] = useState("unica");
   const [docNumero, setDocNumero] = useState("");
   const [prazo, setPrazo] = useState("avista");
@@ -301,16 +415,29 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  useEffect(() => {
+    fetch(`/api/finance/categorias?company=${companyId}&tipo=despesa`)
+      .then((r) => r.json())
+      .then((d) => setCats(d.categorias || []))
+      .finally(() => setCatsLoaded(true));
+  }, [companyId]);
+
+  const grupos = Array.from(new Set(cats.map((c) => c.grupo)));
+  const catsDoGrupo = cats.filter((c) => c.grupo === grupo);
+  const usaPlano = cats.length > 0;
+
   async function submit() {
     setErr("");
     const area = areas.find((a) => a.id === spaceId);
     if (!area) return setErr("Escolha a área.");
     if (!descricao.trim()) return setErr("Descreva a solicitação.");
     if (!Number(valor)) return setErr("Informe o valor.");
+    const catObj = cats.find((c) => c.id === categoriaId);
+    const categoriaTexto = catObj ? `${catObj.grupo} › ${catObj.nome}` : (categoria || null);
     setBusy(true);
     const res = await fetch("/api/finance/requests", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyId, kind, spaceId, areaName: area.name, credorId: credorId || null, descricao, valor: Number(valor), vencimento: vencimento || null, formaPagamento: forma, categoria: categoria || null, recorrencia, docNumero: docNumero || null, prazoPagamento: prazo, prioridade, centroCusto: centroCusto || null, observacao: obs || null }),
+      body: JSON.stringify({ companyId, kind, spaceId, areaName: area.name, credorId: credorId || null, descricao, valor: Number(valor), vencimento: vencimento || null, formaPagamento: forma, categoriaId: categoriaId || null, categoria: categoriaTexto, recorrencia, docNumero: docNumero || null, prazoPagamento: prazo, prioridade, centroCusto: centroCusto || null, observacao: obs || null }),
     });
     const d = await res.json();
     if (res.ok) {
@@ -335,8 +462,15 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
         <Field label="Vencimento"><input className="fx-input" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} /></Field></Row>
       <Row><Field label="Forma de pagamento"><select className="fx-input" value={forma} onChange={(e) => setForma(e.target.value)}><option value="pix">PIX</option><option value="boleto">Boleto</option><option value="transferencia">Transferência</option><option value="guia">Guia/DARF</option><option value="cartao">Cartão</option></select></Field>
         <Field label="Recorrência"><select className="fx-input" value={recorrencia} onChange={(e) => setRecorrencia(e.target.value)}><option value="unica">Única</option><option value="mensal">Mensal</option></select></Field></Row>
-      <Row><Field label="Categoria (sugerida)"><select className="fx-input" value={categoria} onChange={(e) => setCategoria(e.target.value)}><option value="">—</option>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
-        <Field label="Nº documento / NF"><input className="fx-input" value={docNumero} onChange={(e) => setDocNumero(e.target.value)} /></Field></Row>
+      {usaPlano ? (
+        <Row><Field label="Grupo (plano de contas)"><select className="fx-input" value={grupo} onChange={(e) => { setGrupo(e.target.value); setCategoriaId(""); }}><option value="">Selecione…</option>{grupos.map((g) => <option key={g} value={g}>{g}</option>)}</select></Field>
+          <Field label="Categoria"><select className="fx-input" value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} disabled={!grupo}><option value="">{grupo ? "Selecione…" : "Escolha o grupo primeiro"}</option>{catsDoGrupo.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></Field></Row>
+      ) : (
+        <Row><Field label="Categoria (sugerida)"><select className="fx-input" value={categoria} onChange={(e) => setCategoria(e.target.value)}><option value="">—</option>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
+          <Field label="Nº documento / NF"><input className="fx-input" value={docNumero} onChange={(e) => setDocNumero(e.target.value)} /></Field></Row>
+      )}
+      {usaPlano && <Field label="Nº documento / NF"><input className="fx-input" value={docNumero} onChange={(e) => setDocNumero(e.target.value)} /></Field>}
+      {catsLoaded && !usaPlano && <p style={{ fontSize: 11.5, color: "var(--txt-faint)", margin: "-4px 0 0" }}>Dica: o admin pode importar o plano de contas completo em Financeiro › Categorias.</p>}
       <Row><Field label="Prazo de pagamento"><select className="fx-input" value={prazo} onChange={(e) => setPrazo(e.target.value)}><option value="avista">À vista</option><option value="7">7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="data">Na data do vencimento</option><option value="parcelado">Parcelado</option></select></Field>
         <Field label="Prioridade"><select className="fx-input" value={prioridade} onChange={(e) => setPrioridade(e.target.value)}><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></Field></Row>
       <Field label="Centro de custo (opcional)"><input className="fx-input" value={centroCusto} onChange={(e) => setCentroCusto(e.target.value)} placeholder="ex.: Sede / Obra / Cursinho" /></Field>

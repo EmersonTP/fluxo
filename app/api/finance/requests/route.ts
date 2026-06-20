@@ -34,6 +34,13 @@ export async function POST(req: Request) {
   if (!valor || valor <= 0) return NextResponse.json({ error: "Valor deve ser maior que zero." }, { status: 400 });
   if (!b.areaName) return NextResponse.json({ error: "Área obrigatória." }, { status: 400 });
 
+  // Categoria precisa pertencer à empresa (isolamento).
+  let categoriaId: string | null = null;
+  if (b.categoriaId) {
+    const cat = await prisma.categoria.findUnique({ where: { id: b.categoriaId }, select: { companyId: true } });
+    if (cat && cat.companyId === companyId) categoriaId = b.categoriaId;
+  }
+
   const created = await prisma.paymentRequest.create({
     data: {
       companyId,
@@ -46,6 +53,7 @@ export async function POST(req: Request) {
       valor,
       vencimento: b.vencimento ? new Date(b.vencimento) : null,
       formaPagamento: b.formaPagamento || null,
+      categoriaId,
       categoria: b.categoria || null,
       docTipo: b.docTipo || null,
       docNumero: b.docNumero || null,

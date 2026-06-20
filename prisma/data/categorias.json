@@ -1,0 +1,1861 @@
+{
+  "TP Educação": [
+    {
+      "grupo": "01. Cursinho",
+      "nome": "Cursinho - FGV/INSPER",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 1
+    },
+    {
+      "grupo": "01. Cursinho",
+      "nome": "Cursinho",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 2
+    },
+    {
+      "grupo": "01. Cursinho",
+      "nome": "Aula particular",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 3
+    },
+    {
+      "grupo": "02. Ensino Médio",
+      "nome": "Ensino Médio",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 4
+    },
+    {
+      "grupo": "03. Graduação",
+      "nome": "Graduação",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 5
+    },
+    {
+      "grupo": "04. Receitas Indiretas",
+      "nome": "Dividendos Recebidos",
+      "tipo": "receita",
+      "dre": "Outras Receitas",
+      "ordem": 6
+    },
+    {
+      "grupo": "04. Receitas Indiretas",
+      "nome": "Rendimentos de Aplicações",
+      "tipo": "receita",
+      "dre": "Outras Receitas",
+      "ordem": 7
+    },
+    {
+      "grupo": "04. Receitas Indiretas",
+      "nome": "Aluguel de Armários",
+      "tipo": "receita",
+      "dre": "Outras Receitas",
+      "ordem": 8
+    },
+    {
+      "grupo": "04. Receitas Indiretas",
+      "nome": "Simulado avulso",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 9
+    },
+    {
+      "grupo": "04. Receitas Indiretas",
+      "nome": "Pacote de simulados",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 10
+    },
+    {
+      "grupo": "04. Receitas Indiretas",
+      "nome": "Coworking",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 11
+    },
+    {
+      "grupo": "05. Outras Entradas",
+      "nome": "Adiantamento de Clientes",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 12
+    },
+    {
+      "grupo": "05. Outras Entradas",
+      "nome": "Reembolso de Despesas",
+      "tipo": "receita",
+      "dre": "Recuperação de Despesas Variáveis",
+      "ordem": 13
+    },
+    {
+      "grupo": "05. Outras Entradas",
+      "nome": "Empréstimos Bancários",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 14
+    },
+    {
+      "grupo": "05. Outras Entradas",
+      "nome": "RESGATE DE APLICAÇÃO",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 15
+    },
+    {
+      "grupo": "05. Outras Entradas",
+      "nome": "Venda de Participações",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 16
+    },
+    {
+      "grupo": "05. Outras Entradas",
+      "nome": "Amortização FIDC",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 17
+    },
+    {
+      "grupo": "05. Outras Entradas",
+      "nome": "Mercado TP",
+      "tipo": "receita",
+      "dre": "Outras Receitas",
+      "ordem": 18
+    },
+    {
+      "grupo": "05. Outras Entradas",
+      "nome": "Transferências entre Contas/Empresas",
+      "tipo": "receita",
+      "dre": "Outras Receitas",
+      "ordem": 19
+    },
+    {
+      "grupo": "06. Devoluções",
+      "nome": "Devoluções de Compra de Serviços",
+      "tipo": "receita",
+      "dre": "Recuperação de Despesas Variáveis",
+      "ordem": 20
+    },
+    {
+      "grupo": "01. Despesas Diretas",
+      "nome": "Mercadorias para Revenda (Mercado)",
+      "tipo": "despesa",
+      "dre": "Outros Custos",
+      "ordem": 21
+    },
+    {
+      "grupo": "01. Despesas Diretas",
+      "nome": "Aulas Cursinho",
+      "tipo": "despesa",
+      "dre": "Custo dos Serviços Prestados",
+      "ordem": 22
+    },
+    {
+      "grupo": "01. Despesas Diretas",
+      "nome": "Aula Avulsa",
+      "tipo": "despesa",
+      "dre": "Custo dos Serviços Prestados",
+      "ordem": 23
+    },
+    {
+      "grupo": "01. Despesas Diretas",
+      "nome": "Mentoria",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 24
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Comissões",
+      "tipo": "despesa",
+      "dre": "Outros Custos",
+      "ordem": 25
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Marketing",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 26
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Despesas de Viagens",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 27
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Bonificações",
+      "tipo": "despesa",
+      "dre": "Outros Custos",
+      "ordem": 28
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Tráfego Pago",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 29
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Despesas com Eventos",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 30
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Panfletos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 31
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Cópias",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 32
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Venda de Materiais didáticos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 33
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Campanhas Publicitárias",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 34
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Indicação",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 35
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Porta Vestibular",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 36
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Brindes Clientes",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 37
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Materiais de Divulgação",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 38
+    },
+    {
+      "grupo": "02. Despesas de Vendas e Marketing",
+      "nome": "Mensalidade Agência de Publicidade",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 39
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Salários",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 40
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Adiantamento",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 41
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Férias",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 42
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Rescisões",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 43
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "13º Salário",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 44
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "INSS",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 45
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "FGTS",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 46
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "IRRF",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 47
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Pensão Alimentícia",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 48
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Assistência Médica",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 49
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Vale Transporte",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 50
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Vale Refeição",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 51
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Seguro de Vida",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 52
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Outros Benefícios",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 53
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Prestador de Serviço PJ",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 54
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Estagiário",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 55
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Bônus",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 56
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Transporte (Aplicativo, combustível)",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 57
+    },
+    {
+      "grupo": "03. Despesas com Pessoal",
+      "nome": "Uniformes",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 58
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Aluguel",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 59
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Condomínio",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 60
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Água e Esgoto",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 61
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Energia Elétrica",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 62
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Telefonia e Internet",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 63
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Material de Escritório",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 64
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Manutenção Imóvel/Predial",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 65
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Seguros",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 66
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "IPTU",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 67
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Contabilidade + BPO",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 68
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Advogados",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 69
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Segurança",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 70
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Limpeza",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 71
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Tecnologia (Sistemas e Softwares)",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 72
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Associações",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 73
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Registro de Marca",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 74
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Licenças de Uso / Gerais",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 75
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Manutenção de Imobilizado",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 76
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Copa e Cozinha",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 77
+    },
+    {
+      "grupo": "04. Despesas Administrativas",
+      "nome": "Confraternização",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 78
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Juros",
+      "tipo": "despesa",
+      "dre": "Despesas Financeiras",
+      "ordem": 79
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Multas",
+      "tipo": "despesa",
+      "dre": "Despesas Financeiras",
+      "ordem": 80
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Pagamento de Empréstimos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 81
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Tarifas Bancárias",
+      "tipo": "despesa",
+      "dre": "Despesas Financeiras",
+      "ordem": 82
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Empréstimos efetuados",
+      "tipo": "despesa",
+      "dre": "Despesas Financeiras",
+      "ordem": 83
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "ICMS",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 84
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "IPI",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 85
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "PIS",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 86
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "COFINS",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 87
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "IRPJ",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 88
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "Contribuição Social",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 89
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "ISS",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 90
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "Simples Nacional (DAS)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 91
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "TFE",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 92
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "IOF",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 93
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Máquinas e Equipamentos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 94
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Veículos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 95
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Instalações",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 96
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Equipamentos de Informática",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 97
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Móveis e Utensílios",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 98
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Comunicação",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 99
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Investimentos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 100
+    },
+    {
+      "grupo": "08. Outras Despesas",
+      "nome": "Transferências entre Contas/Empresas",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 101
+    },
+    {
+      "grupo": "08. Outras Despesas",
+      "nome": "Cartão de Credito",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 102
+    },
+    {
+      "grupo": "08. Outras Despesas",
+      "nome": "Antecipação de Retirada de Lucros",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 103
+    },
+    {
+      "grupo": "08. Outras Despesas",
+      "nome": "Acao judicial",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 104
+    },
+    {
+      "grupo": "09. Devoluções de Vendas",
+      "nome": "Devoluções de Vendas de Mercadoria",
+      "tipo": "despesa",
+      "dre": "Deduções de Receita",
+      "ordem": 105
+    },
+    {
+      "grupo": "09. Devoluções de Vendas",
+      "nome": "Devoluções de Vendas de Serviços Prestados",
+      "tipo": "despesa",
+      "dre": "Deduções de Receita",
+      "ordem": 106
+    }
+  ],
+  "Reserva Beach Club": [
+    {
+      "grupo": "01. Receitas Diretas",
+      "nome": "Associados - Título Galácticos House",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 1
+    },
+    {
+      "grupo": "01. Receitas Diretas",
+      "nome": "Associados - Título Patrimonial Individual",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 2
+    },
+    {
+      "grupo": "01. Receitas Diretas",
+      "nome": "Associados - Título Sócio Fundador",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 3
+    },
+    {
+      "grupo": "01. Receitas Diretas",
+      "nome": "Clientes - Título Clube 300",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 4
+    },
+    {
+      "grupo": "01. Receitas Diretas",
+      "nome": "Associados - Título Patrimonial",
+      "tipo": "receita",
+      "dre": "Receita Bruta de Vendas",
+      "ordem": 5
+    },
+    {
+      "grupo": "01. Receitas Diretas",
+      "nome": "RESGATE DE APLICAÇÃO",
+      "tipo": "receita",
+      "dre": "Outras Receitas",
+      "ordem": 6
+    },
+    {
+      "grupo": "02. Receitas Financeiras",
+      "nome": "Dividendos Recebidos",
+      "tipo": "receita",
+      "dre": "Outras Receitas",
+      "ordem": 7
+    },
+    {
+      "grupo": "02. Receitas Financeiras",
+      "nome": "Rendimentos de Aplicações - Entrada",
+      "tipo": "receita",
+      "dre": "Receitas Financeiras",
+      "ordem": 8
+    },
+    {
+      "grupo": "02. Receitas Financeiras",
+      "nome": "Ganho financeiro",
+      "tipo": "receita",
+      "dre": "Receitas Financeiras",
+      "ordem": 9
+    },
+    {
+      "grupo": "03. Outras Entradas",
+      "nome": "Reembolso de Despesas",
+      "tipo": "receita",
+      "dre": "Recuperação de Despesas Variáveis",
+      "ordem": 10
+    },
+    {
+      "grupo": "03. Outras Entradas",
+      "nome": "Empréstimos Bancários",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 11
+    },
+    {
+      "grupo": "03. Outras Entradas",
+      "nome": "Transferência entre Contas/Empresas",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 12
+    },
+    {
+      "grupo": "03. Outras Entradas",
+      "nome": "Devoluções recebidas de fornecedores",
+      "tipo": "receita",
+      "dre": null,
+      "ordem": 13
+    },
+    {
+      "grupo": "04. Devoluções",
+      "nome": "Devolução de pagamento á fornecedor (Entrada)",
+      "tipo": "receita",
+      "dre": "Recuperação de Despesas Variáveis",
+      "ordem": 14
+    },
+    {
+      "grupo": "04. Devoluções",
+      "nome": "Devoluções de Compra de Título (Entrada)",
+      "tipo": "receita",
+      "dre": "Recuperação de Despesas Variáveis",
+      "ordem": 15
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "M.O. Construção/montagem",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 16
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Materiais de acabamento (piso, paredes, iluminação)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 17
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Arquiteto / Projetos",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 18
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Outras despesas",
+      "tipo": "despesa",
+      "dre": "Ativos",
+      "ordem": 19
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Integração",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 20
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Taxas e tributos",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 21
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Telefonia e Internet",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 22
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Manutenção Piscina Surf",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 23
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Aquisição Piscina Surf",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 24
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Orçamentista",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 25
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Terraplanagem",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 26
+    },
+    {
+      "grupo": "01. Despesas diretas",
+      "nome": "Freelancer",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 27
+    },
+    {
+      "grupo": "02. Despesas de Vendas",
+      "nome": "Comissões",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 28
+    },
+    {
+      "grupo": "02. Despesas de Vendas",
+      "nome": "Bonificações",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 29
+    },
+    {
+      "grupo": "02. Despesas de Vendas",
+      "nome": "Prospecção, Alimentação e Transporte",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 30
+    },
+    {
+      "grupo": "02. Despesas de Vendas",
+      "nome": "Assessoria Comercial",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 31
+    },
+    {
+      "grupo": "02. Despesas de Vendas",
+      "nome": "Cashback indicação cliente",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 32
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Midia de performance",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 33
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "PR",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 34
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Materiais de Divulgação",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 35
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Eventos",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 36
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Veiculação de publicidade",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 37
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Midia Offline",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 38
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Fees de Agencia",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 39
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Sinalização Outdoors",
+      "tipo": "despesa",
+      "dre": "Despesas de Vendas e Marketing",
+      "ordem": 40
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Campanha de Marca",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 41
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Influenciadoras",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 42
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Conteudo",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 43
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Trade",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 44
+    },
+    {
+      "grupo": "02.1. Despesas de Publicidade",
+      "nome": "Branding",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 45
+    },
+    {
+      "grupo": "02.2. Despesas",
+      "nome": "Buffet, Food Truck e Alimentação",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 46
+    },
+    {
+      "grupo": "02.2. Despesas",
+      "nome": "Serviços de Limpeza",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 47
+    },
+    {
+      "grupo": "02.2. Despesas",
+      "nome": "Manutenção e Reparos",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 48
+    },
+    {
+      "grupo": "02.2. Despesas",
+      "nome": "Serviços de Montagem",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 49
+    },
+    {
+      "grupo": "02.2. Despesas",
+      "nome": "Recreação/Monitoria",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 50
+    },
+    {
+      "grupo": "02.2. Despesas",
+      "nome": "Patrocínio",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 51
+    },
+    {
+      "grupo": "02.2. Despesas",
+      "nome": "Locações",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 52
+    },
+    {
+      "grupo": "02.2. Despesas",
+      "nome": "Viagens e Hospedagens",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 53
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Condomínio",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 54
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Energia Elétrica",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 55
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Material de Escritório",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 56
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Seguros",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 57
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "IPTU",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 58
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Contabilidade",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 59
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Advogados/Serviços Jurídicos",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 60
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Segurança",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 61
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Despesas com cartão de credito",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 62
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Seguro - Veículos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 63
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Manutenção - Veículos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 64
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Tecnologia - Software e Sistemas",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 65
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Locação - Veículos",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 66
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Multa - Veículos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 67
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Material Copa",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 68
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "IPVA/Licenciamento - Veículos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 69
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Despesas Legais (Cartórios e Taxas)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 70
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "BPO Financeiro",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 71
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Manutenção em imóveis / Escritório",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 72
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Assessoria Financeira/Contábil",
+      "tipo": "despesa",
+      "dre": "Despesas Administrativas",
+      "ordem": 73
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Combustíveis/Estacionamento/Pedágios",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 74
+    },
+    {
+      "grupo": "03. Despesas Administrativas",
+      "nome": "Bens de Pequeno Valor",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 75
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "PJ",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 76
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Adiantamento",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 77
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Férias",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 78
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Rescisões",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 79
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "13º Salário",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 80
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "INSS",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 81
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "FGTS",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 82
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "IRRF",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 83
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Pensão Alimentícia",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 84
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Assistência Médica",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 85
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Vale Transporte",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 86
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Vale Refeição",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 87
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Seguro de Vida",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 88
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Outros Benefícios",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 89
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Prestador de Serviço - PJ",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 90
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Estagio",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 91
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Recrutamento & Seleção",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 92
+    },
+    {
+      "grupo": "04. Despesas com Pessoal",
+      "nome": "Bônus",
+      "tipo": "despesa",
+      "dre": "Despesas com Pessoal",
+      "ordem": 93
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Juros sobre Empréstimos",
+      "tipo": "despesa",
+      "dre": "Despesas Financeiras",
+      "ordem": 94
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Multas",
+      "tipo": "despesa",
+      "dre": "Despesas Financeiras",
+      "ordem": 95
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Pagamento de Empréstimos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 96
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "Tarifas Bancárias",
+      "tipo": "despesa",
+      "dre": "Despesas Financeiras",
+      "ordem": 97
+    },
+    {
+      "grupo": "05. Despesas Financeiras / Bancos",
+      "nome": "RESGATE DE APLICAÇÃO - SAIDA",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 98
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "ICMS",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 99
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "IPI",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 100
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "PIS",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 101
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "COFINS",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 102
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "IRPJ",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 103
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "Contribuição Social",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 104
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "ISS",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 105
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "Simples Nacional (DAS)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 106
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "DCTFWEB",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 107
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "IOF",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 108
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "Taxa de Fiscalização",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 109
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "Outras Taxas ou Tributos",
+      "tipo": "despesa",
+      "dre": "Outros Tributos",
+      "ordem": 110
+    },
+    {
+      "grupo": "06. Impostos e Taxas",
+      "nome": "PCC Cód. 5952",
+      "tipo": "despesa",
+      "dre": "Impostos",
+      "ordem": 111
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Máquinas e Equipamentos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 112
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Aquisição - Veículos",
+      "tipo": "despesa",
+      "dre": "Ativos",
+      "ordem": 113
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Aplicação Fundos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 114
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Gerenciamento de obra",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 115
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Móveis e Utensílios",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 116
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Investimentos - Bancos",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 117
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Aquisição Arena (Lagoinha)",
+      "tipo": "despesa",
+      "dre": "Ativos",
+      "ordem": 118
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Bens duráveis",
+      "tipo": "despesa",
+      "dre": "Ativos",
+      "ordem": 119
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Mobiliário (mesas, cadeiras, balcão de atendimento)",
+      "tipo": "despesa",
+      "dre": "Ativos",
+      "ordem": 120
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Equipamentos (TVs, tablets, computadores, impressoras)",
+      "tipo": "despesa",
+      "dre": "Ativos",
+      "ordem": 121
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Mobiliário (TV`s, telões, mesas)",
+      "tipo": "despesa",
+      "dre": "Ativos",
+      "ordem": 122
+    },
+    {
+      "grupo": "07. Investimento",
+      "nome": "Equipamento de Informática",
+      "tipo": "despesa",
+      "dre": "Ativos",
+      "ordem": 123
+    },
+    {
+      "grupo": "08. Outras Despesas",
+      "nome": "Adiantamento a Fornecedores",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 124
+    },
+    {
+      "grupo": "08. Outras Despesas",
+      "nome": "Transferências entre Contas/Empresas",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 125
+    },
+    {
+      "grupo": "08. Outras Despesas",
+      "nome": "Devoluções a receber de fornecedores",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 126
+    },
+    {
+      "grupo": "09. Devoluções de Vendas",
+      "nome": "Devolução de venda de Título",
+      "tipo": "despesa",
+      "dre": "Deduções de Receita",
+      "ordem": 127
+    },
+    {
+      "grupo": "10. Custo Terreno",
+      "nome": "Aquisição - (Terreno)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 128
+    },
+    {
+      "grupo": "10. Custo Terreno",
+      "nome": "Taxas e Tributos - (Terreno)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 129
+    },
+    {
+      "grupo": "10. Custo Terreno",
+      "nome": "Despesas com cartório - (Terreno)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 130
+    },
+    {
+      "grupo": "10.1 Custo Obra - Projetos",
+      "nome": "Projeto Arquitetonico Externo",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 131
+    },
+    {
+      "grupo": "10.1 Custo Obra - Projetos",
+      "nome": "Projeto Arquitetonico Interiores",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 132
+    },
+    {
+      "grupo": "10.1 Custo Obra - Projetos",
+      "nome": "Projeto Paisagismo",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 133
+    },
+    {
+      "grupo": "10.1 Custo Obra - Projetos",
+      "nome": "Projeto Estrutural",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 134
+    },
+    {
+      "grupo": "10.1 Custo Obra - Projetos",
+      "nome": "Projeto Ambiental",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 135
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Serviço de Terraplanagem (Terreno)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 136
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Locação de equipamentos - (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 137
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Segurança do trabalho (Terraplenagem)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 138
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Movimento de terra (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 139
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Despesas Legais (ART..) Terraplenagem",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 140
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Materiais Agregados (Areia, Pedra...) - Terraplenagem",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 141
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Gerador de Energia (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 142
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Limpeza superficial do terreno (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 143
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Escavação mecanica no corte (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 144
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Movimentação de terra interna no terreno (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 145
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Escavação mecanica com bota fora (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 146
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Reaterro compactado (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 147
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Bota fora de material escavado (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 148
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Importe de terra para compactação (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 149
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Escavação manual (terra excedente/acerto de taludes) (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 150
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Protecao de talude - chapisco (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 151
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Rachao reciclavel (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 152
+    },
+    {
+      "grupo": "10.2 Custo Obra - Terraplenagem",
+      "nome": "Locacao de carregadeira / escavadeira (Terraplanagem)",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 153
+    },
+    {
+      "grupo": "10.3 Custo Obra - Prestador de Serviço",
+      "nome": "Engenheiro",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 154
+    },
+    {
+      "grupo": "10.3 Custo Obra - Prestador de Serviço",
+      "nome": "Jardineiro - (Terreno)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 155
+    },
+    {
+      "grupo": "10.3 Custo Obra - Prestador de Serviço",
+      "nome": "Anuência Transepto",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 156
+    },
+    {
+      "grupo": "10.3 Custo Obra - Prestador de Serviço",
+      "nome": "Abastecimento - Caminhão Pipa (Terreno)",
+      "tipo": "despesa",
+      "dre": "Despesas Variáveis",
+      "ordem": 157
+    },
+    {
+      "grupo": "Despesas diretas - Stand e Terreno***",
+      "nome": "Integracao",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 158
+    },
+    {
+      "grupo": "Despesas de Vendas e Marketing",
+      "nome": "Midia OOH",
+      "tipo": "despesa",
+      "dre": null,
+      "ordem": 159
+    }
+  ]
+}

@@ -27,6 +27,7 @@ model Company {
   credores       Credor[]
   paymentRequests PaymentRequest[]
   approverConfigs ApproverConfig[]
+  categorias     Categoria[]
 }
 
 model User {
@@ -394,7 +395,9 @@ model PaymentRequest {
   formaPagamento String? // pix | boleto | transferencia | guia | cartao
 
   // Classificação (financeiro)
-  categoria       String?
+  categoriaId     String?
+  categoriaRef    Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  categoria       String?  // texto resolvido "Grupo › Categoria" (histórico/Omie)
   centroCusto     String?
   classeGerencial String?
 
@@ -447,6 +450,25 @@ model RequestStep {
   request   PaymentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
+}
+
+// Plano de contas (categorias do Omie): Grupo › Categoria, por empresa.
+model Categoria {
+  id        String   @id @default(cuid())
+  grupo     String   // ex.: "04. Despesas Administrativas"
+  nome      String   // ex.: "Aluguel"
+  tipo      String   @default("despesa") // receita | despesa
+  dre       String?  // Conta do DRE (Omie)
+  ativo     Boolean  @default(true)
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requests  PaymentRequest[]
+
+  @@unique([companyId, grupo, nome])
+  @@index([companyId, tipo])
 }
 
 // Configuração de aprovadores por empresa (gestor por área; financeiro e pagador por empresa).
