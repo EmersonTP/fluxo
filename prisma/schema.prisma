@@ -28,6 +28,11 @@ model Company {
   paymentRequests PaymentRequest[]
   approverConfigs ApproverConfig[]
   categorias     Categoria[]
+  integrations   IntegrationConfig[]
+  clientes       Cliente[]
+  planos         Plano[]
+  assinaturas    Assinatura[]
+  recebiveis     Receivable[]
 }
 
 model User {
@@ -483,4 +488,111 @@ model ApproverConfig {
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId, role])
+}
+
+// ===== Módulo Contas a Receber (integração Iugu) =====
+
+// Credenciais e config de integração de pagamento por empresa. O token NUNCA é exposto ao cliente.
+model IntegrationConfig {
+  id           String   @id @default(cuid())
+  provider     String   @default("iugu") // iugu | (futuro: outros)
+  apiToken     String   // segredo — só usado no servidor
+  accountId    String?  // Account ID da Iugu (opcional)
+  webhookToken String   // segredo aleatório usado na URL do webhook
+  testMode     Boolean  @default(false)
+  connectedAt  DateTime @default(now())
+  lastSyncAt   DateTime?
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, provider])
+}
+
+// Cliente/pagador (lado do Contas a Receber). Espelha o customer da Iugu.
+model Cliente {
+  id             String   @id @default(cuid())
+  nome           String
+  email          String
+  documento      String?  // CPF/CNPJ
+  telefone       String?
+  iuguCustomerId String?  // id do customer na Iugu
+  ativo          Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assinaturas Assinatura[]
+  recebiveis  Receivable[]
+
+  @@index([companyId])
+  @@index([iuguCustomerId])
+}
+
+// Plano de recorrência. Espelha o plan da Iugu.
+model Plano {
+  id           String   @id @default(cuid())
+  nome         String
+  identifier   String   // identifier do plano na Iugu (tag)
+  valorCents   Int      @default(0)
+  intervalo    Int      @default(1)        // quantidade
+  intervaloTipo String  @default("months") // months | weeks
+  payableWith  String   @default("bank_slip,pix,credit_card") // csv
+  iuguPlanId   String?
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assinaturas Assinatura[]
+
+  @@unique([companyId, identifier])
+  @@index([companyId])
+}
+
+// Assinatura de um cliente a um plano. Espelha a subscription da Iugu.
+model Assinatura {
+  id                 String   @id @default(cuid())
+  status             String   @default("ativa") // ativa | suspensa | expirada | cancelada
+  iuguSubscriptionId String?
+  proximaCobranca    DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clienteId String
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  planoId   String
+  plano     Plano    @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  recebiveis Receivable[]
+
+  @@index([companyId, status])
+  @@index([iuguSubscriptionId])
+}
+
+// Conta a Receber = fatura (invoice da Iugu). Pode vir de assinatura ou cobrança avulsa.
+model Receivable {
+  id            String   @id @default(cuid())
+  descricao     String   @default("")
+  valorCents    Int      @default(0)
+  status        String   @default("pendente") // pendente | paga | vencida | cancelada | estornada | em_protesto
+  metodo        String?  // bank_slip | pix | credit_card
+  vencimento    DateTime?
+  pagoEm        DateTime?
+  iuguInvoiceId String?  @unique
+  secureUrl     String?  // link da fatura (boleto/pix) na Iugu
+  origem        String   @default("avulsa") // avulsa | assinatura
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clienteId String?
+  cliente   Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  assinaturaId String?
+  assinatura   Assinatura? @relation(fields: [assinaturaId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status])
+  @@index([companyId, vencimento])
 }
