@@ -12,10 +12,15 @@ export default function DocsPanel() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saved, setSaved] = useState(true);
+  const [docsLoaded, setDocsLoaded] = useState(false);
+  const [docLoading, setDocLoading] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadDocs = useCallback(() => {
-    fetch("/api/documents").then((r) => r.json()).then((d) => setDocs(d.documents || []));
+    fetch("/api/documents")
+      .then((r) => r.json())
+      .then((d) => setDocs(d.documents || []))
+      .finally(() => setDocsLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -23,7 +28,12 @@ export default function DocsPanel() {
   }, [loadDocs]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setDoc(null);
+      return;
+    }
+    setDoc(null);
+    setDocLoading(true);
     fetch(`/api/documents/${active}`)
       .then((r) => r.json())
       .then((d) => {
@@ -33,7 +43,8 @@ export default function DocsPanel() {
           setContent(d.document.content || "");
           setSaved(true);
         }
-      });
+      })
+      .finally(() => setDocLoading(false));
   }, [active]);
 
   const save = useCallback(
@@ -92,7 +103,8 @@ export default function DocsPanel() {
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         <div style={{ width: 250, borderRight: "1px solid var(--line)", overflowY: "auto", padding: "10px 8px", flexShrink: 0 }}>
-          {docs.length === 0 && <p style={{ fontSize: 12.5, color: "var(--txt-faint)", padding: 10 }}>Nenhum documento ainda. Crie o primeiro acima.</p>}
+          {!docsLoaded && <p style={{ fontSize: 12.5, color: "var(--txt-faint)", padding: 10 }}>Carregando…</p>}
+          {docsLoaded && docs.length === 0 && <p style={{ fontSize: 12.5, color: "var(--txt-faint)", padding: 10 }}>Nenhum documento ainda. Crie o primeiro acima.</p>}
           {docs.map((d) => (
             <button
               key={d.id}
@@ -112,6 +124,9 @@ export default function DocsPanel() {
               <div style={{ fontSize: 34, marginBottom: 8 }}>📄</div>
               <p style={{ fontSize: 14 }}>Selecione um documento ou crie um novo.</p>
             </div>
+          )}
+          {active && docLoading && !doc && (
+            <div style={{ margin: "auto" }}><div className="fx-spinner" /></div>
           )}
           {active && doc && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "22px 32px", overflowY: "auto", maxWidth: 820, width: "100%", margin: "0 auto" }}>

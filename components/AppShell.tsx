@@ -22,6 +22,7 @@ const ICONS: Record<string, string> = {
   docs: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h6",
   admin: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 8l2 2 4-4",
   finance: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+  panel: "M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM9 4v16",
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13a7.8 7.8 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.5 7.5 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7.5 7.5 0 0 0-1.7 1l-2.4-1-2 3.5L4.6 11a7.8 7.8 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.4 1 2-3.5z",
 };
 
@@ -228,11 +229,11 @@ export default function AppShell({ user, children }: { user: User; children: Rea
           </button>
           <button
             className={`fx-rail-item ${!collapsed ? "active" : ""}`}
-            title="Espaços (abrir/fechar barra)"
+            title={collapsed ? "Abrir a barra lateral" : "Recolher a barra lateral"}
             onClick={toggleCollapse}
           >
-            <Icon name="spaces" />
-            <span className="fx-rail-label">Espaços</span>
+            <Icon name="panel" />
+            <span className="fx-rail-label">Barra</span>
           </button>
           {railGroups.map((group, gi) => (
             <Fragment key={gi}>
@@ -348,9 +349,14 @@ export default function AppShell({ user, children }: { user: User; children: Rea
         ) : (
           <>
             {loading && <p className="fx-navgroup">Carregando...</p>}
-            {workspaces.filter((ws) => !activeCompany || ws.companyId === activeCompany).map((ws, i) => (
-              <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={COMPANY_COLORS[i % COMPANY_COLORS.length]} onCreateList={createList} onCreateSpace={createSpace} isAdmin={isAdmin} refresh={loadHierarchy} />
-            ))}
+            {(() => {
+              const visible = workspaces.filter((ws) => !activeCompany || ws.companyId === activeCompany);
+              const colorAt = (ws: WorkspaceT) => COMPANY_COLORS[Math.max(0, workspaces.findIndex((w) => w.id === ws.id)) % COMPANY_COLORS.length];
+              // 1 workspace (caso comum): mostra os espaços direto, sem cabeçalho duplicado da empresa.
+              return visible.map((ws) => (
+                <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={colorAt(ws)} onCreateList={createList} onCreateSpace={createSpace} isAdmin={isAdmin} refresh={loadHierarchy} hideHeader={visible.length === 1} />
+              ));
+            })()}
             {!loading && workspaces.length === 0 && isAdmin && (
               <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>Sem dados ainda. Rode a importação do ClickUp.</p>
             )}
@@ -432,7 +438,7 @@ function Kebab({ type, id, isPrivate, memberIds, refresh }: { type: "space" | "l
   );
 }
 
-function WorkspaceNode({ ws, pathname, color, onCreateList, onCreateSpace, isAdmin, refresh }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList; onCreateSpace: (name: string, workspaceId: string) => void | Promise<void>; isAdmin: boolean; refresh: () => void }) {
+function WorkspaceNode({ ws, pathname, color, onCreateList, onCreateSpace, isAdmin, refresh, hideHeader }: { ws: WorkspaceT; pathname: string; color: string; onCreateList: CreateList; onCreateSpace: (name: string, workspaceId: string) => void | Promise<void>; isAdmin: boolean; refresh: () => void; hideHeader?: boolean }) {
   const initial = ws.name.charAt(0).toUpperCase();
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -444,6 +450,19 @@ function WorkspaceNode({ ws, pathname, color, onCreateList, onCreateSpace, isAdm
       await fetch(`/api/workspaces/${ws.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: val.trim() }) });
       refresh();
     }
+  }
+  // Quando é a única empresa visível, mostra os espaços direto (sem cabeçalho duplicado).
+  if (hideHeader) {
+    return (
+      <div>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--txt-faint)", padding: "4px 10px 2px" }}>Espaços</div>
+        {ws.spaces.map((sp, i) => (
+          <SpaceNode key={sp.id} sp={sp} pathname={pathname} color={sp.color || SPACE_COLORS[i % SPACE_COLORS.length]} onCreateList={onCreateList} isAdmin={isAdmin} refresh={refresh} />
+        ))}
+        {ws.spaces.length === 0 && <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "4px 10px" }}>Nenhum espaço ainda.</p>}
+        {isAdmin && <AddSpaceInput onCreate={(name) => onCreateSpace(name, ws.id)} />}
+      </div>
+    );
   }
   return (
     <div style={{ marginTop: 12, borderRadius: 10, background: color + "12", paddingBottom: open ? 4 : 0 }}>
