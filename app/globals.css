@@ -520,6 +520,13 @@ body {
   color: var(--coral-deep);
   font-weight: 600;
 }
+.fx-rail-div {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 5px 0;
+  flex: 0 0 auto;
+}
 .fx-spinner {
   width: 26px;
   height: 26px;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import type { WorkspaceT, SpaceT } from "@/lib/types";
@@ -175,17 +175,26 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   }
 
   const isAdmin = user.role === "owner" || user.role === "admin";
-  const railItems = [
-    { icon: "home", label: "Início", href: "/" },
-    { icon: "tasks", label: "Tarefas", href: "/minhas-tarefas" },
-    { icon: "sprint", label: "Sprints", href: "/sprints" },
-    { icon: "chat", label: "Chat", href: "/chat" },
-    { icon: "docs", label: "Docs", href: "/documentos" },
-    { icon: "finance", label: "Finanças", href: "/financeiro" },
-    { icon: "reports", label: "Relatórios", href: "/relatorios" },
-    ...(isAdmin ? [{ icon: "productivity", label: "Produtividade", href: "/produtividade" }] : []),
-    ...(isAdmin ? [{ icon: "admin", label: "Admin", href: "/admin" }] : []),
-    { icon: "gear", label: "Config", href: "/configuracoes" },
+  const activeCo = companies.find((c) => c.id === activeCompany);
+  const financeOn = !activeCo || (activeCo.modules || "").includes("financeiro");
+  type RailItem = { icon: string; label: string; href: string };
+  const railGroups: RailItem[][] = [
+    [{ icon: "home", label: "Início", href: "/" }],
+    [
+      { icon: "tasks", label: "Tarefas", href: "/minhas-tarefas" },
+      { icon: "sprint", label: "Sprints", href: "/sprints" },
+    ],
+    [
+      { icon: "chat", label: "Chat", href: "/chat" },
+      { icon: "docs", label: "Docs", href: "/documentos" },
+    ],
+    ...(financeOn ? [[{ icon: "finance", label: "Finanças", href: "/financeiro" }]] : []),
+    [
+      { icon: "reports", label: "Relatórios", href: "/relatorios" },
+      ...(isAdmin ? [{ icon: "productivity", label: "Produtividade", href: "/produtividade" }] : []),
+      ...(isAdmin ? [{ icon: "admin", label: "Admin", href: "/admin" }] : []),
+    ],
+    [{ icon: "gear", label: "Config", href: "/configuracoes" }],
   ];
 
   return (
@@ -225,15 +234,20 @@ export default function AppShell({ user, children }: { user: User; children: Rea
             <Icon name="spaces" />
             <span className="fx-rail-label">Espaços</span>
           </button>
-          {railItems.map((it) => {
-            const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
-            return (
-              <Link key={it.href} href={it.href} className={`fx-rail-item ${active ? "active" : ""}`} title={it.label}>
-                <Icon name={it.icon} />
-                <span className="fx-rail-label">{it.label}</span>
-              </Link>
-            );
-          })}
+          {railGroups.map((group, gi) => (
+            <Fragment key={gi}>
+              {gi > 0 && <div className="fx-rail-div" />}
+              {group.map((it) => {
+                const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
+                return (
+                  <Link key={it.href} href={it.href} className={`fx-rail-item ${active ? "active" : ""}`} title={it.label}>
+                    <Icon name={it.icon} />
+                    <span className="fx-rail-label">{it.label}</span>
+                  </Link>
+                );
+              })}
+            </Fragment>
+          ))}
         </div>
         <div style={{ marginTop: "auto", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <NotificationBell />
