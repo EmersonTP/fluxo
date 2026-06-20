@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, accessibleCompanyIds } from "@/lib/auth";
 
@@ -7,8 +8,13 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   const user = await getSessionUser();
   const ids = user ? accessibleCompanyIds(user) : null;
+  // Empresa ativa (cookie da troca no rail). Escopa as contagens à empresa selecionada.
+  const active = cookies().get("fx_company")?.value || "";
+  // ids === null = owner/admin (vê todas). Restringe à empresa ativa se válida pro usuário.
+  const allowActive = active && (ids === null || ids.includes(active));
+  const ids2 = allowActive ? [active] : ids;
   // Membro sem nenhuma empresa não vê nada; usa um id impossível para zerar as contagens.
-  const effIds = ids === null ? null : ids.length ? ids : ["__none__"];
+  const effIds = ids2 === null ? null : ids2.length ? ids2 : ["__none__"];
 
   const spaceWhere = effIds === null ? undefined : { workspace: { companyId: { in: effIds } } };
   const listWhere =

@@ -1,7 +1,9 @@
 "use client";
 
-import type { TaskT } from "@/lib/types";
-import { priorityMeta, isLate, withAlpha, dueMeta } from "@/lib/ui";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import type { TaskT, StatusT } from "@/lib/types";
+import { priorityMeta, isLate, withAlpha, dueMeta, statusIcon, textOn } from "@/lib/ui";
 
 export function TaskCard({
   task,
@@ -9,17 +11,34 @@ export function TaskCard({
   onPointerDown,
   showList,
   dragging,
+  statuses,
+  onSetStatus,
 }: {
   task: TaskT;
   onOpen: (id: string) => void;
   onPointerDown?: (e: React.PointerEvent) => void;
   showList?: string;
   dragging?: boolean;
+  statuses?: StatusT[];
+  onSetStatus?: (statusId: string) => void;
 }) {
   const prio = priorityMeta(task.priority);
   const bar = task.status?.color || "var(--roxo)";
   const late = isLate(task.dueDate, task.dateClosed);
   const due = dueMeta(task.dueDate, task.dateClosed);
+
+  const pillRef = useRef<HTMLButtonElement>(null);
+  const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
+  const canPick = !!(statuses && statuses.length && onSetStatus);
+
+  function openStatusMenu(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!canPick) return;
+    if (pillRef.current) {
+      const r = pillRef.current.getBoundingClientRect();
+      setMenu({ top: Math.min(r.bottom + 4, window.innerHeight - 220), left: r.left });
+    }
+  }
 
   return (
     <div
@@ -37,9 +56,17 @@ export function TaskCard({
       <div className="fx-card-title">{task.name}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
         {task.status && (
-          <span className="fx-pill" style={{ color: task.status.color, background: withAlpha(task.status.color, 0.13) }}>
+          <button
+            ref={pillRef}
+            type="button"
+            className="fx-pill"
+            onPointerDown={canPick ? (e) => e.stopPropagation() : undefined}
+            onClick={openStatusMenu}
+            title={canPick ? "Trocar status" : undefined}
+            style={{ color: task.status.color, background: withAlpha(task.status.color, 0.13), border: "none", cursor: canPick ? "pointer" : "inherit", font: "inherit" }}
+          >
             {task.status.name}
-          </span>
+          </button>
         )}
         {prio && (
           <span className="fx-pill" style={{ color: prio.fg, background: prio.bg }}>
@@ -70,6 +97,29 @@ export function TaskCard({
           </span>
         )}
       </div>
+
+      {menu && canPick && createPortal(
+        <>
+          <div onClick={(e) => { e.stopPropagation(); setMenu(null); }} onPointerDown={(e) => e.stopPropagation()} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
+          <div className="fx-popover" style={{ position: "fixed", top: menu.top, left: menu.left, width: 200, zIndex: 2001, padding: 5, maxHeight: 260, overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            {statuses!.map((s) => (
+              <button
+                key={s.id}
+                className="fx-menuitem"
+                style={{ width: "100%", borderRadius: 7, display: "flex", alignItems: "center", gap: 8 }}
+                onClick={(e) => { e.stopPropagation(); setMenu(null); if (s.id !== (task.statusId || "none")) onSetStatus!(s.id); }}
+              >
+                <span className="fx-statuspill" style={{ background: s.color, color: textOn(s.color), fontSize: 11, padding: "2px 8px" }}>
+                  <span style={{ fontSize: 10, lineHeight: 1 }}>{statusIcon(s.type)}</span>
+                  {s.name}
+                </span>
+                {(task.statusId || "none") === s.id && <span style={{ marginLeft: "auto", color: "var(--roxo)" }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 }

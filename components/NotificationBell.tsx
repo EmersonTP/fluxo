@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 type Notif = { id: string; type: string; text: string; link: string | null; read: boolean; createdAt: string };
@@ -22,6 +23,8 @@ export default function NotificationBell() {
   const [items, setItems] = useState<Notif[]>([]);
   const [unread, setUnread] = useState(0);
   const seenRef = useRef(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
 
   const load = useCallback(() => {
     fetch("/api/notifications")
@@ -57,6 +60,10 @@ export default function NotificationBell() {
 
   function toggle() {
     const next = !open;
+    if (next && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ left: r.right + 8, bottom: Math.max(8, window.innerHeight - r.bottom) });
+    }
     setOpen(next);
     if (next && unread > 0) {
       // give a beat so the badge clears visually after the panel is seen
@@ -66,7 +73,7 @@ export default function NotificationBell() {
 
   return (
     <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
-      <button onClick={toggle} className={`fx-rail-item ${open ? "active" : ""}`} title="Notificações" style={{ position: "relative" }}>
+      <button ref={btnRef} onClick={toggle} className={`fx-rail-item ${open ? "active" : ""}`} title="Notificações" style={{ position: "relative" }}>
         <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.7 21a2 2 0 0 1-3.4 0" />
@@ -97,15 +104,14 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && (
+      {open && pos && createPortal(
         <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
           <div
             style={{
-              position: "absolute",
-              left: "100%",
-              bottom: 0,
-              marginLeft: 8,
+              position: "fixed",
+              left: pos.left,
+              bottom: pos.bottom,
               width: 320,
               maxHeight: 440,
               display: "flex",
@@ -114,7 +120,7 @@ export default function NotificationBell() {
               border: "1px solid var(--line)",
               borderRadius: 14,
               boxShadow: "var(--shadow-card, 0 8px 30px rgba(0,0,0,.15))",
-              zIndex: 50,
+              zIndex: 2001,
               overflow: "hidden",
             }}
           >
@@ -159,7 +165,8 @@ export default function NotificationBell() {
               ))}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );

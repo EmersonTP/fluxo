@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Member = { id: string; name: string; color: string };
 
@@ -11,6 +12,7 @@ export default function PrivacyMenu({
   initialMemberIds,
   onClose,
   onSaved,
+  anchorRect,
 }: {
   type: "space" | "list";
   id: string;
@@ -18,6 +20,7 @@ export default function PrivacyMenu({
   initialMemberIds: string[];
   onClose: () => void;
   onSaved: () => void;
+  anchorRect?: DOMRect | null;
 }) {
   const [priv, setPriv] = useState(initialPrivate);
   const [selected, setSelected] = useState<Set<string>>(new Set(initialMemberIds));
@@ -48,12 +51,16 @@ export default function PrivacyMenu({
     onClose();
   }
 
-  return (
+  const width = 248;
+  const top = anchorRect ? Math.min(anchorRect.bottom + 4, window.innerHeight - 380) : 80;
+  const left = anchorRect ? Math.max(8, Math.min(anchorRect.right - width, window.innerWidth - width - 8)) : 80;
+
+  return createPortal(
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
       <div
         className="fx-popover"
-        style={{ position: "absolute", top: 22, right: 0, width: 248, zIndex: 61, padding: 12, maxHeight: 360, overflowY: "auto" }}
+        style={{ position: "fixed", top, left, width, zIndex: 2001, padding: 12, maxHeight: 360, overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--txt)", cursor: "pointer", marginBottom: priv ? 10 : 4 }}>
@@ -87,6 +94,7 @@ export default function PrivacyMenu({
           {saving ? "Salvando…" : "Salvar"}
         </button>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

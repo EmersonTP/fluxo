@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import type { WorkspaceT, SpaceT } from "@/lib/types";
@@ -54,6 +55,9 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     setActiveCompany(id);
     setCompanyMenu(false);
     try { localStorage.setItem("fx:company", id); } catch {}
+    // cookie para os server components (Início etc.) escoparem pela empresa ativa
+    try { document.cookie = `fx_company=${id}; path=/; max-age=31536000; samesite=lax`; } catch {}
+    router.refresh();
   }
 
   function loadHierarchy() {
@@ -90,7 +94,9 @@ export default function AppShell({ user, children }: { user: User; children: Rea
       let saved = "";
       try { saved = localStorage.getItem("fx:company") || ""; } catch {}
       const valid = cs.find((c: { id: string }) => c.id === saved);
-      setActiveCompany(valid ? saved : cs[0]?.id || "");
+      const chosen = valid ? saved : cs[0]?.id || "";
+      setActiveCompany(chosen);
+      if (chosen) { try { document.cookie = `fx_company=${chosen}; path=/; max-age=31536000; samesite=lax`; } catch {} }
     });
     try {
       setDark(localStorage.getItem("fluxo:theme") === "dark");
@@ -201,12 +207,13 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       {/* Icon rail */}
-      <div className="fx-rail">
+      <div className="fx-rail" style={{ overflow: "visible" }}>
+        {/* Topo fixo: marca + empresas + buscar + barra */}
         <Link href="/" className="fx-rail-brand" title="Sandra">
           S
         </Link>
         {companies.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 10, width: "100%", alignItems: "center", paddingBottom: 10, marginBottom: 2, borderBottom: "1px solid rgba(255,255,255,.1)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 10, width: "100%", alignItems: "center", paddingBottom: 10, marginBottom: 2, borderBottom: "1px solid rgba(255,255,255,.1)", flexShrink: 0 }}>
             {companies.map((c, i) => {
               const on = c.id === activeCompany;
               return (
@@ -222,7 +229,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
             })}
           </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, width: "100%", alignItems: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, width: "100%", alignItems: "center", flexShrink: 0 }}>
           <button className="fx-rail-item" title="Buscar (⌘K)" onClick={() => setSearchOpen(true)}>
             <Icon name="search" />
             <span className="fx-rail-label">Buscar</span>
@@ -235,6 +242,9 @@ export default function AppShell({ user, children }: { user: User; children: Rea
             <Icon name="panel" />
             <span className="fx-rail-label">Barra</span>
           </button>
+        </div>
+        {/* Meio rolável: navegação */}
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginTop: 4, scrollbarWidth: "none" }}>
           {railGroups.map((group, gi) => (
             <Fragment key={gi}>
               {gi > 0 && <div className="fx-rail-div" />}
@@ -250,10 +260,11 @@ export default function AppShell({ user, children }: { user: User; children: Rea
             </Fragment>
           ))}
         </div>
-        <div style={{ marginTop: "auto", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+        {/* Rodapé fixo: avisos + avatar */}
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,.1)" }}>
           <NotificationBell />
         </div>
-        <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
+        <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: 4 }}>
           <button onClick={() => setMenuOpen((o) => !o)} className="fx-rail-avatar" title={user.name}>
             {user.name.charAt(0).toUpperCase()}
           </button>
@@ -419,20 +430,47 @@ const COMPANY_COLORS = ["#9250ac", "#d85a30", "#1d9e75", "#534ab7", "#ff7e59", "
 
 type CreateList = (name: string, parent: { spaceId?: string; folderId?: string }) => void | Promise<void>;
 
-// Botão de 3 pontinhos (⋯) com menu de privacidade — só admin/owner
-function Kebab({ type, id, isPrivate, memberIds, refresh }: { type: "space" | "list"; id: string; isPrivate: boolean; memberIds: string[]; refresh: () => void }) {
-  const [open, setOpen] = useState(false);
+// Botão de 3 pontinhos (⋯) com menu de contexto (Renomear / Privacidade) — só admin/owner
+function Kebab({ type, id, isPrivate, memberIds, refresh, onRename }: { type: "space" | "list"; id: string; isPrivate: boolean; memberIds: string[]; refresh: () => void; onRename?: () => void }) {
+  const [menu, setMenu] = useState(false);
+  const [privacy, setPrivacy] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  function openMenu(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (btnRef.current) setRect(btnRef.current.getBoundingClientRect());
+    setMenu((o) => !o);
+  }
+
+  const menuTop = rect ? Math.min(rect.bottom + 4, (typeof window !== "undefined" ? window.innerHeight : 800) - 120) : 0;
+  const menuLeft = rect ? Math.max(8, rect.right - 180) : 0;
+
   return (
-    <span style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+    <span onClick={(e) => e.stopPropagation()}>
       <button
-        onClick={() => setOpen((o) => !o)}
-        title="Privacidade / acesso"
+        ref={btnRef}
+        onClick={openMenu}
+        title="Mais opções"
         style={{ background: "none", border: "none", cursor: "pointer", color: isPrivate ? "var(--roxo)" : "var(--txt-faint)", fontSize: 15, lineHeight: 1, padding: "0 2px" }}
       >
         {isPrivate ? "🔒" : "⋯"}
       </button>
-      {open && (
-        <PrivacyMenu type={type} id={id} initialPrivate={isPrivate} initialMemberIds={memberIds} onClose={() => setOpen(false)} onSaved={refresh} />
+      {menu && createPortal(
+        <>
+          <div onClick={() => setMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
+          <div className="fx-popover" style={{ position: "fixed", top: menuTop, left: menuLeft, width: 180, zIndex: 2001, padding: 5 }}>
+            {onRename && (
+              <button className="fx-menuitem" style={{ width: "100%", borderRadius: 7 }} onClick={() => { setMenu(false); onRename(); }}>Renomear</button>
+            )}
+            <button className="fx-menuitem" style={{ width: "100%", borderRadius: 7 }} onClick={() => { setMenu(false); setPrivacy(true); }}>Privacidade / acesso</button>
+          </div>
+        </>,
+        document.body
+      )}
+      {privacy && (
+        <PrivacyMenu type={type} id={id} initialPrivate={isPrivate} initialMemberIds={memberIds} anchorRect={rect} onClose={() => setPrivacy(false)} onSaved={refresh} />
       )}
     </span>
   );
@@ -509,8 +547,9 @@ function WorkspaceNode({ ws, pathname, color, onCreateList, onCreateSpace, isAdm
           </Link>
         )}
         <button
-          onClick={() => setOpen((o) => !o)}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--txt-faint)", padding: "2px 4px" }}
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--txt-faint)", padding: "2px 6px" }}
           title={open ? "Recolher" : "Expandir"}
         >
           {open ? "▾" : "▸"}
@@ -604,15 +643,16 @@ function SpaceNode({ sp, pathname, color, onCreateList, isAdmin, refresh }: { sp
               <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{sp.name}</span>
             </Link>
             <button
-              onClick={() => setOpen(!open)}
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
               title={open ? "Recolher" : "Expandir"}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 11, opacity: 0.5, padding: "0 4px" }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 11, opacity: 0.5, padding: "0 6px" }}
             >
               {open ? "▾" : "▸"}
             </button>
           </>
         )}
-        {isAdmin && !editing && <Kebab type="space" id={sp.id} isPrivate={!!sp.private} memberIds={(sp.members || []).map((m) => m.id)} refresh={refresh} />}
+        {isAdmin && !editing && <Kebab type="space" id={sp.id} isPrivate={!!sp.private} memberIds={(sp.members || []).map((m) => m.id)} refresh={refresh} onRename={() => { setVal(sp.name); setEditing(true); }} />}
       </div>
       {open && (
         <div style={{ marginLeft: 14, borderLeft: "1px solid var(--line)", paddingLeft: 6 }}>
@@ -768,7 +808,7 @@ function ListLink({
         <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
         {count !== undefined && count > 0 && <span style={{ fontSize: 11, opacity: 0.5 }}>{count}</span>}
       </Link>
-      {isAdmin && refresh && <Kebab type="list" id={id} isPrivate={!!isPrivate} memberIds={memberIds || []} refresh={refresh} />}
+      {isAdmin && refresh && <Kebab type="list" id={id} isPrivate={!!isPrivate} memberIds={memberIds || []} refresh={refresh} onRename={() => { setVal(name); setEditing(true); }} />}
     </div>
   );
 }

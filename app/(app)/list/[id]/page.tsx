@@ -275,7 +275,7 @@ function ListPageInner({ params }: { params: { id: string } }) {
       </div>
 
       {view === "board" ? (
-        <BoardView list={data} tasks={filtered} onReorder={reorderColumn} onOpen={setOpenTask} onCreated={load} />
+        <BoardView list={data} tasks={filtered} onReorder={reorderColumn} onOpen={setOpenTask} onCreated={load} onMove={moveTask} />
       ) : view === "list" ? (
         <ListView list={data} tasks={filtered} members={members} onOpen={setOpenTask} onCreated={load} onMove={moveTask} onSetPriority={setPriority} onPatch={patchTaskFields} />
       ) : (
@@ -305,12 +305,14 @@ function BoardView({
   onReorder,
   onOpen,
   onCreated,
+  onMove,
 }: {
   list: ListDetail;
   tasks: TaskT[];
   onReorder: (statusId: string, orderedIds: string[]) => void;
   onOpen: (id: string) => void;
   onCreated: () => void;
+  onMove: (taskId: string, statusId: string) => void;
 }) {
   const statuses = list.statuses.length ? list.statuses : [{ id: "none", name: "Sem status", color: "#a3a3a3", order: 0, type: "open" }];
   const [drag, setDrag] = useState<{ taskId: string; name: string; color: string; x: number; y: number } | null>(null);
@@ -399,7 +401,7 @@ function BoardView({
               {visible.map((t, i) => (
                 <div key={t.id} data-card-id={t.id}>
                   {lineAt === i && <div className="fx-dropline" style={{ background: st.color }} />}
-                  <TaskCard task={t} onOpen={onOpen} onPointerDown={(e) => handleCardPointerDown(e, t)} />
+                  <TaskCard task={t} onOpen={onOpen} onPointerDown={(e) => handleCardPointerDown(e, t)} statuses={statuses} onSetStatus={(sid) => onMove(t.id, sid)} />
                 </div>
               ))}
               {lineAt === visible.length && <div className="fx-dropline" style={{ background: st.color }} />}
