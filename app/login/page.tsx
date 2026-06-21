@@ -21,12 +21,21 @@ export default function LoginPage() {
       setError("Digite seu e-mail acima e clique de novo em “Esqueci minha senha”.");
       return;
     }
-    await fetch("/api/auth/forgot", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    }).catch(() => {});
-    setInfo("Se este e-mail estiver cadastrado, enviamos um link pra redefinir a senha. Confira a caixa de entrada (e o spam).");
+    let sent = true;
+    try {
+      const r = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const d = await r.json().catch(() => ({}));
+      sent = d.sent !== false;
+    } catch { /* ignora */ }
+    setInfo(
+      sent
+        ? "Se este e-mail estiver cadastrado, enviamos um link pra redefinir a senha. Confira a caixa de entrada (e o spam)."
+        : "Pedido registrado. O envio de e-mail ainda não está configurado, então um administrador vai te ajudar a redefinir a senha pelo painel."
+    );
   }
 
   async function submit(e: React.FormEvent) {

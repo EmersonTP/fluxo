@@ -10,10 +10,12 @@ import { sendEmail, emailEnabled, emailLayout } from "@/lib/email";
 export async function POST(req: Request) {
   const { email } = await req.json().catch(() => ({}));
   const normalized = (email || "").toLowerCase().trim();
-  if (!normalized) return NextResponse.json({ ok: true });
+  // sent reflete só a CONFIGURAÇÃO do provedor (não revela se o e-mail existe)
+  const sent = emailEnabled();
+  if (!normalized) return NextResponse.json({ ok: true, sent });
 
   const user = await prisma.user.findUnique({ where: { email: normalized }, select: { id: true, name: true, email: true } });
-  if (!user) return NextResponse.json({ ok: true });
+  if (!user) return NextResponse.json({ ok: true, sent });
 
   if (emailEnabled()) {
     const token = randomBytes(24).toString("hex");
@@ -38,5 +40,5 @@ export async function POST(req: Request) {
       user.id
     );
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, sent });
 }
