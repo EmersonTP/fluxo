@@ -213,6 +213,10 @@ function ListPageInner({ params }: { params: { id: string } }) {
               {data.name}
             </div>
           )}
+          <div style={{ fontSize: 12, color: "var(--txt-faint)", marginTop: 1 }}>
+            {data.tasks.length} {data.tasks.length === 1 ? "tarefa" : "tarefas"}
+            {filtered.length !== data.tasks.length ? ` · ${filtered.length} no filtro` : ""}
+          </div>
         </div>
         <div className="fx-search" style={{ position: "relative", flex: "1 1 150px", minWidth: 0, maxWidth: 300, marginLeft: "auto" }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.4 }}>

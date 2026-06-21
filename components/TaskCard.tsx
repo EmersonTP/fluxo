@@ -88,8 +88,18 @@ export function TaskCard({
           ))}
         </div>
         {showList && <span className="fx-meta" style={{ marginLeft: 2 }}>{showList}</span>}
-        <span className="fx-meta" style={{ marginLeft: "auto" }}>
-          {task._count && task._count.comments > 0 ? `💬 ${task._count.comments}  ` : ""}
+        <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 9 }}>
+          {task._count && task._count.subtasks > 0 && (
+            <span className="fx-meta" title={`${task._count.subtasks} subtarefa(s)`} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6v12" /><path d="M4 12h3" />
+              </svg>
+              {task._count.subtasks}
+            </span>
+          )}
+          {task._count && task._count.comments > 0 && (
+            <span className="fx-meta" title={`${task._count.comments} comentário(s)`}>💬 {task._count.comments}</span>
+          )}
         </span>
         {due && (
           <span className="fx-meta" style={{ color: due.color, fontWeight: late ? 600 : 500, display: "inline-flex", alignItems: "center", gap: 4 }}>
