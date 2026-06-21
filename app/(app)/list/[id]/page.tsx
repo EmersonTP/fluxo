@@ -800,7 +800,7 @@ function TreeRow({
               >
                 {task.name}
               </span>
-              {subCount > 0 && <span style={{ fontSize: 11, color: "var(--txt-faint)", flexShrink: 0 }}>⤷ {subCount}</span>}
+              {subCount > 0 && <span style={{ fontSize: 11, color: "var(--txt-faint)", flexShrink: 0 }}>⤷ {(task._count?.subtasksDone ?? 0)}/{subCount}</span>}
             </>
           )}
         </span>

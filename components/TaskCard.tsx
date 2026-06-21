@@ -89,14 +89,23 @@ export function TaskCard({
         </div>
         {showList && <span className="fx-meta" style={{ marginLeft: 2 }}>{showList}</span>}
         <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 9 }}>
-          {task._count && task._count.subtasks > 0 && (
-            <span className="fx-meta" title={`${task._count.subtasks} subtarefa(s)`} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6v12" /><path d="M4 12h3" />
-              </svg>
-              {task._count.subtasks}
-            </span>
-          )}
+          {task._count && task._count.subtasks > 0 && (() => {
+            const total = task._count.subtasks;
+            const done = task._count.subtasksDone ?? 0;
+            const pct = total ? Math.round((done / total) * 100) : 0;
+            const full = done >= total && total > 0;
+            return (
+              <span className="fx-meta" title={`${done} de ${total} subtarefas concluídas`} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6v12" /><path d="M4 12h3" />
+                </svg>
+                <span>{done}/{total}</span>
+                <span style={{ width: 26, height: 5, borderRadius: 999, background: "var(--line)", overflow: "hidden", display: "inline-block" }}>
+                  <span style={{ display: "block", height: "100%", width: `${pct}%`, background: full ? "var(--sage)" : "var(--roxo)" }} />
+                </span>
+              </span>
+            );
+          })()}
           {task._count && task._count.comments > 0 && (
             <span className="fx-meta" title={`${task._count.comments} comentário(s)`}>💬 {task._count.comments}</span>
           )}

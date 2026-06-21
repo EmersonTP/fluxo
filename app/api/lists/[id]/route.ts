@@ -45,6 +45,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           assignees: { select: { id: true, name: true, color: true } },
           tags: { select: { id: true, name: true, color: true } },
           status: true,
+          subtasks: { select: { status: { select: { type: true } } } },
           _count: { select: { subtasks: true, comments: true } },
         },
       },
@@ -52,5 +53,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   });
 
   if (!list) return NextResponse.json({ error: "Lista não encontrada." }, { status: 404 });
-  return NextResponse.json({ list });
+
+  // Calcula subtarefas concluídas (status do tipo done/closed) por tarefa.
+  const tasks = list.tasks.map((t: any) => {
+    const subs = (t.subtasks || []) as { status: { type: string } | null }[];
+    const subtasksDone = subs.filter((s) => s.status && (s.status.type === "done" || s.status.type === "closed")).length;
+    const { subtasks, ...rest } = t;
+    return { ...rest, _count: { ...t._count, subtasksDone } };
+  });
+
+  return NextResponse.json({ list: { ...list, tasks } });
 }

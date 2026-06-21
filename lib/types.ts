@@ -15,7 +15,7 @@ export type TaskT = {
   listId: string;
   assignees: Member[];
   tags: TagT[];
-  _count?: { subtasks: number; comments: number };
+  _count?: { subtasks: number; comments: number; subtasksDone?: number };
 };
 
 export type ListDetail = {
