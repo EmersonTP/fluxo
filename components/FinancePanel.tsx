@@ -814,6 +814,26 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
 
       <Esteira status={r.status} />
 
+      {/* Envolvidos: a cadeia da solicitação */}
+      <Section title="Envolvidos">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {([
+            { papel: "Solicitante", uid: r.solicitanteId, feito: true },
+            { papel: "Gestor", uid: r.gestorId, feito: !!r.gestorId },
+            { papel: "Financeiro", uid: r.financeiroId, feito: !!r.financeiroId },
+            { papel: "Pagador", uid: r.pagadorId, feito: !!r.pagadorId },
+          ] as { papel: string; uid: string | null; feito: boolean }[]).map((p) => (
+            <div key={p.papel} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--col)", borderRadius: 10, padding: "7px 11px", minWidth: 150 }}>
+              <span className="fx-avatar" style={{ background: p.uid && nm[p.uid] ? nm[p.uid].color : "var(--line)", width: 26, height: 26, fontSize: 11, opacity: p.uid ? 1 : 0.5 }}>{p.uid && nm[p.uid] ? nm[p.uid].name.charAt(0).toUpperCase() : "?"}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10.5, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>{p.papel}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.uid ? person(p.uid) : "aguardando"}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       <Grid2>
         <Info label="Credor">{r.credor?.nome || "—"}{r.credor?.documento ? ` · ${r.credor.documento}` : ""}</Info>
         <Info label="Vencimento">{fmt(r.vencimento)}</Info>
