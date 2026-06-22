@@ -170,7 +170,6 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
     ...(isAdmin ? [{ k: "cfg", l: "Configuração" }] : []),
   ];
   const SOON: Record<string, string> = {
-    receber: "Contas a Receber — mensalidades e títulos a receber, com régua de cobrança. Próxima fase.",
     aulas: "Aulas Particulares — registro de aula gera conta a receber (aluno) + conta a pagar (professor) pela tabela de valores. Só TP. Próxima fase.",
     relatorios: "Relatórios — DRE por centro de custo / classe gerencial, aging e dashboard. Próxima fase.",
   };
