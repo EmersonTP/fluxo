@@ -18,15 +18,31 @@ const TOOLS = [
   { name: "fluxo_add_comment", description: "Adiciona um comentário a uma tarefa.", inputSchema: { type: "object", properties: { taskId: { type: "string" }, text: { type: "string" } }, required: ["taskId", "text"] } },
   { name: "fluxo_list_members", description: "Lista os usuários/membros (com IDs) para usar como responsáveis.", inputSchema: { type: "object", properties: {} } },
 
-  // ===== Financeiro (automação) =====
-  { name: "fluxo_finance_companies", description: "Lista as empresas do financeiro (com IDs). Use o companyId nas outras ferramentas financeiras.", inputSchema: { type: "object", properties: {} } },
-  { name: "fluxo_contas_a_pagar", description: "Lista as contas a pagar (solicitações de pagamento) de uma empresa. Traz credor, valor, vencimento e status. Filtro de status opcional: solicitada, aprovada_gestor, conferida, paga, recusada, cancelada.", inputSchema: { type: "object", properties: { companyId: { type: "string" }, status: { type: "string" } }, required: ["companyId"] } },
-  { name: "fluxo_contas_a_receber", description: "Lista os recebíveis (cobranças boleto/Pix) da empresa pelo Banco Inter, com valor, vencimento e status (pendente/paga/vencida).", inputSchema: { type: "object", properties: { companyId: { type: "string" } }, required: ["companyId"] } },
-  { name: "fluxo_extrato", description: "Extrato bancário do Banco Inter da empresa, com lançamentos (crédito/débito), valor e descrição. Período padrão: últimos 30 dias.", inputSchema: { type: "object", properties: { companyId: { type: "string" }, de: { type: "string", description: "YYYY-MM-DD" }, ate: { type: "string", description: "YYYY-MM-DD" } }, required: ["companyId"] } },
-  { name: "fluxo_criar_conta_pagar", description: "Cria uma conta a pagar (solicitação de pagamento) — use ao ler um boleto/NF. Entra como 'solicitada'.", inputSchema: { type: "object", properties: { companyId: { type: "string" }, areaName: { type: "string", description: "Área/Espaço (ex.: Administrativo)" }, descricao: { type: "string" }, valor: { type: "number" }, vencimento: { type: "string", description: "YYYY-MM-DD" }, formaPagamento: { type: "string", enum: ["pix", "boleto", "transferencia", "guia", "cartao"] }, docTipo: { type: "string", enum: ["nf", "boleto", "recibo", "contrato", "fatura"] }, docNumero: { type: "string" }, categoria: { type: "string" }, observacao: { type: "string" } }, required: ["companyId", "areaName", "descricao", "valor"] } },
-  { name: "fluxo_acao_conta", description: "Avança uma conta a pagar na esteira: aprovar_gestor, conferir, pagar, ou recusar. Respeita as permissões do responsável da etapa.", inputSchema: { type: "object", properties: { requestId: { type: "string" }, action: { type: "string", enum: ["aprovar_gestor", "conferir", "pagar", "recusar"] }, note: { type: "string" }, dataPagamento: { type: "string", description: "YYYY-MM-DD (ao pagar)" } }, required: ["requestId", "action"] } },
-  { name: "fluxo_listar_canais", description: "Lista os canais de chat (com IDs) para postar mensagens/alertas/resumos.", inputSchema: { type: "object", properties: {} } },
-  { name: "fluxo_postar_chat", description: "Posta uma mensagem em um canal de chat (alertas de vencimento, resumo financeiro, etc.).", inputSchema: { type: "object", properties: { channelId: { type: "string" }, text: { type: "string" } }, required: ["channelId", "text"] } },
+  // ===== Financeiro / ERP — PORTA ÚNICA E ESTÁVEL =====
+  // Uma só ferramenta para todo o módulo financeiro. Novas capacidades entram
+  // pelo parâmetro "action" (lado servidor), sem nunca mudar a lista de ferramentas
+  // — então o conector não precisa ser reconectado a cada recurso novo.
+  {
+    name: "fluxo_financeiro",
+    description:
+      "Porta única do módulo Financeiro/ERP da Sandra (estável). Informe 'action' e 'params'. Ações:\n" +
+      "• empresas — lista as empresas (com IDs). Sem params.\n" +
+      "• contas_a_pagar — params: {companyId, status?}. Status: solicitada|aprovada_gestor|conferida|paga|recusada|cancelada.\n" +
+      "• contas_a_receber — params: {companyId}. Recebíveis (boleto/Pix Inter): valor, vencimento, status.\n" +
+      "• extrato — params: {companyId, de?, ate?} (YYYY-MM-DD). Extrato bancário Inter (crédito/débito).\n" +
+      "• criar_conta_pagar — params: {companyId, areaName, descricao, valor, vencimento?, formaPagamento?, docTipo?, docNumero?, categoria?, observacao?}. Use ao ler um boleto/NF.\n" +
+      "• acao_conta — params: {requestId, action(aprovar_gestor|conferir|pagar|recusar), note?, dataPagamento?}. Avança a conta na esteira.\n" +
+      "• listar_canais — lista canais de chat (IDs). Sem params.\n" +
+      "• postar_chat — params: {channelId, text}. Posta alerta/resumo no chat.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["empresas", "contas_a_pagar", "contas_a_receber", "extrato", "criar_conta_pagar", "acao_conta", "listar_canais", "postar_chat"] },
+        params: { type: "object", description: "Parâmetros da ação (veja a descrição)." },
+      },
+      required: ["action"],
+    },
+  },
 ];
 
 // Bases candidatas pra falar com a própria API.
@@ -90,25 +106,33 @@ async function callTool(bases: string[], key: string, name: string, a: any = {})
     case "fluxo_list_members":
       return api(bases, key, "/api/members");
 
-    // ===== Financeiro =====
-    case "fluxo_finance_companies":
-      return api(bases, key, "/api/finance/companies");
-    case "fluxo_contas_a_pagar":
-      return api(bases, key, `/api/finance/requests?company=${encodeURIComponent(a.companyId)}${a.status ? `&status=${encodeURIComponent(a.status)}` : ""}`);
-    case "fluxo_contas_a_receber":
-      return api(bases, key, `/api/finance/inter/cobranca?company=${encodeURIComponent(a.companyId)}`);
-    case "fluxo_extrato":
-      return api(bases, key, `/api/finance/inter/extrato?company=${encodeURIComponent(a.companyId)}${a.de ? `&de=${a.de}` : ""}${a.ate ? `&ate=${a.ate}` : ""}`);
-    case "fluxo_criar_conta_pagar":
-      return api(bases, key, "/api/finance/requests", "POST", a);
-    case "fluxo_acao_conta": {
-      const { requestId, ...body } = a;
-      return api(bases, key, `/api/finance/requests/${requestId}/action`, "POST", body);
+    // ===== Financeiro / ERP — porta única =====
+    case "fluxo_financeiro": {
+      const p = a.params || {};
+      const enc = encodeURIComponent;
+      switch (a.action) {
+        case "empresas":
+          return api(bases, key, "/api/finance/companies");
+        case "contas_a_pagar":
+          return api(bases, key, `/api/finance/requests?company=${enc(p.companyId)}${p.status ? `&status=${enc(p.status)}` : ""}`);
+        case "contas_a_receber":
+          return api(bases, key, `/api/finance/inter/cobranca?company=${enc(p.companyId)}`);
+        case "extrato":
+          return api(bases, key, `/api/finance/inter/extrato?company=${enc(p.companyId)}${p.de ? `&de=${p.de}` : ""}${p.ate ? `&ate=${p.ate}` : ""}`);
+        case "criar_conta_pagar":
+          return api(bases, key, "/api/finance/requests", "POST", p);
+        case "acao_conta": {
+          const { requestId, ...body } = p;
+          return api(bases, key, `/api/finance/requests/${requestId}/action`, "POST", body);
+        }
+        case "listar_canais":
+          return api(bases, key, "/api/channels");
+        case "postar_chat":
+          return api(bases, key, `/api/channels/${p.channelId}/messages`, "POST", { text: p.text });
+        default:
+          throw new Error(`Ação financeira desconhecida: ${a.action}`);
+      }
     }
-    case "fluxo_listar_canais":
-      return api(bases, key, "/api/channels");
-    case "fluxo_postar_chat":
-      return api(bases, key, `/api/channels/${a.channelId}/messages`, "POST", { text: a.text });
 
     default:
       throw new Error(`Ferramenta desconhecida: ${name}`);
@@ -129,7 +153,7 @@ async function handle(msg: any, bases: string[], key: string) {
         id,
         result: {
           protocolVersion: params?.protocolVersion || "2025-03-26",
-          capabilities: { tools: { listChanged: false } },
+          capabilities: { tools: { listChanged: true } },
           serverInfo: SERVER_INFO,
         },
       };
