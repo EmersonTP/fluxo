@@ -4,6 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { createNotifications } from "@/lib/notify";
 import { sendEmail, emailEnabled, emailLayout } from "@/lib/email";
 
+// URL pública da app (Railway expõe via x-forwarded-host); env APP_URL tem prioridade.
+function baseUrl(req: Request) {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  const h = new Headers(req.headers);
+  const host = h.get("x-forwarded-host") || h.get("host") || "";
+  const proto = h.get("x-forwarded-proto") || "https";
+  if (host && !host.includes("localhost")) return `${proto}://${host}`;
+  try { return new URL(req.url).origin; } catch { return ""; }
+}
+
 // "Esqueci minha senha": envia link de redefinição por e-mail (Resend).
 // Se não houver provedor de e-mail, avisa os admins pra redefinir no painel.
 // Sempre responde ok (não revela se o e-mail existe).
@@ -23,7 +33,7 @@ export async function POST(req: Request) {
       where: { id: user.id },
       data: { resetToken: token, resetTokenExp: new Date(Date.now() + 60 * 60 * 1000) }, // 1h
     });
-    const link = `${new URL(req.url).origin}/redefinir?token=${token}`;
+    const link = `${baseUrl(req)}/redefinir?token=${token}`;
     await sendEmail(
       user.email,
       "Redefinir sua senha · Sandra",

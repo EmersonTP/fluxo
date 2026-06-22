@@ -7,6 +7,16 @@ import { sendEmail, emailEnabled, emailLayout } from "@/lib/email";
 // Domínios autorizados para CADASTRO NOVO (quem já existe na base pode entrar de qualquer e-mail)
 const ALLOWED_DOMAINS = ["emersonhealth.com.br", "tpeducacao.com.br", "reservaclub.com.br"];
 
+// URL pública (Railway expõe via x-forwarded-host); env APP_URL tem prioridade. Evita link com localhost.
+function baseUrl(req: Request) {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  const h = new Headers(req.headers);
+  const host = h.get("x-forwarded-host") || h.get("host") || "";
+  const proto = h.get("x-forwarded-proto") || "https";
+  if (host && !host.includes("localhost")) return `${proto}://${host}`;
+  try { return new URL(req.url).origin; } catch { return ""; }
+}
+
 // Registration rules:
 // - First user ever => owner + active (logged in immediately).
 // - Existing imported member (no password) => activates account, logs in.
@@ -90,7 +100,7 @@ export async function POST(req: Request) {
   });
 
   if (emailEnabled()) {
-    const link = `${new URL(req.url).origin}/verificar?token=${verifyToken}`;
+    const link = `${baseUrl(req)}/verificar?token=${verifyToken}`;
     await sendEmail(
       normalized,
       "Confirme seu e-mail · Sandra",
