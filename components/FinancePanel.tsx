@@ -655,11 +655,11 @@ function InterPanel({ companyId, isAdmin }: { companyId: string; isAdmin: boolea
       ) : isAdmin ? (
         <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, maxWidth: 640 }}>
           <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 4 }}>Conectar Banco Inter</div>
-          <p style={{ fontSize: 11.5, color: "var(--txt-faint)", margin: "0 0 12px" }}>No Inter Empresas → Integrações/API, crie uma aplicação com escopos <b>só de cobrança/Pix recebimento</b> (não marque pagamento), baixe o certificado e cole abaixo. Tudo fica guardado só no servidor.</p>
+          <p style={{ fontSize: 11.5, color: "var(--txt-faint)", margin: "0 0 12px" }}>Cole o client_id, o client_secret e a chave Pix. O <b>certificado e a chave são opcionais</b> — preencha só se a sua integração exigir mTLS (se conectar sem eles, é porque não precisa). Tudo fica guardado só no servidor.</p>
           <Row><Field label="Client ID"><input className="fx-input" value={f.clientId} onChange={(e) => setF({ ...f, clientId: e.target.value })} autoComplete="off" /></Field>
             <Field label="Client Secret"><input className="fx-input" type="password" value={f.clientSecret} onChange={(e) => setF({ ...f, clientSecret: e.target.value })} autoComplete="off" /></Field></Row>
-          <Field label="Certificado (.crt — conteúdo PEM)"><textarea className="fx-input" rows={3} value={f.certPem} onChange={(e) => setF({ ...f, certPem: e.target.value })} placeholder="-----BEGIN CERTIFICATE-----" /></Field>
-          <Field label="Chave privada (.key — conteúdo PEM)"><textarea className="fx-input" rows={3} value={f.keyPem} onChange={(e) => setF({ ...f, keyPem: e.target.value })} placeholder="-----BEGIN PRIVATE KEY-----" /></Field>
+          <Field label="Certificado (.crt — opcional, só se exigir mTLS)"><textarea className="fx-input" rows={3} value={f.certPem} onChange={(e) => setF({ ...f, certPem: e.target.value })} placeholder="-----BEGIN CERTIFICATE----- (deixe vazio se não tiver)" /></Field>
+          <Field label="Chave privada (.key — opcional)"><textarea className="fx-input" rows={3} value={f.keyPem} onChange={(e) => setF({ ...f, keyPem: e.target.value })} placeholder="-----BEGIN PRIVATE KEY----- (deixe vazio se não tiver)" /></Field>
           <Row><Field label="Conta corrente (opcional)"><input className="fx-input" value={f.contaCorrente} onChange={(e) => setF({ ...f, contaCorrente: e.target.value })} /></Field>
             <Field label="Chave Pix de recebimento*"><input className="fx-input" value={f.pixKey} onChange={(e) => setF({ ...f, pixKey: e.target.value })} placeholder="e-mail, CNPJ ou aleatória" /></Field></Row>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--txt-soft)", margin: "4px 0 12px", cursor: "pointer" }}>

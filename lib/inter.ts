@@ -11,13 +11,13 @@ export const INTER_SCOPES = "cob.write cob.read pix.read webhook.write webhook.r
 export type InterCfg = {
   clientId: string;
   clientSecret: string;
-  certPem: string;
-  keyPem: string;
+  certPem?: string | null;  // opcional: só se a integração exigir mTLS de cliente
+  keyPem?: string | null;
   contaCorrente?: string | null;
   pixKey?: string | null;
 };
 
-// Requisição mTLS pura (módulo https do Node — sempre disponível no runtime nodejs).
+// Requisição HTTPS (com mTLS de cliente se houver cert+key; senão TLS normal).
 function mtls(
   cfg: InterCfg,
   method: string,
@@ -27,15 +27,15 @@ function mtls(
 ): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
     const u = new URL(`${INTER_HOST}${path}`);
+    const opts: import("https").RequestOptions = {
+      host: u.hostname,
+      path: u.pathname + u.search,
+      method,
+      headers: { ...headers, ...(body ? { "Content-Length": Buffer.byteLength(body).toString() } : {}) },
+    };
+    if (cfg.certPem && cfg.keyPem) { opts.cert = cfg.certPem; opts.key = cfg.keyPem; }
     const req = https.request(
-      {
-        host: u.hostname,
-        path: u.pathname + u.search,
-        method,
-        cert: cfg.certPem,
-        key: cfg.keyPem,
-        headers: { ...headers, ...(body ? { "Content-Length": Buffer.byteLength(body).toString() } : {}) },
-      },
+      opts,
       (res) => {
         let buf = "";
         res.on("data", (d) => (buf += d));
@@ -104,7 +104,7 @@ export function getExtrato(cfg: InterCfg, dataInicio: string, dataFim: string) {
 
 export async function getInterConfig(companyId: string): Promise<InterCfg | null> {
   const c = await prisma.integrationConfig.findUnique({ where: { companyId_provider: { companyId, provider: "inter" } } });
-  if (!c || !c.clientId || !c.clientSecret || !c.certPem || !c.keyPem) return null;
+  if (!c || !c.clientId || !c.clientSecret) return null;
   return { clientId: c.clientId, clientSecret: c.clientSecret, certPem: c.certPem, keyPem: c.keyPem, contaCorrente: c.contaCorrente, pixKey: c.pixKey };
 }
 

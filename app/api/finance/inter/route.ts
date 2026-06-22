@@ -35,11 +35,11 @@ export async function POST(req: Request) {
   const b = await req.json();
   const { companyId, clientId, clientSecret, certPem, keyPem, contaCorrente, pixKey, testMode } = b;
   if (!companyId || !canAccessCompany(user, companyId)) return NextResponse.json({ error: "Empresa fora do seu acesso." }, { status: 403 });
-  if (!clientId || !clientSecret || !certPem || !keyPem || !pixKey) {
-    return NextResponse.json({ error: "Preencha client_id, client_secret, certificado, chave (key) e a chave Pix de recebimento." }, { status: 400 });
+  if (!clientId || !clientSecret || !pixKey) {
+    return NextResponse.json({ error: "Preencha client_id, client_secret e a chave Pix de recebimento." }, { status: 400 });
   }
 
-  const cfg: InterCfg = { clientId, clientSecret, certPem, keyPem, contaCorrente: contaCorrente || null, pixKey };
+  const cfg: InterCfg = { clientId, clientSecret, certPem: certPem || null, keyPem: keyPem || null, contaCorrente: contaCorrente || null, pixKey };
 
   // 1) Testa a credencial (só pega token — não move dinheiro)
   try {
@@ -53,8 +53,8 @@ export async function POST(req: Request) {
   const webhookToken = existing?.webhookToken || randomBytes(24).toString("hex");
   await prisma.integrationConfig.upsert({
     where: { companyId_provider: { companyId, provider: "inter" } },
-    create: { companyId, provider: "inter", apiToken: "", webhookToken, testMode: !!testMode, clientId, clientSecret, certPem, keyPem, contaCorrente: contaCorrente || null, pixKey },
-    update: { clientId, clientSecret, certPem, keyPem, contaCorrente: contaCorrente || null, pixKey, testMode: !!testMode },
+    create: { companyId, provider: "inter", apiToken: "", webhookToken, testMode: !!testMode, clientId, clientSecret, certPem: certPem || null, keyPem: keyPem || null, contaCorrente: contaCorrente || null, pixKey },
+    update: { clientId, clientSecret, certPem: certPem || null, keyPem: keyPem || null, contaCorrente: contaCorrente || null, pixKey, testMode: !!testMode },
   });
 
   // 3) Registra o webhook Pix na chave de recebimento
