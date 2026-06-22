@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany } from "@/lib/finance";
-import { testInter, registerPixWebhook, InterCfg } from "@/lib/inter";
+import { testInter, registerCobrancaWebhook, InterCfg } from "@/lib/inter";
 
 export const runtime = "nodejs";
 
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
   let webhookOk = false;
   let webhookErr = "";
   try {
-    await registerPixWebhook(cfg, pixKey, url);
+    await registerCobrancaWebhook(cfg, url);
     webhookOk = true;
   } catch (e: any) {
     webhookErr = e.message || "falha ao registrar webhook";

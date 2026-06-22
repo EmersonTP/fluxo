@@ -99,9 +99,35 @@ export function getPixCob(cfg: InterCfg, txid: string) {
 export function registerPixWebhook(cfg: InterCfg, chave: string, webhookUrl: string) {
   return api(cfg, "PUT", `/pix/v2/webhook/${encodeURIComponent(chave)}`, { webhookUrl });
 }
+// ===== API Cobrança v3 (boleto + Pix / "bolepix") — escopo "Cobranças" =====
+// Emite uma cobrança (boleto com Pix). Retorna { codigoSolicitacao }.
+export function createCobranca(cfg: InterCfg, body: Record<string, unknown>) {
+  return api(cfg, "POST", "/cobranca/v3/cobrancas", body);
+}
+// Detalhe da cobrança (status, boleto/linha digitável, pixCopiaECola).
+export function getCobranca(cfg: InterCfg, codigoSolicitacao: string) {
+  return api(cfg, "GET", `/cobranca/v3/cobrancas/${codigoSolicitacao}`);
+}
+// Registra o webhook de Cobrança (avisa quando a cobrança muda de situação).
+export function registerCobrancaWebhook(cfg: InterCfg, webhookUrl: string) {
+  return api(cfg, "PUT", "/cobranca/v3/webhook", { webhookUrl });
+}
+
 // Extrato (Fase 2 — conciliação).
 export function getExtrato(cfg: InterCfg, dataInicio: string, dataFim: string) {
   return api(cfg, "GET", `/banking/v2/extrato?dataInicio=${dataInicio}&dataFim=${dataFim}`);
+}
+
+// Mapeia a situação da cobrança Inter pro nosso status.
+export function mapCobrancaSituacao(s: string): string {
+  switch ((s || "").toUpperCase()) {
+    case "RECEBIDO": case "MARCADO_RECEBIDO": case "PAGO": return "paga";
+    case "A_RECEBER": case "EM_PROCESSAMENTO": return "pendente";
+    case "ATRASADO": case "EXPIRADO": return "vencida";
+    case "CANCELADO": return "cancelada";
+    case "PROTESTO": return "em_protesto";
+    default: return "pendente";
+  }
 }
 
 export async function getInterConfig(companyId: string): Promise<InterCfg | null> {
