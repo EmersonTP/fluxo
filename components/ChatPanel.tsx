@@ -348,14 +348,14 @@ function Header({ label, onAdd }: { label: string; onAdd: () => void }) {
   );
 }
 
-function renderText(text: string, members: Member[]) {
-  // Realça @menções
+function renderText(text: string, members: Member[], mine?: boolean) {
+  // Realça @menções (cor contrastante quando o balão é meu/roxo)
   const parts = text.split(/(@[\p{L}\d_.-]+)/u);
   return parts.map((p, i) => {
     if (p.startsWith("@")) {
       const name = p.slice(1).toLowerCase();
       const hit = members.some((m) => m.name.split(" ")[0].toLowerCase().startsWith(name));
-      if (hit) return <span key={i} style={{ color: "var(--roxo)", fontWeight: 600 }}>{p}</span>;
+      if (hit) return <span key={i} style={{ color: mine ? "#f3d9a7" : "var(--roxo)", fontWeight: 700 }}>{p}</span>;
     }
     return <span key={i}>{p}</span>;
   });
@@ -378,40 +378,44 @@ function MessageRow({
     if (r.userId === meId) grouped[r.emoji].mine = true;
   }
 
-  return (
-    <div className="fx-msg" style={{ display: "flex", gap: 10, marginTop: 10, position: "relative" }}>
-      <span className="fx-avatar" style={{ background: m.user?.color || "var(--roxo)", flexShrink: 0 }}>{(m.user?.name || "?").charAt(0).toUpperCase()}</span>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 11.5, color: "var(--txt-faint)", marginBottom: 3 }}>
-          {m.user?.name || "Desconhecido"} · {d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-          {m.editedAt && <span> · editado</span>}
-        </div>
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const bubbleBg = mine ? "var(--roxo)" : "var(--surface)";
+  const bubbleFg = mine ? "#fff" : "var(--txt)";
+  const metaColor = mine ? "rgba(255,255,255,.72)" : "var(--txt-faint)";
 
-        {editing?.id === m.id ? (
-          <div style={{ display: "flex", gap: 6 }}>
-            <input className="fx-input" autoFocus value={editing.val} onChange={(e) => setEditing({ id: m.id, val: e.target.value })}
-              onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditing(null); }} onBlur={saveEdit} />
-          </div>
-        ) : (
-          <>
-            {m.text && <div style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "var(--txt)" }}>{renderText(m.text, members)}</div>}
-            {m.attachments?.map((a) => (
-              a.mime.startsWith("image/") ? (
-                <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
-                  <img src={`/api/attachments/${a.id}`} alt={a.filename} style={{ maxWidth: 280, maxHeight: 200, borderRadius: 10, marginTop: 6, border: "1px solid var(--line)" }} />
-                </a>
-              ) : (
-                <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 6, padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13, color: "var(--txt)", textDecoration: "none", background: "var(--col)" }}>
-                  📄 {a.filename}
-                </a>
-              )
-            ))}
-          </>
-        )}
+  if (editing?.id === m.id) {
+    return (
+      <div className="fx-msg" style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginTop: 8 }}>
+        <input className="fx-input" autoFocus value={editing.val} onChange={(e) => setEditing({ id: m.id, val: e.target.value })}
+          onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditing(null); }} onBlur={saveEdit} style={{ maxWidth: "72%" }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="fx-msg" style={{ display: "flex", gap: 8, marginTop: 8, position: "relative", justifyContent: mine ? "flex-end" : "flex-start" }}>
+      {!mine && <span className="fx-avatar" style={{ background: m.user?.color || "var(--roxo)", flexShrink: 0, alignSelf: "flex-end" }}>{(m.user?.name || "?").charAt(0).toUpperCase()}</span>}
+      <div style={{ maxWidth: "72%", minWidth: 0, position: "relative", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
+        <div style={{ background: bubbleBg, color: bubbleFg, border: mine ? "none" : "1px solid var(--line)", borderRadius: 15, borderBottomRightRadius: mine ? 4 : 15, borderBottomLeftRadius: mine ? 15 : 4, padding: "7px 11px 5px", boxShadow: "0 1px 1px rgba(0,0,0,.05)" }}>
+          {!mine && <div style={{ fontSize: 11.5, fontWeight: 700, color: m.user?.color || "var(--roxo)", marginBottom: 2 }}>{m.user?.name || "Desconhecido"}</div>}
+          {m.text && <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{renderText(m.text, members, mine)}</div>}
+          {m.attachments?.map((a) => (
+            a.mime.startsWith("image/") ? (
+              <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
+                <img src={`/api/attachments/${a.id}`} alt={a.filename} style={{ maxWidth: 240, maxHeight: 200, borderRadius: 10, marginTop: 5, display: "block" }} />
+              </a>
+            ) : (
+              <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 5, padding: "7px 11px", border: `1px solid ${mine ? "rgba(255,255,255,.3)" : "var(--line)"}`, borderRadius: 10, fontSize: 13, color: bubbleFg, textDecoration: "none", background: mine ? "rgba(255,255,255,.1)" : "var(--col)" }}>
+                📄 {a.filename}
+              </a>
+            )
+          ))}
+          <div style={{ fontSize: 10.5, textAlign: "right", marginTop: 2, color: metaColor }}>{m.editedAt ? "editado · " : ""}{hora}</div>
+        </div>
 
         {/* Reações */}
         {Object.keys(grouped).length > 0 && (
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 6 }}>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
             {Object.values(grouped).map((g) => (
               <button key={g.emoji} onClick={() => onReact(g.emoji)}
                 style={{ display: "inline-flex", gap: 4, alignItems: "center", fontSize: 12.5, padding: "1px 8px", borderRadius: 999, cursor: "pointer", border: `1px solid ${g.mine ? "var(--roxo)" : "var(--line)"}`, background: g.mine ? "rgba(146,80,172,.12)" : "var(--surface)" }}>
@@ -423,25 +427,25 @@ function MessageRow({
 
         {/* Contador de thread */}
         {showThread && !!m._count?.replies && (
-          <button onClick={onReply} style={{ marginTop: 6, background: "none", border: "none", color: "var(--roxo)", cursor: "pointer", fontSize: 12.5, fontWeight: 600, padding: 0 }}>
+          <button onClick={onReply} style={{ marginTop: 4, background: "none", border: "none", color: "var(--roxo)", cursor: "pointer", fontSize: 12.5, fontWeight: 600, padding: 0 }}>
             💬 {m._count.replies} resposta(s)
           </button>
         )}
-      </div>
 
-      {/* Ações no hover */}
-      <div className="fx-msg-actions" style={{ position: "absolute", top: -6, right: 0, display: "flex", gap: 2, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, padding: 2, boxShadow: "var(--shadow-card)" }}>
-        <div style={{ position: "relative" }}>
-          <button title="Reagir" onClick={() => setReactFor(reactFor === m.id ? null : m.id)} style={actBtn}>😀</button>
-          {reactFor === m.id && (
-            <div style={{ position: "absolute", bottom: 28, right: 0, display: "flex", gap: 2, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: 5, boxShadow: "var(--shadow-hover)", zIndex: 6 }}>
-              {EMOJIS.map((e) => <button key={e} onClick={() => onReact(e)} style={{ ...actBtn, fontSize: 16 }}>{e}</button>)}
-            </div>
-          )}
+        {/* Ações no hover */}
+        <div className="fx-msg-actions" style={{ position: "absolute", top: -12, [mine ? "left" : "right"]: 0, display: "flex", gap: 2, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, padding: 2, boxShadow: "var(--shadow-card)", zIndex: 4 } as React.CSSProperties}>
+          <div style={{ position: "relative" }}>
+            <button title="Reagir" onClick={() => setReactFor(reactFor === m.id ? null : m.id)} style={actBtn}>😀</button>
+            {reactFor === m.id && (
+              <div style={{ position: "absolute", bottom: 28, right: 0, display: "flex", gap: 2, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: 5, boxShadow: "var(--shadow-hover)", zIndex: 6 }}>
+                {EMOJIS.map((e) => <button key={e} onClick={() => onReact(e)} style={{ ...actBtn, fontSize: 16 }}>{e}</button>)}
+              </div>
+            )}
+          </div>
+          {showThread && <button title="Responder" onClick={onReply} style={actBtn}>💬</button>}
+          {mine && <button title="Editar" onClick={() => setEditing({ id: m.id, val: m.text })} style={actBtn}>✏️</button>}
+          {mine && <button title="Apagar" onClick={onDelete} style={actBtn}>🗑️</button>}
         </div>
-        {showThread && <button title="Responder" onClick={onReply} style={actBtn}>💬</button>}
-        {mine && <button title="Editar" onClick={() => setEditing({ id: m.id, val: m.text })} style={actBtn}>✏️</button>}
-        {mine && <button title="Apagar" onClick={onDelete} style={actBtn}>🗑️</button>}
       </div>
     </div>
   );
