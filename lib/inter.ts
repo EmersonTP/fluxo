@@ -52,9 +52,11 @@ function mtls(
 const tokenCache = new Map<string, { token: string; exp: number }>();
 
 export async function getInterToken(cfg: InterCfg, scope = ""): Promise<string> {
-  const cached = tokenCache.get(cfg.clientId);
+  // O Inter exige o escopo específico de cada operação no pedido do token.
+  // Cache separado por escopo (um token "sem escopo" não serve pra endpoints com escopo).
+  const cacheKey = `${cfg.clientId}|${scope}`;
+  const cached = tokenCache.get(cacheKey);
   if (cached && cached.exp > Date.now() + 30_000) return cached.token;
-  // Sem 'scope' o Inter devolve o token com os escopos que a integração tem (evita invalid_scope).
   const fields: Record<string, string> = {
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
@@ -65,12 +67,12 @@ export async function getInterToken(cfg: InterCfg, scope = ""): Promise<string> 
   const r = await mtls(cfg, "POST", "/oauth/v2/token", { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" }, form);
   if (r.status < 200 || r.status >= 300) throw new Error(`Inter OAuth ${r.status}: ${r.text || "(sem corpo — provável escopo ou client_secret incorreto)"}`);
   const j = JSON.parse(r.text);
-  tokenCache.set(cfg.clientId, { token: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 });
+  tokenCache.set(cacheKey, { token: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 });
   return j.access_token;
 }
 
-async function api<T = any>(cfg: InterCfg, method: string, path: string, body?: Record<string, unknown>): Promise<T> {
-  const token = await getInterToken(cfg);
+async function api<T = any>(cfg: InterCfg, method: string, path: string, body?: Record<string, unknown>, scope = ""): Promise<T> {
+  const token = await getInterToken(cfg, scope);
   const headers: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: "application/json" };
   if (cfg.contaCorrente) headers["x-conta-corrente"] = cfg.contaCorrente;
   const payload = body ? JSON.stringify(body) : undefined;
@@ -102,20 +104,20 @@ export function registerPixWebhook(cfg: InterCfg, chave: string, webhookUrl: str
 // ===== API Cobrança v3 (boleto + Pix / "bolepix") — escopo "Cobranças" =====
 // Emite uma cobrança (boleto com Pix). Retorna { codigoSolicitacao }.
 export function createCobranca(cfg: InterCfg, body: Record<string, unknown>) {
-  return api(cfg, "POST", "/cobranca/v3/cobrancas", body);
+  return api(cfg, "POST", "/cobranca/v3/cobrancas", body, "boleto-cobranca.write");
 }
 // Detalhe da cobrança (status, boleto/linha digitável, pixCopiaECola).
 export function getCobranca(cfg: InterCfg, codigoSolicitacao: string) {
-  return api(cfg, "GET", `/cobranca/v3/cobrancas/${codigoSolicitacao}`);
+  return api(cfg, "GET", `/cobranca/v3/cobrancas/${codigoSolicitacao}`, undefined, "boleto-cobranca.read");
 }
 // Registra o webhook de Cobrança (avisa quando a cobrança muda de situação).
 export function registerCobrancaWebhook(cfg: InterCfg, webhookUrl: string) {
-  return api(cfg, "PUT", "/cobranca/v3/webhook", { webhookUrl });
+  return api(cfg, "PUT", "/cobranca/v3/webhook", { webhookUrl }, "boleto-cobranca.write");
 }
 
-// Extrato (Fase 2 — conciliação).
+// Extrato bancário (escopo Banking "extrato.read").
 export function getExtrato(cfg: InterCfg, dataInicio: string, dataFim: string) {
-  return api(cfg, "GET", `/banking/v2/extrato?dataInicio=${dataInicio}&dataFim=${dataFim}`);
+  return api(cfg, "GET", `/banking/v2/extrato?dataInicio=${dataInicio}&dataFim=${dataFim}`, undefined, "extrato.read");
 }
 
 // Mapeia a situação da cobrança Inter pro nosso status.
