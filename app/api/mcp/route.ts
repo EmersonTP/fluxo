@@ -17,6 +17,16 @@ const TOOLS = [
   { name: "fluxo_move_task", description: "Move uma tarefa para outro status (coluna do Kanban).", inputSchema: { type: "object", properties: { taskId: { type: "string" }, statusId: { type: "string" } }, required: ["taskId", "statusId"] } },
   { name: "fluxo_add_comment", description: "Adiciona um comentário a uma tarefa.", inputSchema: { type: "object", properties: { taskId: { type: "string" }, text: { type: "string" } }, required: ["taskId", "text"] } },
   { name: "fluxo_list_members", description: "Lista os usuários/membros (com IDs) para usar como responsáveis.", inputSchema: { type: "object", properties: {} } },
+
+  // ===== Financeiro (automação) =====
+  { name: "fluxo_finance_companies", description: "Lista as empresas do financeiro (com IDs). Use o companyId nas outras ferramentas financeiras.", inputSchema: { type: "object", properties: {} } },
+  { name: "fluxo_contas_a_pagar", description: "Lista as contas a pagar (solicitações de pagamento) de uma empresa. Traz credor, valor, vencimento e status. Filtro de status opcional: solicitada, aprovada_gestor, conferida, paga, recusada, cancelada.", inputSchema: { type: "object", properties: { companyId: { type: "string" }, status: { type: "string" } }, required: ["companyId"] } },
+  { name: "fluxo_contas_a_receber", description: "Lista os recebíveis (cobranças boleto/Pix) da empresa pelo Banco Inter, com valor, vencimento e status (pendente/paga/vencida).", inputSchema: { type: "object", properties: { companyId: { type: "string" } }, required: ["companyId"] } },
+  { name: "fluxo_extrato", description: "Extrato bancário do Banco Inter da empresa, com lançamentos (crédito/débito), valor e descrição. Período padrão: últimos 30 dias.", inputSchema: { type: "object", properties: { companyId: { type: "string" }, de: { type: "string", description: "YYYY-MM-DD" }, ate: { type: "string", description: "YYYY-MM-DD" } }, required: ["companyId"] } },
+  { name: "fluxo_criar_conta_pagar", description: "Cria uma conta a pagar (solicitação de pagamento) — use ao ler um boleto/NF. Entra como 'solicitada'.", inputSchema: { type: "object", properties: { companyId: { type: "string" }, areaName: { type: "string", description: "Área/Espaço (ex.: Administrativo)" }, descricao: { type: "string" }, valor: { type: "number" }, vencimento: { type: "string", description: "YYYY-MM-DD" }, formaPagamento: { type: "string", enum: ["pix", "boleto", "transferencia", "guia", "cartao"] }, docTipo: { type: "string", enum: ["nf", "boleto", "recibo", "contrato", "fatura"] }, docNumero: { type: "string" }, categoria: { type: "string" }, observacao: { type: "string" } }, required: ["companyId", "areaName", "descricao", "valor"] } },
+  { name: "fluxo_acao_conta", description: "Avança uma conta a pagar na esteira: aprovar_gestor, conferir, pagar, ou recusar. Respeita as permissões do responsável da etapa.", inputSchema: { type: "object", properties: { requestId: { type: "string" }, action: { type: "string", enum: ["aprovar_gestor", "conferir", "pagar", "recusar"] }, note: { type: "string" }, dataPagamento: { type: "string", description: "YYYY-MM-DD (ao pagar)" } }, required: ["requestId", "action"] } },
+  { name: "fluxo_listar_canais", description: "Lista os canais de chat (com IDs) para postar mensagens/alertas/resumos.", inputSchema: { type: "object", properties: {} } },
+  { name: "fluxo_postar_chat", description: "Posta uma mensagem em um canal de chat (alertas de vencimento, resumo financeiro, etc.).", inputSchema: { type: "object", properties: { channelId: { type: "string" }, text: { type: "string" } }, required: ["channelId", "text"] } },
 ];
 
 // Bases candidatas pra falar com a própria API.
@@ -79,6 +89,27 @@ async function callTool(bases: string[], key: string, name: string, a: any = {})
       return api(bases, key, "/api/comments", "POST", a);
     case "fluxo_list_members":
       return api(bases, key, "/api/members");
+
+    // ===== Financeiro =====
+    case "fluxo_finance_companies":
+      return api(bases, key, "/api/finance/companies");
+    case "fluxo_contas_a_pagar":
+      return api(bases, key, `/api/finance/requests?company=${encodeURIComponent(a.companyId)}${a.status ? `&status=${encodeURIComponent(a.status)}` : ""}`);
+    case "fluxo_contas_a_receber":
+      return api(bases, key, `/api/finance/inter/cobranca?company=${encodeURIComponent(a.companyId)}`);
+    case "fluxo_extrato":
+      return api(bases, key, `/api/finance/inter/extrato?company=${encodeURIComponent(a.companyId)}${a.de ? `&de=${a.de}` : ""}${a.ate ? `&ate=${a.ate}` : ""}`);
+    case "fluxo_criar_conta_pagar":
+      return api(bases, key, "/api/finance/requests", "POST", a);
+    case "fluxo_acao_conta": {
+      const { requestId, ...body } = a;
+      return api(bases, key, `/api/finance/requests/${requestId}/action`, "POST", body);
+    }
+    case "fluxo_listar_canais":
+      return api(bases, key, "/api/channels");
+    case "fluxo_postar_chat":
+      return api(bases, key, `/api/channels/${a.channelId}/messages`, "POST", { text: a.text });
+
     default:
       throw new Error(`Ferramenta desconhecida: ${name}`);
   }
