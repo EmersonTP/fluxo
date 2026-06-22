@@ -51,17 +51,19 @@ function mtls(
 // Cache de token por clientId (token vale ~1h).
 const tokenCache = new Map<string, { token: string; exp: number }>();
 
-export async function getInterToken(cfg: InterCfg, scope = INTER_SCOPES): Promise<string> {
+export async function getInterToken(cfg: InterCfg, scope = ""): Promise<string> {
   const cached = tokenCache.get(cfg.clientId);
   if (cached && cached.exp > Date.now() + 30_000) return cached.token;
-  const form = new URLSearchParams({
+  // Sem 'scope' o Inter devolve o token com os escopos que a integração tem (evita invalid_scope).
+  const fields: Record<string, string> = {
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
     grant_type: "client_credentials",
-    scope,
-  }).toString();
+  };
+  if (scope) fields.scope = scope;
+  const form = new URLSearchParams(fields).toString();
   const r = await mtls(cfg, "POST", "/oauth/v2/token", { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" }, form);
-  if (r.status < 200 || r.status >= 300) throw new Error(`Inter OAuth ${r.status}: ${r.text}`);
+  if (r.status < 200 || r.status >= 300) throw new Error(`Inter OAuth ${r.status}: ${r.text || "(sem corpo — provável escopo ou client_secret incorreto)"}`);
   const j = JSON.parse(r.text);
   tokenCache.set(cfg.clientId, { token: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 });
   return j.access_token;
