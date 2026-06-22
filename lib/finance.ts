@@ -47,6 +47,23 @@ export async function approversOf(companyId: string) {
   return { gestoresPorArea, financeiros, pagadores };
 }
 
+type ApproversShape = { gestoresPorArea: Record<string, string[]>; financeiros: string[]; pagadores: string[] };
+type ReqShape = { solicitanteId: string | null; gestorId: string | null; financeiroId: string | null; pagadorId: string | null; spaceId: string | null };
+
+// Vê TODAS as solicitações da empresa? (admin ou financeiro configurado)
+export function seesAllRequests(u: U, a: ApproversShape) {
+  return isAdmin(u) || a.financeiros.includes(u.id);
+}
+
+// Está envolvido nesta solicitação? (solicitante, já atuou, ou é aprovador da cadeia)
+export function isInvolved(u: U, r: ReqShape, a: ApproversShape) {
+  if (r.solicitanteId === u.id) return true;
+  if ([r.gestorId, r.financeiroId, r.pagadorId].includes(u.id)) return true;
+  if (a.pagadores.includes(u.id)) return true;
+  if (r.spaceId && a.gestoresPorArea[r.spaceId]?.includes(u.id)) return true;
+  return false;
+}
+
 // Pode o usuário executar a ação na etapa atual?
 export async function canActOn(u: U, req: { companyId: string; spaceId: string | null }, action: string) {
   if (isAdmin(u)) return true;

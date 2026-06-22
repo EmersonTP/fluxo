@@ -94,6 +94,14 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
 
   function refresh() { loadRequests(companyId); loadAll(companyId); }
 
+  const [acting, setActing] = useState<string | null>(null);
+  async function actOn(id: string, action: string, extra: Record<string, unknown> = {}) {
+    setActing(id);
+    await fetch(`/api/finance/requests/${id}/action`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...extra }) }).catch(() => {});
+    setActing(null);
+    refresh();
+  }
+
   function pendingOnMe(r: Req) {
     if (r.status === "solicitada") return isAdmin || myGestorAreas.includes(r.spaceId);
     if (r.status === "aprovada_gestor") return isAdmin || isFinanceiro;
@@ -211,18 +219,66 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
           </>
         )}
 
-        {tab === "aprov" && (
-          <>
-            <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 12 }}>Esperando você aprovar / conferir / pagar:</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {aprovacoes.map((r) => {
-                const hint = r.status === "solicitada" ? "aprovar (gestor)" : r.status === "aprovada_gestor" ? "conferir (financeiro)" : "pagar (você)";
-                return <RequestRow key={r.id} r={r} hint={hint} />;
-              })}
+        {tab === "aprov" && (() => {
+          const grupos = [
+            { key: "solicitada", label: "Aguardando sua aprovação (gestor)", cor: "#274b6d", acao: null as null | "conferir" | "pagar", botao: "Revisar e aprovar" },
+            { key: "aprovada_gestor", label: "Aguardando sua conferência (financeiro)", cor: "#7a3fa0", acao: "conferir" as const, botao: "Conferir" },
+            { key: "conferida", label: "Aguardando seu pagamento (pagador)", cor: "#0f6b50", acao: "pagar" as const, botao: "Marcar como pago" },
+          ];
+          const totalGeral = aprovacoes.reduce((s, r) => s + r.valor, 0);
+          return (
+            <>
+              <div style={{ fontSize: 13, color: "var(--txt-soft)", marginBottom: 16 }}>
+                Esperando você: <b>{aprovacoes.length}</b>{aprovacoes.length > 0 ? ` · ${BRL(totalGeral)}` : ""}. Só aparece o que precisa de uma ação sua.
+              </div>
               {aprovacoes.length === 0 && <p style={{ color: "var(--txt-faint)" }}>Nada esperando você. 🎉</p>}
-            </div>
-          </>
-        )}
+              {grupos.map((g) => {
+                const itens = aprovacoes.filter((r) => r.status === g.key);
+                if (itens.length === 0) return null;
+                const soma = itens.reduce((s, r) => s + r.valor, 0);
+                return (
+                  <div key={g.key} style={{ marginBottom: 22 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: g.cor }}>{g.label}</span>
+                      <span style={{ fontSize: 11.5, color: "var(--txt-faint)" }}>{itens.length} · {BRL(soma)}</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {itens.map((r) => {
+                        const late = r.vencimento && r.vencimento.slice(0, 10) < hojeYMD;
+                        const temNF = (r._count?.attachments || 0) > 0;
+                        return (
+                          <div key={r.id} className="fx-hoverable" onClick={() => setOpenId(r.id)} style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--surface)", border: "1px solid var(--line)", borderLeft: `3px solid ${g.cor}`, borderRadius: "var(--r-card)", padding: "11px 14px", cursor: "pointer" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>#{r.code}</span>
+                                <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.descricao || "(sem descrição)"}</span>
+                                {r.prioridade === "urgente" && <span style={{ fontSize: 10, fontWeight: 700, color: "#a8332c", background: "#f3dcd8", borderRadius: 999, padding: "1px 7px" }}>urgente</span>}
+                              </div>
+                              <div style={{ fontSize: 12, color: "var(--txt-faint)", marginTop: 3, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                <span>{r.areaName}{r.credor?.nome ? ` · ${r.credor.nome}` : ""}</span>
+                                <span style={{ color: late ? "#a8332c" : "var(--txt-faint)", fontWeight: late ? 700 : 400 }}>{r.vencimento ? `${late ? "venceu" : "vence"} ${fmt(r.vencimento)}` : "sem vencimento"}</span>
+                                <span style={{ color: temNF ? "#0f6b50" : "#a8332c" }}>{temNF ? "✓ anexo" : "! sem anexo"}</span>
+                              </div>
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{BRL(r.valor)}</span>
+                            <span style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                              {g.acao ? (
+                                <button className="fx-btn fx-btn-primary" disabled={acting === r.id} onClick={() => actOn(r.id, g.acao!)} style={{ fontSize: 12.5 }}>{acting === r.id ? "..." : g.botao}</button>
+                              ) : (
+                                <button className="fx-btn fx-btn-primary" onClick={() => setOpenId(r.id)} style={{ fontSize: 12.5 }}>{g.botao}</button>
+                              )}
+                              <button className="fx-btn" onClick={() => setOpenId(r.id)} style={{ fontSize: 12.5 }}>Abrir</button>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          );
+        })()}
 
         {tab === "painel" && (isAdmin || isFinanceiro) && (
           <>

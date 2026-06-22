@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { canAccessCompany, isAdmin, userNames, logStep } from "@/lib/finance";
+import { canAccessCompany, isAdmin, userNames, logStep, approversOf, seesAllRequests, isInvolved } from "@/lib/finance";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const user = await requireUser();
@@ -16,6 +16,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   });
   if (!r) return NextResponse.json({ error: "Solicitação não encontrada." }, { status: 404 });
   if (!canAccessCompany(user, r.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  // Visibilidade: só envolvidos (e financeiro/admin) veem o detalhe.
+  const a = await approversOf(r.companyId);
+  if (!seesAllRequests(user, a) && !isInvolved(user, r, a)) return NextResponse.json({ error: "Sem acesso a esta solicitação." }, { status: 403 });
   const names = await userNames([r.solicitanteId, r.gestorId, r.financeiroId, r.pagadorId]);
   return NextResponse.json({ request: r, names });
 }

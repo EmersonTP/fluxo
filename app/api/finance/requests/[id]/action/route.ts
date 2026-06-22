@@ -46,6 +46,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await logStep(r.id, "aprovada_gestor", r.status, "aprovada_gestor", { id: user.id, name: user.name }, note);
     const a = await import("@/lib/finance").then((m) => m.approversOf(r.companyId));
     await notifyFinance(a.financeiros, `Solicitação aprovada pelo gestor (${user.name}) aguarda conferência do financeiro — R$ ${r.valor.toLocaleString("pt-BR")}`, user.id);
+    if (r.solicitanteId) await notifyFinance([r.solicitanteId], `Sua solicitação foi aprovada pelo gestor (${user.name}) e seguiu para o financeiro`, user.id);
     return NextResponse.json({ ok: true });
   }
 
@@ -58,6 +59,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await logStep(r.id, "conferida", r.status, "conferida", { id: user.id, name: user.name }, note);
     const a = await import("@/lib/finance").then((m) => m.approversOf(r.companyId));
     await notifyFinance(a.pagadores, `Solicitação conferida pelo financeiro (${user.name}) aguarda pagamento — R$ ${r.valor.toLocaleString("pt-BR")}`, user.id);
+    if (r.solicitanteId) await notifyFinance([r.solicitanteId], `Sua solicitação foi conferida pelo financeiro (${user.name}) e aguarda pagamento`, user.id);
     return NextResponse.json({ ok: true });
   }
 

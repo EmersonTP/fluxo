@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { canAccessCompany, approversOf, notifyFinance, logStep, userNames } from "@/lib/finance";
+import { canAccessCompany, approversOf, notifyFinance, logStep, userNames, seesAllRequests, isInvolved } from "@/lib/finance";
 
 // Lista solicitações de uma empresa (filtro por status opcional).
 export async function GET(req: Request) {
@@ -12,12 +12,15 @@ export async function GET(req: Request) {
   const status = url.searchParams.get("status") || "";
   if (!companyId || !canAccessCompany(user, companyId)) return NextResponse.json({ requests: [] });
 
-  const requests = await prisma.paymentRequest.findMany({
+  const all = await prisma.paymentRequest.findMany({
     where: { companyId, ...(status ? { status } : {}) },
     orderBy: { createdAt: "desc" },
     take: 300,
     include: { credor: { select: { nome: true, documento: true } }, _count: { select: { attachments: true } } },
   });
+  // Visibilidade: financeiro/admin veem tudo; os demais só as solicitações em que estão envolvidos.
+  const a = await approversOf(companyId);
+  const requests = seesAllRequests(user, a) ? all : all.filter((r: any) => isInvolved(user, r, a));
   const names = await userNames(requests.flatMap((r: any) => [r.solicitanteId, r.gestorId, r.financeiroId, r.pagadorId]));
   return NextResponse.json({ requests, names });
 }
