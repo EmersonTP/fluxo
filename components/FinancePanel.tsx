@@ -674,12 +674,21 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   const catsDoGrupo = cats.filter((c) => c.grupo === grupo);
   const usaPlano = cats.length > 0;
 
+  // Campos obrigatórios — a solicitação só é enviada com tudo preenchido.
+  const faltando: string[] = [];
+  if (!spaceId) faltando.push("Área");
+  if (kind === "padrao" && !credorId) faltando.push("Credor/Favorecido");
+  if (!descricao.trim()) faltando.push("Descrição");
+  if (!Number(valor)) faltando.push("Valor");
+  if (!vencimento) faltando.push("Vencimento");
+  if (usaPlano && !categoriaId) faltando.push("Categoria");
+  const completo = faltando.length === 0;
+
   async function submit() {
     setErr("");
+    if (faltando.length) return setErr(`Preencha tudo para enviar — falta: ${faltando.join(", ")}.`);
     const area = areas.find((a) => a.id === spaceId);
     if (!area) return setErr("Escolha a área.");
-    if (!descricao.trim()) return setErr("Descreva a solicitação.");
-    if (!Number(valor)) return setErr("Informe o valor.");
     const catObj = cats.find((c) => c.id === categoriaId);
     const categoriaTexto = catObj ? `${catObj.grupo} › ${catObj.nome}` : (categoria || null);
     setBusy(true);
@@ -704,15 +713,15 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
     <Drawer title="Nova solicitação de pagamento" onClose={onClose}>
       <Row><Field label="Tipo"><select className="fx-input" value={kind} onChange={(e) => setKind(e.target.value)}><option value="padrao">Padrão (compra/serviço)</option><option value="reembolso">Reembolso</option></select></Field>
         <Field label="Área*"><select className="fx-input" value={spaceId} onChange={(e) => setSpaceId(e.target.value)}><option value="">Selecione…</option>{areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field></Row>
-      <Field label="Credor / Favorecido"><select className="fx-input" value={credorId} onChange={(e) => setCredorId(e.target.value)}><option value="">— selecione ou cadastre na aba Credores —</option>{credores.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.documento}</option>)}</select></Field>
+      <Field label={kind === "padrao" ? "Credor / Favorecido*" : "Credor / Favorecido"}><select className="fx-input" value={credorId} onChange={(e) => setCredorId(e.target.value)}><option value="">— selecione ou cadastre na aba Credores —</option>{credores.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.documento}</option>)}</select></Field>
       <Field label="Descrição / justificativa*"><textarea className="fx-input" rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} /></Field>
       <Row><Field label="Valor (R$)*"><input className="fx-input" type="number" value={valor} onChange={(e) => setValor(e.target.value)} /></Field>
-        <Field label="Vencimento"><input className="fx-input" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} /></Field></Row>
+        <Field label="Vencimento*"><input className="fx-input" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} /></Field></Row>
       <Row><Field label="Forma de pagamento"><select className="fx-input" value={forma} onChange={(e) => setForma(e.target.value)}><option value="pix">PIX</option><option value="boleto">Boleto</option><option value="transferencia">Transferência</option><option value="guia">Guia/DARF</option><option value="cartao">Cartão</option></select></Field>
         <Field label="Recorrência"><select className="fx-input" value={recorrencia} onChange={(e) => setRecorrencia(e.target.value)}><option value="unica">Única</option><option value="mensal">Mensal</option></select></Field></Row>
       {usaPlano ? (
         <Row><Field label="Grupo (plano de contas)"><select className="fx-input" value={grupo} onChange={(e) => { setGrupo(e.target.value); setCategoriaId(""); }}><option value="">Selecione…</option>{grupos.map((g) => <option key={g} value={g}>{g}</option>)}</select></Field>
-          <Field label="Categoria"><select className="fx-input" value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} disabled={!grupo}><option value="">{grupo ? "Selecione…" : "Escolha o grupo primeiro"}</option>{catsDoGrupo.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></Field></Row>
+          <Field label="Categoria*"><select className="fx-input" value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} disabled={!grupo}><option value="">{grupo ? "Selecione…" : "Escolha o grupo primeiro"}</option>{catsDoGrupo.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></Field></Row>
       ) : (
         <Row><Field label="Categoria (sugerida)"><select className="fx-input" value={categoria} onChange={(e) => setCategoria(e.target.value)}><option value="">—</option>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
           <Field label="Nº documento / NF"><input className="fx-input" value={docNumero} onChange={(e) => setDocNumero(e.target.value)} /></Field></Row>
@@ -724,7 +733,7 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
       <Field label="Centro de custo (opcional)"><input className="fx-input" value={centroCusto} onChange={(e) => setCentroCusto(e.target.value)} placeholder="ex.: Sede / Obra / Cursinho" /></Field>
       <Field label="Observações (opcional)"><textarea className="fx-input" rows={2} value={obs} onChange={(e) => setObs(e.target.value)} /></Field>
       <div style={{ marginTop: 4 }}>
-        <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 5 }}>Documentos (NF, boleto, comprovante) — opcional</div>
+        <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 5 }}>Documentos (NF, boleto, comprovante) — opcional, dá pra anexar depois</div>
         <DropZone onFiles={(fs) => setFiles((prev) => [...prev, ...fs])} />
         {files.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
@@ -737,9 +746,10 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
         )}
       </div>
       <p style={{ fontSize: 12, color: "var(--txt-faint)", margin: "8px 0 0" }}>Acima de R$ 400 (padrão), o gestor vai exigir cotações ou dispensa.</p>
+      {!completo && <p style={{ fontSize: 12.5, color: "var(--amber-deep, #b5781f)", margin: "8px 0 0" }}>Para enviar, preencha: <b>{faltando.join(", ")}</b>.</p>}
       {err && <p style={{ color: "var(--coral-deep)", fontSize: 13 }}>{err}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        <button className="fx-btn fx-btn-primary" disabled={busy} onClick={submit}>Enviar solicitação</button>
+        <button className="fx-btn fx-btn-primary" disabled={busy || !completo} onClick={submit}>Enviar solicitação</button>
         <button className="fx-btn" onClick={onClose}>Cancelar</button>
       </div>
     </Drawer>
