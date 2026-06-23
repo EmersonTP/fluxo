@@ -56,6 +56,9 @@ model User {
   // Token pessoal pro conector do Claude (MCP) — cada usuário opera como ele mesmo
   mcpToken String? @unique
 
+  // PIN de pagamento (2º fator pra aprovar pagamentos). Hash — nunca em texto.
+  paymentPinHash String?
+
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
@@ -424,6 +427,16 @@ model PaymentRequest {
   contaOrigem   String?
   dataPagamento DateTime?
 
+  // Execução de pagamento pelo banco (Inter), com aprovação do pagador.
+  pagDestinoTipo String?  // pix | boleto
+  pagDestino     String?  // chave Pix OU código de barras do credor
+  pagBankStatus  String   @default("nenhum") // nenhum | aguardando_app | enviado | pago | falhou
+  pagBankRef     String?  // id da transação no Inter
+  pagRequerApp   Boolean  @default(false) // acima do teto: precisa confirmar no app do Inter
+  pagAprovadoPor String?  // userId do pagador que aprovou
+  pagAprovadoEm  DateTime?
+  pagErro        String?
+
   // Pessoas envolvidas (ids; nomes resolvidos na API)
   solicitanteId String?
   gestorId      String?
@@ -532,6 +545,9 @@ model IntegrationConfig {
   keyPem        String?  @db.Text
   contaCorrente String?
   pixKey        String?  // chave Pix de recebimento
+  // Teto (em centavos) abaixo do qual a aprovação na Sandra paga direto;
+  // acima dele, exige também confirmação no app do Inter.
+  tetoPagamentoCents Int @default(500000)
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
