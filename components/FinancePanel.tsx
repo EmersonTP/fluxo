@@ -160,6 +160,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   const isTP = (companies.find((c) => c.id === companyId)?.name || "").toLowerCase().includes("tp");
   const sections: { k: string; l: string; soon?: boolean }[] = [
     ...(isAdmin || isFinanceiro ? [{ k: "gestao", l: "Gestão" }] : []),
+    ...(isAdmin || isFinanceiro ? [{ k: "fluxo", l: "Fluxo de Caixa" }] : []),
     { k: "solicitar", l: "Solicitar" },
     ...(isApprover ? [{ k: "aprov", l: "Aprovações" }] : []),
     ...(isAdmin || isFinanceiro ? [{ k: "painel", l: "Contas a Pagar" }] : []),
@@ -317,6 +318,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
         )}
 
         {tab === "gestao" && (isAdmin || isFinanceiro) && <GestaoTab companyId={companyId} />}
+        {tab === "fluxo" && (isAdmin || isFinanceiro) && <FluxoCaixaTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "seguranca" && isAdmin && <SegurancaTab companyId={companyId} />}
         {tab === "categorias" && <CategoriasTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "receber" && <ContasReceber companyId={companyId} isAdmin={isAdmin} />}
@@ -753,6 +755,104 @@ function GestaoTab({ companyId }: { companyId: string }) {
               );
             })}
           </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/* ---------- Fluxo de Caixa (DFC por caixa) ---------- */
+function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
+  const hoje = new Date();
+  const fmtY = (d: Date) => d.toISOString().slice(0, 10);
+  const [de, setDe] = useState(fmtY(new Date(2026, 2, 1)));
+  const [ate, setAte] = useState(fmtY(hoje));
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [seeding, setSeeding] = useState(false);
+  const money = (v: number) => (v < 0 ? "−" : "") + "R$ " + Math.abs(v || 0).toLocaleString("pt-BR");
+
+  const load = useCallback(() => {
+    setLoading(true); setErr("");
+    fetch(`/api/finance/fluxo-caixa?company=${companyId}&de=${de}&ate=${ate}`)
+      .then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error || "Erro"); return d; })
+      .then(setData).catch((e) => setErr(e.message)).finally(() => setLoading(false));
+  }, [companyId, de, ate]);
+  useEffect(() => { load(); }, [load]);
+
+  async function seed() {
+    setSeeding(true);
+    await fetch(`/api/finance/plano/seed?company=${companyId}`, { method: "POST" });
+    setSeeding(false); load();
+  }
+
+  const BLOCO: Record<string, { l: string; c: string }> = {
+    operacional: { l: "Operacional", c: "#7a3fa0" }, investimento: { l: "Investimento", c: "#274b6d" },
+    financiamento: { l: "Financiamento", c: "#0f6b50" }, interno: { l: "Interno (transferências)", c: "#7a7f87" },
+  };
+
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontSize: 13.5, color: "var(--txt-soft)" }}><b>Fluxo de Caixa</b> (regime de caixa) — direto do extrato do Inter, categorizado em 3 blocos.</div>
+        </div>
+        <Field label="De"><input className="fx-input" type="date" value={de} onChange={(e) => setDe(e.target.value)} /></Field>
+        <Field label="Até"><input className="fx-input" type="date" value={ate} onChange={(e) => setAte(e.target.value)} /></Field>
+        <button className="fx-btn" disabled={loading} onClick={load}>{loading ? "…" : "Atualizar"}</button>
+        {isAdmin && <button className="fx-btn" disabled={seeding} onClick={seed} title="Cria/atualiza o plano de contas e as regras de categorização">{seeding ? "Configurando…" : "Configurar plano"}</button>}
+      </div>
+
+      {err && <div style={{ background: "#f3dcd8", color: "#a8332c", border: "1px solid #e4b8b1", borderRadius: "var(--r-card)", padding: "12px 15px", fontSize: 13.5, maxWidth: 680 }}>{err}</div>}
+      {loading && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
+
+      {data && !loading && (
+        <>
+          <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+            <Metric label="Operacional" value={money(data.resumo.operacional)} tone={data.resumo.operacional < 0 ? "alert" : undefined} />
+            <Metric label="Investimento" value={money(data.resumo.investimento)} />
+            <Metric label="Financiamento" value={money(data.resumo.financiamento)} />
+            <Metric label="Variação de caixa" value={money(data.resumo.variacaoCaixa)} tone={data.resumo.variacaoCaixa < 0 ? "alert" : undefined} />
+          </div>
+
+          {data.blocos.map((b: any) => {
+            const bl = BLOCO[b.bloco] || { l: b.bloco, c: "var(--txt-soft)" };
+            return (
+              <div key={b.bloco} style={{ marginBottom: 22, maxWidth: 820 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, borderLeft: `3px solid ${bl.c}`, paddingLeft: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: bl.c }}>{bl.l}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{money(b.liquido)}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {b.categorias.map((c: any) => (
+                    <div key={c.grupo + c.nome} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "9px 13px", background: "var(--surface)", fontSize: 13 }}>
+                      <span style={{ flex: 1 }}><span style={{ color: "var(--txt-faint)" }}>{c.grupo} ›</span> <b>{c.nome}</b></span>
+                      {c.entrada > 0 && <span style={{ color: "#0f6b50", fontSize: 12.5 }}>+{money(c.entrada)}</span>}
+                      {c.saida > 0 && <span style={{ color: "#a8332c", fontSize: 12.5 }}>−{money(c.saida)}</span>}
+                      <span style={{ fontWeight: 600, width: 110, textAlign: "right" }}>{money(c.liquido)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {data.naoCategorizado.itens.length > 0 && (
+            <div style={{ marginTop: 8, maxWidth: 820 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#b5781f", marginBottom: 6 }}>Não categorizado ({data.naoCategorizado.itens.length}) — entradas {money(data.naoCategorizado.entrada)} · saídas {money(data.naoCategorizado.saida)}</div>
+              <div style={{ fontSize: 12, color: "var(--txt-faint)", marginBottom: 8 }}>Lançamentos sem regra. Conforme criamos regras, eles entram nos blocos acima.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {data.naoCategorizado.itens.slice(0, 15).map((i: any, idx: number) => (
+                  <div key={idx} style={{ display: "flex", gap: 10, fontSize: 12.5, color: "var(--txt-soft)", padding: "4px 13px" }}>
+                    <span style={{ width: 80, color: "var(--txt-faint)" }}>{i.data}</span>
+                    <span style={{ flex: 1 }}>{i.descricao}</span>
+                    <span style={{ color: i.tipo === "credito" ? "#0f6b50" : "#a8332c" }}>{i.tipo === "credito" ? "+" : "−"}{money(i.valor)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </>

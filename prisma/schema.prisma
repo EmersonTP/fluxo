@@ -28,6 +28,7 @@ model Company {
   paymentRequests PaymentRequest[]
   approverConfigs ApproverConfig[]
   categorias     Categoria[]
+  categoriaRegras CategoriaRegra[]
   integrations   IntegrationConfig[]
   clientes       Cliente[]
   planos         Plano[]
@@ -463,6 +464,8 @@ model Categoria {
   grupo     String   // ex.: "04. Despesas Administrativas"
   nome      String   // ex.: "Aluguel"
   tipo      String   @default("despesa") // receita | despesa
+  // Fluxo de caixa (DFC): bloco do demonstrativo.
+  bloco     String   @default("operacional") // operacional | investimento | financiamento
   dre       String?  // Conta do DRE (Omie)
   ativo     Boolean  @default(true)
   ordem     Int      @default(0)
@@ -471,9 +474,28 @@ model Categoria {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   requests  PaymentRequest[]
+  regras    CategoriaRegra[]
 
   @@unique([companyId, grupo, nome])
   @@index([companyId, tipo])
+  @@index([companyId, bloco])
+}
+
+// Regra de auto-categorização do extrato: se a contraparte casar com 'padrao',
+// classifica o lançamento na categoria indicada. Avaliadas por 'prioridade' (maior primeiro).
+model CategoriaRegra {
+  id         String   @id @default(cuid())
+  padrao     String   // texto a procurar na descrição (case-insensitive), ex.: "BELOTTI"
+  aplicaA    String   @default("ambos") // credito | debito | ambos
+  prioridade Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoriaId String
+  categoria   Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // Configuração de aprovadores por empresa (gestor por área; financeiro e pagador por empresa).
