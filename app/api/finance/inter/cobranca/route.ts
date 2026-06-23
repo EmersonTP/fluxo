@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany, approversOf } from "@/lib/finance";
 import { getInterConfig, createCobranca, getCobranca } from "@/lib/inter";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -108,6 +109,8 @@ export async function POST(req: Request) {
       clienteId: clienteId || null,
     },
   });
+
+  await logAudit({ req, user, action: "create", entity: "cobranca", entityId: receivable.id, companyId, meta: `boleto+Pix R$ ${valor.toFixed(2)} — ${devedorNome}` });
 
   return NextResponse.json({ receivable, codigoSolicitacao, pixCopiaECola, linhaDigitavel, secureUrl });
 }

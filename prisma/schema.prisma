@@ -522,10 +522,15 @@ model Cliente {
   id             String   @id @default(cuid())
   nome           String
   email          String
-  documento      String?  // CPF/CNPJ
+  documento      String?  // CPF/CNPJ (legado — em migração para documentoEnc)
+  documentoEnc   String?  @db.Text // CPF/CNPJ cifrado em repouso (AES-256-GCM)
   telefone       String?
   iuguCustomerId String?  // id do customer na Iugu
   ativo          Boolean  @default(true)
+  // LGPD — dado de saúde/financeiro é categoria especial: registramos consentimento.
+  consentimentoLGPD Boolean  @default(false)
+  consentimentoEm   DateTime?
+  consentimentoBase String?  // finalidade/base legal (ex.: "execução de contrato")
   createdAt      DateTime @default(now())
 
   companyId String
@@ -608,4 +613,24 @@ model Receivable {
   @@unique([provider, externalId])
   @@index([companyId, status])
   @@index([companyId, vencimento])
+}
+
+// ===== Segurança / LGPD =====
+// Trilha de auditoria de acesso e alteração de dados sensíveis (financeiro + paciente).
+// Quem fez, o quê, em qual registro, quando e de qual IP. Append-only.
+model AuditLog {
+  id        String   @id @default(cuid())
+  at        DateTime @default(now())
+  userId    String?
+  userName  String?
+  action    String   // view | create | update | delete | export | pay | login
+  entity    String   // extrato | solicitacao | recebivel | cobranca | cliente | paciente | config
+  entityId  String?
+  companyId String?
+  ip        String?
+  meta      String?  @db.Text // detalhe curto (ex.: período do extrato, valor)
+
+  @@index([companyId, at])
+  @@index([entity, entityId])
+  @@index([userId, at])
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser, isResponse } from "@/lib/api";
 import { canAccessCompany } from "@/lib/finance";
 import { getInterConfig, getExtrato } from "@/lib/inter";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,8 @@ export async function GET(req: Request) {
 
   const totalCredito = lancamentos.filter((l) => l.tipo === "credito").reduce((s, l) => s + l.valor, 0);
   const totalDebito = lancamentos.filter((l) => l.tipo === "debito").reduce((s, l) => s + l.valor, 0);
+
+  await logAudit({ req, user, action: "view", entity: "extrato", companyId, meta: `período ${de}…${ate} (${lancamentos.length} lançamentos)` });
 
   return NextResponse.json({
     periodo: { de, ate },

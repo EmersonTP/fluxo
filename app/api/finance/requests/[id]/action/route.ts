@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { canActOn, notifyFinance, logStep } from "@/lib/finance";
+import { logAudit } from "@/lib/audit";
 
 const COTACAO_LIMITE = 400;
 
@@ -71,6 +72,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       data: { status: "paga", pagadorId: user.id, dataPagamento: b.dataPagamento ? new Date(b.dataPagamento) : new Date() },
     });
     await logStep(r.id, "paga", r.status, "paga", { id: user.id, name: user.name }, note);
+    await logAudit({ req, user, action: "pay", entity: "solicitacao", entityId: r.id, companyId: r.companyId, meta: `#${r.code} R$ ${r.valor.toLocaleString("pt-BR")}` });
     if (r.solicitanteId) await notifyFinance([r.solicitanteId], `Sua solicitação foi paga por ${user.name} — R$ ${r.valor.toLocaleString("pt-BR")}`, user.id);
     return NextResponse.json({ ok: true });
   }
