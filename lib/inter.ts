@@ -115,6 +115,15 @@ export function registerCobrancaWebhook(cfg: InterCfg, webhookUrl: string) {
   return api(cfg, "PUT", "/cobranca/v3/webhook", { webhookUrl }, "boleto-cobranca.write");
 }
 
+// Saldo bancário atual (escopo "extrato.read").
+export async function getSaldo(cfg: InterCfg): Promise<number> {
+  try {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const r: any = await api(cfg, "GET", `/banking/v2/saldo?dataSaldo=${hoje}`, undefined, "extrato.read");
+    return Number(r?.disponivel ?? r?.saldo ?? r?.bloqueadoCheque ?? 0) || 0;
+  } catch { return NaN; }
+}
+
 // Extrato bancário (escopo Banking "extrato.read").
 export function getExtrato(cfg: InterCfg, dataInicio: string, dataFim: string) {
   return api(cfg, "GET", `/banking/v2/extrato?dataInicio=${dataInicio}&dataFim=${dataFim}`, undefined, "extrato.read");

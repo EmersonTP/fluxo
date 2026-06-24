@@ -531,6 +531,7 @@ model BankAccount {
   transacoes BankTransaction[]
 
   @@index([companyId])
+  tipo      String  @default("caixa") // caixa | cartao
 }
 
 // Lançamento de extrato (de conta manual importada OU sincronizado do Inter).

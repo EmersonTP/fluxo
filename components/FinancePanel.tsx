@@ -1178,6 +1178,21 @@ function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdmin: boo
 
       {data && !loading && (
         <>
+          {data.saldos && data.saldos.length > 0 && (
+            <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap", alignItems: "stretch" }}>
+              {data.saldos.map((c: any, i: number) => (
+                <div key={i} style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 16px", background: "var(--surface)", minWidth: 150 }}>
+                  <div style={{ fontSize: 12, color: "var(--txt-soft)" }}>{c.nome}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>{c.saldo == null ? "—" : money(c.saldo)}</div>
+                </div>
+              ))}
+              <div style={{ border: "2px solid var(--roxo, #7a4fb0)", borderRadius: "var(--r-card)", padding: "12px 16px", background: "rgba(146,80,172,.06)", minWidth: 160 }}>
+                <div style={{ fontSize: 12, color: "var(--txt-soft)" }}>Saldo total (caixa)</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "var(--roxo, #7a4fb0)" }}>{money(data.saldoTotal)}</div>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
             <Metric label="Operacional" value={money(data.resumo.operacional)} tone={data.resumo.operacional < 0 ? "alert" : undefined} />
             <Metric label="Investimento" value={money(data.resumo.investimento)} />

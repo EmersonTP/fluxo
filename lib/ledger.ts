@@ -16,10 +16,10 @@ export async function getClassifier(companyId: string) {
 export type LancBanco = { data: string; tipo: string; valor: number; descricao: string; conta: string };
 
 // Lê TODOS os lançamentos das contas bancárias (Inter sincronizado + cartão + C6…) no período.
-export async function getLancamentos(companyId: string, de: string, ate: string): Promise<LancBanco[]> {
+export async function getLancamentos(companyId: string, de: string, ate: string, opts: { apenasCaixa?: boolean } = {}): Promise<LancBanco[]> {
   const ini = new Date(de + "T00:00:00"); const fim = new Date(ate + "T23:59:59");
   const txs: any[] = await prisma.bankTransaction.findMany({
-    where: { companyId, data: { gte: ini, lte: fim } },
+    where: { companyId, data: { gte: ini, lte: fim }, ...(opts.apenasCaixa ? { account: { tipo: { not: "cartao" } } } : {}) },
     include: { account: { select: { nome: true } } },
     orderBy: { data: "asc" },
   });

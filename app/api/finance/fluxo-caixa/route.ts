@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany, approversOf } from "@/lib/finance";
 import { getLancamentos } from "@/lib/ledger";
+import { getInterConfig, getSaldo } from "@/lib/inter";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
   const ate = url.searchParams.get("ate") || ymd(hoje);
 
   // 1) lançamentos do banco (extrato Inter sincronizado + contas manuais)
-  const banco = await getLancamentos(companyId, de, ate);
+  const banco = await getLancamentos(companyId, de, ate, { apenasCaixa: true });
   const lanc = banco.map((t) => ({ data: t.data as string | null, tipo: t.tipo, valor: t.valor, descricao: t.descricao, titulo: "" }));
 
   // 2) regras + categorias
@@ -102,10 +103,26 @@ export async function GET(req: Request) {
     variacaoCaixa: round(liq("operacional") + liq("investimento") + liq("financiamento")),
   };
 
+  // saldos das contas de caixa (cartão fica de fora)
+  const contasCaixa: any[] = await prisma.bankAccount.findMany({ where: { companyId, tipo: { not: "cartao" } } });
+  const saldos: { nome: string; saldo: number | null }[] = [];
+  for (const c of contasCaixa) {
+    if (c.conexao === "inter") {
+      const cfg = await getInterConfig(companyId);
+      const s = cfg ? await getSaldo(cfg) : NaN;
+      saldos.push({ nome: c.nome, saldo: Number.isNaN(s) ? null : Math.round(s) });
+    } else {
+      const agg = await prisma.bankTransaction.aggregate({ where: { accountId: c.id }, _sum: { valor: true } });
+      saldos.push({ nome: c.nome, saldo: Math.round(Number(agg._sum.valor || 0)) });
+    }
+  }
+  const saldoTotal = saldos.reduce((acc, x) => acc + (x.saldo || 0), 0);
+
   await logAudit({ req, user, action: "view", entity: "config", companyId, meta: `fluxo de caixa ${de}…${ate}` });
 
   return NextResponse.json({
     periodo: { de, ate }, meses,
+    saldos, saldoTotal: Math.round(saldoTotal),
     blocos: blocosOut,
     naoCategorizado: { entrada: round(naoCat.entrada), saida: round(naoCat.saida), itens: naoCat.itens.sort((a, b) => b.valor - a.valor).slice(0, 40) },
     resumo,

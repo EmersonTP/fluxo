@@ -44,3 +44,17 @@ export async function DELETE(req: Request) {
   await prisma.bankAccount.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
+
+export async function PATCH(req: Request) {
+  const user = await requireUser();
+  if (isResponse(user)) return user;
+  if (!isAdmin(user)) return NextResponse.json({ error: "Só admin." }, { status: 403 });
+  const b = await req.json();
+  const c = await prisma.bankAccount.findUnique({ where: { id: b.id }, select: { companyId: true } });
+  if (!c || !canAccessCompany(user, c.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  const data: Record<string, unknown> = {};
+  if (b.tipo) data.tipo = b.tipo === "cartao" ? "cartao" : "caixa";
+  if (b.nome?.trim()) data.nome = b.nome.trim();
+  await prisma.bankAccount.update({ where: { id: b.id }, data });
+  return NextResponse.json({ ok: true });
+}
