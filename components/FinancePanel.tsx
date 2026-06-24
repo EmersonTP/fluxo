@@ -1235,8 +1235,12 @@ function SaudeTab({ companyId }: { companyId: string }) {
   const [checks, setChecks] = useState<Check[]>([]);
   const [resumo, setResumo] = useState({ critico: 0, atencao: 0, ok: 0 });
   const [loading, setLoading] = useState(true);
+  const [conc, setConc] = useState<any>(null);
+  const [concLoad, setConcLoad] = useState(false);
   const load = useCallback(() => { setLoading(true); fetch(`/api/finance/saude?company=${companyId}`).then((r) => r.json()).then((d) => { setChecks(d.checks || []); setResumo(d.resumo || { critico: 0, atencao: 0, ok: 0 }); }).finally(() => setLoading(false)); }, [companyId]);
   useEffect(() => { load(); }, [load]);
+  const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function rodarConc() { setConcLoad(true); fetch(`/api/finance/conciliacao?company=${companyId}`).then((r) => r.json()).then(setConc).finally(() => setConcLoad(false)); }
   const tone = (s: string) => s === "critico" ? { bg: "#f3dcd8", fg: "#a8332c", dot: "#c0392b", l: "Crítico" } : s === "atencao" ? { bg: "#f6e7cd", fg: "#b5781f", dot: "#d68910", l: "Atenção" } : { bg: "#d7ebe2", fg: "#0f6b50", dot: "#1f9d57", l: "OK" };
   const order: Record<string, number> = { critico: 0, atencao: 1, ok: 2 };
   const sorted = [...checks].sort((a, b) => order[a.sev] - order[b.sev]);
@@ -1247,7 +1251,7 @@ function SaudeTab({ companyId }: { companyId: string }) {
         {([["critico", resumo.critico, "#a8332c", "#f3dcd8"], ["atencao", resumo.atencao, "#b5781f", "#f6e7cd"], ["ok", resumo.ok, "#0f6b50", "#d7ebe2"]] as const).map(([k, n, fg, bg]) => (
           <div key={k} style={{ flex: 1, minWidth: 130, borderRadius: "var(--r-card)", padding: "12px 15px", background: bg }}>
             <div style={{ fontSize: 26, fontWeight: 800, color: fg }}>{n}</div>
-            <div style={{ fontSize: 12, color: fg, textTransform: "capitalize" }}>{k === "ok" ? "OK" : k === "atencao" ? "Atenção" : "Crítico"}</div>
+            <div style={{ fontSize: 12, color: fg }}>{k === "ok" ? "OK" : k === "atencao" ? "Atenção" : "Crítico"}</div>
           </div>
         ))}
         <button className="fx-btn" style={{ alignSelf: "center" }} onClick={load}>Recarregar</button>
@@ -1265,6 +1269,36 @@ function SaudeTab({ companyId }: { companyId: string }) {
           </div>
         ); })}
       </div>
+
+      <Section title="Conciliação / vigilância dos dados">
+        <div style={{ fontSize: 13, color: "var(--txt-soft)", marginBottom: 10, maxWidth: 720 }}>Cruza o extrato com as contas e regras e aponta divergências: lançamentos sem categoria, contas desatualizadas, contas faltando. Roda nos últimos 90 dias.</div>
+        <button className="fx-btn fx-btn-primary" onClick={rodarConc} disabled={concLoad}>{concLoad ? "Cruzando dados…" : "Rodar conciliação"}</button>
+        {conc && (
+          <div style={{ marginTop: 14 }}>
+            {(conc.alertas || []).map((a: any, i: number) => { const t = tone(a.sev); return (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "7px 0", borderBottom: "1px solid var(--line)" }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: t.dot, marginTop: 5, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: "var(--txt-soft)" }}>{a.texto}</span>
+              </div>
+            ); })}
+            {conc.contas?.length > 0 && (
+              <div style={{ marginTop: 12, fontSize: 12.5, color: "var(--txt-soft)" }}>
+                <b>Contas:</b> {conc.contas.map((c: any) => `${c.nome} (${c.total} lanç.${c.ultimo ? ", último " + new Date(c.ultimo).toLocaleDateString("pt-BR") : ""})`).join(" · ")}
+              </div>
+            )}
+            {conc.naoCategorizado?.qtd > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--coral-deep)", marginBottom: 6 }}>Sem categoria ({conc.naoCategorizado.qtd}) — {money(conc.naoCategorizado.valor)}</div>
+                {conc.naoCategorizado.itens.map((it: any, i: number) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--txt-faint)", padding: "2px 0" }}>
+                    <span>{new Date(it.data).toLocaleDateString("pt-BR")} · {it.origem} · {it.descricao}</span><span>{it.tipo === "credito" ? "+" : "−"}{money(it.valor)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Section>
     </>
   );
 }
