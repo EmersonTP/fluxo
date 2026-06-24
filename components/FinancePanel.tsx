@@ -163,6 +163,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
     ...(isAdmin ? [{ k: "saude", l: "Saúde" }] : []),
     ...(isAdmin || isFinanceiro ? [{ k: "contas", l: "Contas Bancárias" }] : []),
     ...(isAdmin || isFinanceiro ? [{ k: "fluxo", l: "Fluxo de Caixa" }] : []),
+    ...(isAdmin || isFinanceiro ? [{ k: "dre", l: "DRE" }] : []),
     { k: "solicitar", l: "Solicitar" },
     ...(isApprover ? [{ k: "aprov", l: "Aprovações" }] : []),
     ...(isAdmin || isFinanceiro ? [{ k: "painel", l: "Contas a Pagar" }] : []),
@@ -322,6 +323,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
         {tab === "gestao" && (isAdmin || isFinanceiro) && <GestaoTab companyId={companyId} />}
         {tab === "contas" && (isAdmin || isFinanceiro) && <ContasTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "fluxo" && (isAdmin || isFinanceiro) && <FluxoCaixaTab companyId={companyId} isAdmin={isAdmin} />}
+        {tab === "dre" && (isAdmin || isFinanceiro) && <DreTab companyId={companyId} />}
         {tab === "saude" && isAdmin && <SaudeTab companyId={companyId} />}
         {tab === "seguranca" && isAdmin && <SegurancaTab companyId={companyId} />}
         {tab === "categorias" && <CategoriasTab companyId={companyId} isAdmin={isAdmin} />}
@@ -1054,6 +1056,53 @@ function ContasTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean
 }
 
 /* ---------- Fluxo de Caixa (DFC por caixa) ---------- */
+/* ---------- DRE (regime de competência) ---------- */
+function DreTab({ companyId }: { companyId: string }) {
+  type Cat = { grupo: string; nome: string; total: number; porMes: Record<string, number> };
+  type Dados = { regime: string; meses: string[]; receitas: { total: number; porMes: Record<string, number>; categorias: Cat[] }; despesasOperacional: { total: number; porMes: Record<string, number>; categorias: Cat[] }; resultadoOperacional: { total: number; porMes: Record<string, number> }; naoOperacional: { investimento: Cat[]; financiamento: Cat[] } };
+  const [d, setD] = useState<Dados | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { setLoading(true); fetch(`/api/finance/dre?company=${companyId}`).then((r) => r.json()).then(setD).finally(() => setLoading(false)); }, [companyId]);
+  const money = (v: number) => (v < 0 ? "\u2212" : "") + "R$ " + Math.abs(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const mesLabel = (m: string) => { const [a, mm] = m.split("-"); return `${mm}/${a.slice(2)}`; };
+  if (loading) return <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>;
+  if (!d || !d.meses) return <p style={{ color: "var(--txt-faint)" }}>Sem dados.</p>;
+  const meses = d.meses;
+  const cell: React.CSSProperties = { padding: "6px 10px", textAlign: "right", fontSize: 12.5, whiteSpace: "nowrap" };
+  const head: React.CSSProperties = { ...cell, fontWeight: 700, color: "var(--txt-soft)", borderBottom: "1px solid var(--line)" };
+  const linha = (nome: string, porMes: Record<string, number>, total: number, opts: { bold?: boolean; color?: string; indent?: boolean } = {}) => (
+    <tr style={{ background: opts.bold ? "var(--surface)" : undefined }}>
+      <td style={{ padding: "6px 10px", fontSize: 12.5, fontWeight: opts.bold ? 700 : 400, paddingLeft: opts.indent ? 24 : 10, color: opts.color }}>{nome}</td>
+      {meses.map((m) => <td key={m} style={{ ...cell, fontWeight: opts.bold ? 700 : 400, color: opts.color }}>{porMes[m] ? money(porMes[m]) : "—"}</td>)}
+      <td style={{ ...cell, fontWeight: 700, color: opts.color }}>{money(total)}</td>
+    </tr>
+  );
+  return (
+    <>
+      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 14, maxWidth: 760 }}><b>DRE — regime de {d.regime}.</b> Receita e despesa reconhecidas na data do fato (vencimento), não do pagamento. Investimento e aportes não entram no resultado (são memo abaixo).</div>
+      <div style={{ overflowX: "auto", border: "1px solid var(--line)", borderRadius: "var(--r-card)" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 520 }}>
+          <thead><tr><th style={{ ...head, textAlign: "left" }}>Conta</th>{meses.map((m) => <th key={m} style={head}>{mesLabel(m)}</th>)}<th style={head}>Total</th></tr></thead>
+          <tbody>
+            {linha("RECEITAS", d.receitas.porMes, d.receitas.total, { bold: true, color: "#0f6b50" })}
+            {d.receitas.categorias.map((c) => linha(c.nome, c.porMes, c.total, { indent: true }))}
+            {linha("(\u2212) DESPESAS OPERACIONAIS", d.despesasOperacional.porMes, d.despesasOperacional.total, { bold: true, color: "#a8332c" })}
+            {d.despesasOperacional.categorias.map((c) => linha(`${c.grupo} \u203a ${c.nome}`, c.porMes, c.total, { indent: true }))}
+            {d.despesasOperacional.categorias.length === 0 && <tr><td colSpan={meses.length + 2} style={{ padding: "6px 24px", fontSize: 12, color: "var(--txt-faint)" }}>Nenhuma despesa operacional no período.</td></tr>}
+            {linha("= RESULTADO OPERACIONAL", d.resultadoOperacional.porMes, d.resultadoOperacional.total, { bold: true })}
+          </tbody>
+        </table>
+      </div>
+      {(d.naoOperacional.investimento.length > 0 || d.naoOperacional.financiamento.length > 0) && (
+        <Section title="Memo — fora do resultado">
+          {d.naoOperacional.investimento.map((c) => <div key={"i" + c.nome} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "3px 0", color: "var(--txt-soft)" }}><span>Investimento · {c.grupo} \u203a {c.nome}</span><b>{money(c.total)}</b></div>)}
+          {d.naoOperacional.financiamento.map((c) => <div key={"f" + c.nome} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "3px 0", color: "var(--txt-soft)" }}><span>Financiamento · {c.grupo} \u203a {c.nome}</span><b>{money(c.total)}</b></div>)}
+        </Section>
+      )}
+    </>
+  );
+}
+
 function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
   const hoje = new Date();
   const fmtY = (d: Date) => d.toISOString().slice(0, 10);
