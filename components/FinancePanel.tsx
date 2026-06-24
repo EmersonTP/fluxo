@@ -160,6 +160,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   const isTP = (companies.find((c) => c.id === companyId)?.name || "").toLowerCase().includes("tp");
   const sections: { k: string; l: string; soon?: boolean }[] = [
     ...(isAdmin || isFinanceiro ? [{ k: "gestao", l: "Gestão" }] : []),
+    ...(isAdmin ? [{ k: "saude", l: "Saúde" }] : []),
     ...(isAdmin || isFinanceiro ? [{ k: "contas", l: "Contas Bancárias" }] : []),
     ...(isAdmin || isFinanceiro ? [{ k: "fluxo", l: "Fluxo de Caixa" }] : []),
     { k: "solicitar", l: "Solicitar" },
@@ -321,6 +322,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
         {tab === "gestao" && (isAdmin || isFinanceiro) && <GestaoTab companyId={companyId} />}
         {tab === "contas" && (isAdmin || isFinanceiro) && <ContasTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "fluxo" && (isAdmin || isFinanceiro) && <FluxoCaixaTab companyId={companyId} isAdmin={isAdmin} />}
+        {tab === "saude" && isAdmin && <SaudeTab companyId={companyId} />}
         {tab === "seguranca" && isAdmin && <SegurancaTab companyId={companyId} />}
         {tab === "categorias" && <CategoriasTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "receber" && <ContasReceber companyId={companyId} isAdmin={isAdmin} />}
@@ -1150,6 +1152,46 @@ function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdmin: boo
 }
 
 /* ---------- Segurança & LGPD ---------- */
+/* ---------- Saúde / Alertas do financeiro ---------- */
+function SaudeTab({ companyId }: { companyId: string }) {
+  type Check = { id: string; label: string; sev: "ok" | "atencao" | "critico"; detalhe: string; acao?: string };
+  const [checks, setChecks] = useState<Check[]>([]);
+  const [resumo, setResumo] = useState({ critico: 0, atencao: 0, ok: 0 });
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(() => { setLoading(true); fetch(`/api/finance/saude?company=${companyId}`).then((r) => r.json()).then((d) => { setChecks(d.checks || []); setResumo(d.resumo || { critico: 0, atencao: 0, ok: 0 }); }).finally(() => setLoading(false)); }, [companyId]);
+  useEffect(() => { load(); }, [load]);
+  const tone = (s: string) => s === "critico" ? { bg: "#f3dcd8", fg: "#a8332c", dot: "#c0392b", l: "Crítico" } : s === "atencao" ? { bg: "#f6e7cd", fg: "#b5781f", dot: "#d68910", l: "Atenção" } : { bg: "#d7ebe2", fg: "#0f6b50", dot: "#1f9d57", l: "OK" };
+  const order: Record<string, number> = { critico: 0, atencao: 1, ok: 2 };
+  const sorted = [...checks].sort((a, b) => order[a.sev] - order[b.sev]);
+  return (
+    <>
+      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 14, maxWidth: 720 }}><b>Saúde do financeiro.</b> A Sandra checa sozinha o que falta configurar ou está pendente. Recarregue a qualquer momento.</div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        {([["critico", resumo.critico, "#a8332c", "#f3dcd8"], ["atencao", resumo.atencao, "#b5781f", "#f6e7cd"], ["ok", resumo.ok, "#0f6b50", "#d7ebe2"]] as const).map(([k, n, fg, bg]) => (
+          <div key={k} style={{ flex: 1, minWidth: 130, borderRadius: "var(--r-card)", padding: "12px 15px", background: bg }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: fg }}>{n}</div>
+            <div style={{ fontSize: 12, color: fg, textTransform: "capitalize" }}>{k === "ok" ? "OK" : k === "atencao" ? "Atenção" : "Crítico"}</div>
+          </div>
+        ))}
+        <button className="fx-btn" style={{ alignSelf: "center" }} onClick={load}>Recarregar</button>
+      </div>
+      {loading && <p style={{ color: "var(--txt-faint)" }}>Verificando…</p>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {sorted.map((c) => { const t = tone(c.sev); return (
+          <div key={c.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 15px", background: "var(--surface)" }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: t.dot, marginTop: 4, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600 }}>{c.label} <span style={{ fontSize: 10.5, fontWeight: 700, color: t.fg, background: t.bg, borderRadius: 999, padding: "1px 8px", marginLeft: 4 }}>{t.l}</span></div>
+              <div style={{ fontSize: 12.5, color: "var(--txt-soft)", marginTop: 2 }}>{c.detalhe}</div>
+              {c.acao && <div style={{ fontSize: 12, color: "var(--txt-faint)", marginTop: 2 }}>→ {c.acao}</div>}
+            </div>
+          </div>
+        ); })}
+      </div>
+    </>
+  );
+}
+
 function SegurancaTab({ companyId }: { companyId: string }) {
   const [data, setData] = useState<{ logs: { id: string; at: string; userName: string | null; action: string; entity: string; entityId: string | null; ip: string | null; meta: string | null }[]; encryption: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
