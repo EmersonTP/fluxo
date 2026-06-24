@@ -562,11 +562,11 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
   type Assin = { id: string; status: string; proximaCobranca: string | null; cliente: string; plano: string; valor: number };
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [assin, setAssin] = useState<Assin[]>([]);
-  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
+  const [clientes, setClientes] = useState<{ id: string; nome: string; documento?: string }[]>([]);
   const [msg, setMsg] = useState("");
   const [np, setNp] = useState({ nome: "", valor: "" });
-  const [nc, setNc] = useState({ nome: "", email: "", documento: "", consentimentoLGPD: false });
-  const [na, setNa] = useState({ clienteId: "", planoId: "", proximaCobranca: "" });
+  const [nc, setNc] = useState({ nome: "", email: "", documento: "", rg: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", consentimentoLGPD: false });
+  const [na, setNa] = useState({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" });
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const load = useCallback(() => {
@@ -578,8 +578,8 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
 
   async function addPlano() { if (!np.nome.trim() || !Number(np.valor)) return; await fetch("/api/finance/planos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, nome: np.nome, valor: Number(np.valor) }) }); setNp({ nome: "", valor: "" }); load(); }
   async function delPlano(id: string) { if (!confirm("Excluir plano?")) return; await fetch(`/api/finance/planos?id=${id}`, { method: "DELETE" }); load(); }
-  async function addCliente() { if (!nc.nome.trim()) return; await fetch("/api/finance/clientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nc }) }); setNc({ nome: "", email: "", documento: "", consentimentoLGPD: false }); load(); }
-  async function addAssin() { if (!na.clienteId || !na.planoId) return; await fetch("/api/finance/assinaturas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...na }) }); setNa({ clienteId: "", planoId: "", proximaCobranca: "" }); load(); }
+  async function addCliente() { if (!nc.nome.trim()) return; await fetch("/api/finance/clientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nc }) }); setNc({ nome: "", email: "", documento: "", rg: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", consentimentoLGPD: false }); load(); }
+  async function addAssin() { if (!na.clienteId || !na.planoId) return; await fetch("/api/finance/assinaturas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...na }) }); setNa({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" }); load(); }
   async function cancelAssin(id: string) { if (!confirm("Cancelar assinatura?")) return; await fetch(`/api/finance/assinaturas?id=${id}`, { method: "DELETE" }); load(); }
   async function gerarMes() { setMsg("Gerando…"); const r = await fetch("/api/finance/receber/gerar-mes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId }) }); const d = await r.json(); setMsg(r.ok ? `Gerados ${d.criados} títulos do mês (${d.pulados} já existiam/sem vencimento).` : (d.error || "Erro.")); }
 
@@ -605,10 +605,28 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
         <button className="fx-btn" disabled={!np.nome.trim() || !Number(np.valor)} onClick={addPlano}>+ Adicionar plano</button>
       </Section>
 
-      <Section title="Clientes">
-        <Row><Field label="Nome"><input className="fx-input" value={nc.nome} onChange={(e) => setNc({ ...nc, nome: e.target.value })} /></Field>
-          <Field label="E-mail"><input className="fx-input" value={nc.email} onChange={(e) => setNc({ ...nc, email: e.target.value })} /></Field>
-          <Field label="CPF/CNPJ"><input className="fx-input" value={nc.documento} onChange={(e) => setNc({ ...nc, documento: e.target.value })} /></Field></Row>
+      <Section title="Clientes / Pacientes">
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+          {clientes.map((c) => (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
+              <div style={{ flex: 1 }}><b>{c.nome}</b>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}> · {c.documento}</span> : null}</div>
+              <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/contrato`} target="_blank" rel="noopener">Gerar contrato</a>
+            </div>
+          ))}
+          {clientes.length === 0 && <p style={{ color: "var(--txt-faint)", fontSize: 13 }}>Nenhum cliente cadastrado.</p>}
+        </div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--txt-soft)", marginBottom: 6 }}>+ Novo cliente / paciente</div>
+        <Row><Field label="Nome completo*"><input className="fx-input" value={nc.nome} onChange={(e) => setNc({ ...nc, nome: e.target.value })} /></Field>
+          <Field label="CPF/CNPJ"><input className="fx-input" value={nc.documento} onChange={(e) => setNc({ ...nc, documento: e.target.value })} /></Field>
+          <Field label="RG"><input className="fx-input" value={nc.rg} onChange={(e) => setNc({ ...nc, rg: e.target.value })} /></Field></Row>
+        <Row><Field label="E-mail"><input className="fx-input" value={nc.email} onChange={(e) => setNc({ ...nc, email: e.target.value })} /></Field>
+          <Field label="CEP"><input className="fx-input" value={nc.cep} onChange={(e) => setNc({ ...nc, cep: e.target.value })} /></Field></Row>
+        <Row><Field label="Logradouro"><input className="fx-input" value={nc.logradouro} onChange={(e) => setNc({ ...nc, logradouro: e.target.value })} /></Field>
+          <Field label="Número"><input className="fx-input" value={nc.numero} onChange={(e) => setNc({ ...nc, numero: e.target.value })} /></Field>
+          <Field label="Complemento"><input className="fx-input" value={nc.complemento} onChange={(e) => setNc({ ...nc, complemento: e.target.value })} /></Field></Row>
+        <Row><Field label="Bairro"><input className="fx-input" value={nc.bairro} onChange={(e) => setNc({ ...nc, bairro: e.target.value })} /></Field>
+          <Field label="Cidade"><input className="fx-input" value={nc.cidade} onChange={(e) => setNc({ ...nc, cidade: e.target.value })} /></Field>
+          <Field label="UF"><input className="fx-input" value={nc.uf} onChange={(e) => setNc({ ...nc, uf: e.target.value })} maxLength={2} /></Field></Row>
         <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--txt-soft)", marginBottom: 10 }}><input type="checkbox" checked={nc.consentimentoLGPD} onChange={(e) => setNc({ ...nc, consentimentoLGPD: e.target.checked })} /> Consentimento LGPD registrado (execução de contrato)</label>
         <button className="fx-btn" disabled={!nc.nome.trim()} onClick={addCliente}>+ Adicionar cliente</button>
       </Section>
@@ -624,7 +642,9 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
           {assin.filter((a) => a.status === "ativa").length === 0 && <p style={{ color: "var(--txt-faint)", fontSize: 13 }}>Nenhuma assinatura ativa.</p>}
         </div>
         <Row><Field label="Cliente"><select className="fx-input" value={na.clienteId} onChange={(e) => setNa({ ...na, clienteId: e.target.value })}><option value="">— selecione —</option>{clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></Field>
-          <Field label="Plano"><select className="fx-input" value={na.planoId} onChange={(e) => setNa({ ...na, planoId: e.target.value })}><option value="">— selecione —</option>{planos.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></Field>
+          <Field label="Plano"><select className="fx-input" value={na.planoId} onChange={(e) => setNa({ ...na, planoId: e.target.value })}><option value="">— selecione —</option>{planos.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></Field></Row>
+        <Row><Field label="Valor mensal (R$)"><input className="fx-input" type="number" value={na.valor} onChange={(e) => setNa({ ...na, valor: e.target.value })} placeholder="usa o do plano se vazio" /></Field>
+          <Field label="Dia de cobrança"><input className="fx-input" type="number" value={na.diaCobranca} onChange={(e) => setNa({ ...na, diaCobranca: e.target.value })} placeholder="ex.: 5" /></Field>
           <Field label="1ª cobrança"><input className="fx-input" type="date" value={na.proximaCobranca} onChange={(e) => setNa({ ...na, proximaCobranca: e.target.value })} /></Field></Row>
         <button className="fx-btn" disabled={!na.clienteId || !na.planoId} onClick={addAssin}>+ Criar assinatura</button>
       </Section>

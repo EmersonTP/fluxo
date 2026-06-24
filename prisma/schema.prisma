@@ -626,6 +626,14 @@ model Cliente {
   documento      String?  // CPF/CNPJ (legado — em migração para documentoEnc)
   documentoEnc   String?  @db.Text // CPF/CNPJ cifrado em repouso (AES-256-GCM)
   telefone       String?
+  rg             String?
+  cep            String?
+  logradouro     String?
+  numero         String?
+  complemento    String?
+  bairro         String?
+  cidade         String?
+  uf             String?
   iuguCustomerId String?  // id do customer na Iugu
   ativo          Boolean  @default(true)
   // LGPD — dado de saúde/financeiro é categoria especial: registramos consentimento.
@@ -670,6 +678,8 @@ model Assinatura {
   status             String   @default("ativa") // ativa | suspensa | expirada | cancelada
   iuguSubscriptionId String?
   proximaCobranca    DateTime?
+  valorCents         Int?      // valor por paciente (sobrepõe o do plano)
+  diaCobranca        Int?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

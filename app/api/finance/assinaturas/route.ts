@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   });
   return NextResponse.json({ assinaturas: rows.map((a: any) => ({
     id: a.id, status: a.status, proximaCobranca: a.proximaCobranca,
-    cliente: a.cliente?.nome || "—", plano: a.plano?.nome || "—", valor: (a.plano?.valorCents || 0) / 100,
+    cliente: a.cliente?.nome || "—", plano: a.plano?.nome || "—", valor: ((a.valorCents ?? a.plano?.valorCents) || 0) / 100,
   })) });
 }
 
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   if (b.proximaCobranca) prox = new Date(b.proximaCobranca);
   else { const n = new Date(); prox = new Date(n.getFullYear(), n.getMonth() + 1, 1); }
   const a = await prisma.assinatura.create({
-    data: { companyId: b.companyId, clienteId: b.clienteId, planoId: b.planoId, status: "ativa", proximaCobranca: prox },
+    data: { companyId: b.companyId, clienteId: b.clienteId, planoId: b.planoId, status: "ativa", proximaCobranca: prox, valorCents: b.valor ? Math.round(Number(b.valor) * 100) : null, diaCobranca: b.diaCobranca ? Number(b.diaCobranca) : prox.getDate() },
   });
   return NextResponse.json({ ok: true, id: a.id });
 }

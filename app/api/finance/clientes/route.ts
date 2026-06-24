@@ -34,6 +34,8 @@ export async function POST(req: Request) {
     data: {
       companyId: b.companyId, nome: b.nome.trim(), email: (b.email || "").trim(),
       telefone: b.telefone || null,
+      rg: b.rg || null, cep: b.cep || null, logradouro: b.logradouro || null, numero: b.numero || null,
+      complemento: b.complemento || null, bairro: b.bairro || null, cidade: b.cidade || null, uf: b.uf || null,
       documentoEnc: b.documento ? encryptField(String(b.documento)) : null,
       consentimentoLGPD: !!b.consentimentoLGPD,
       consentimentoEm: b.consentimentoLGPD ? new Date() : null,

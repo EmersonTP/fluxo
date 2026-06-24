@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     await prisma.receivable.create({
       data: {
         companyId, descricao: `${a.plano.nome} — ${a.cliente?.nome || "cliente"}`,
-        valorCents: a.plano.valorCents, status: "pendente", provider: "manual", origem: "assinatura",
+        valorCents: a.valorCents ?? a.plano.valorCents, status: "pendente", provider: "manual", origem: "assinatura",
         vencimento: a.proximaCobranca, clienteId: a.clienteId, assinaturaId: a.id,
       },
     });
