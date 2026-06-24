@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany, approversOf } from "@/lib/finance";
-import { getInterConfig, getExtrato } from "@/lib/inter";
+import { getLancamentos } from "@/lib/ledger";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -37,31 +37,9 @@ export async function GET(req: Request) {
   const de = url.searchParams.get("de") || ymd(new Date(2026, 2, 1)); // mar/2026
   const ate = url.searchParams.get("ate") || ymd(hoje);
 
-  const cfg = await getInterConfig(companyId);
-  if (!cfg) return NextResponse.json({ error: "Inter não conectado." }, { status: 400 });
-
-  // 1) extrato (por mês)
-  let lanc: { data: string | null; tipo: string; valor: number; descricao: string; titulo: string }[] = [];
-  try {
-    for (const [d1, d2] of chunksMensais(de, ate)) {
-      const raw: any = await getExtrato(cfg, d1, d2);
-      const lista: any[] = Array.isArray(raw?.transacoes) ? raw.transacoes : Array.isArray(raw) ? raw : [];
-      for (const t of lista) {
-        lanc.push({
-          data: t.dataEntrada || t.dataInclusao || t.data || null,
-          tipo: (t.tipoOperacao || t.tipo || "").toUpperCase() === "C" ? "credito" : "debito",
-          valor: Number(t.valor || 0),
-          descricao: t.descricao || t.detalhes?.descricaoOperacao || "",
-          titulo: t.titulo || t.tipoTransacao || "",
-        });
-      }
-    }
-  } catch (e: any) {
-    return NextResponse.json({ error: `Inter recusou o extrato: ${e.message}` }, { status: 400 });
-  }
-  // dedupe
-  const seen = new Set<string>();
-  lanc = lanc.filter((l) => { const k = `${l.data}|${l.tipo}|${l.valor}|${l.descricao}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  // 1) lançamentos do banco (extrato Inter sincronizado + contas manuais)
+  const banco = await getLancamentos(companyId, de, ate);
+  const lanc = banco.map((t) => ({ data: t.data as string | null, tipo: t.tipo, valor: t.valor, descricao: t.descricao, titulo: "" }));
 
   // 2) regras + categorias
   const regras = await prisma.categoriaRegra.findMany({

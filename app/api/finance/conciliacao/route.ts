@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany } from "@/lib/finance";
-import { getInterConfig, getExtrato } from "@/lib/inter";
+
 
 export const runtime = "nodejs";
 
@@ -37,26 +37,6 @@ export async function GET(req: Request) {
   const naoCat: { data: string; tipo: string; valor: number; descricao: string; origem: string }[] = [];
   let ultimoExtrato = "";
 
-  // 1) extrato Inter
-  const cfg = await getInterConfig(companyId);
-  if (cfg) {
-    try {
-      const seen = new Set<string>();
-      for (const [d1, d2] of chunksMensais(de, ate)) {
-        const raw: any = await getExtrato(cfg, d1, d2);
-        const lista: any[] = Array.isArray(raw?.transacoes) ? raw.transacoes : Array.isArray(raw) ? raw : [];
-        for (const t of lista) {
-          const data = (t.dataEntrada || t.dataInclusao || t.data || "").slice(0, 10);
-          const tipo = (t.tipoOperacao || t.tipo || "").toUpperCase() === "C" ? "credito" : "debito";
-          const valor = Number(t.valor || 0); const descricao = t.descricao || t.detalhes?.descricaoOperacao || t.titulo || "";
-          const k = `${data}|${tipo}|${valor}|${descricao}`; if (seen.has(k)) continue; seen.add(k);
-          if (data > ultimoExtrato) ultimoExtrato = data;
-          if (!match(tipo, `${descricao} ${t.titulo || ""}`)) naoCat.push({ data, tipo, valor, descricao: descricao.slice(0, 50), origem: "Inter" });
-        }
-      }
-    } catch (e: any) { alertas.push({ sev: "atencao", texto: `Extrato Inter não pôde ser lido agora (${e.message}). Tente de novo em instantes.` }); }
-  } else alertas.push({ sev: "atencao", texto: "Banco Inter não conectado." });
-
   // 2) contas bancárias (frescor + não categorizado)
   const contas = await prisma.bankAccount.findMany({ where: { companyId }, include: { transacoes: { orderBy: { data: "desc" }, take: 1 } } });
   const contasOut: { nome: string; conexao: string; ultimo: string | null; total: number }[] = [];
@@ -69,6 +49,8 @@ export async function GET(req: Request) {
     const mesAtual = new Date().toISOString().slice(0, 7);
     if (c.conexao === "manual" && (!ultimo || ymd(ultimo as Date).slice(0, 7) < mesAtual)) alertas.push({ sev: "atencao", texto: `Conta "${c.nome}" sem lançamentos no mês atual — reimportar extrato/fatura.` });
   }
+
+  ultimoExtrato = contasOut.filter((c) => c.ultimo).map((c) => c.ultimo as string).sort().pop() || "";
 
   // 3) só Inter conectado? sugerir outras contas
   if (!contas.some((c: any) => c.nome.toUpperCase().includes("C6"))) alertas.push({ sev: "atencao", texto: "Conta C6 não cadastrada — aportes/movimentos do C6 ficam fora dos relatórios." });

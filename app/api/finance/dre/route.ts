@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany, approversOf } from "@/lib/finance";
-import { getInterConfig, getExtrato } from "@/lib/inter";
+import { getLancamentos } from "@/lib/ledger";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -47,34 +47,8 @@ export async function GET(req: Request) {
   type Lanc = { data: string; tipo: string; valor: number; descricao: string; cat: any };
   const lancs: Lanc[] = [];
 
-  // extrato Inter (ao vivo)
-  const cfg = await getInterConfig(companyId);
-  if (cfg) {
-    try {
-      const seen = new Set<string>();
-      for (const [d1, d2] of chunksMensais(de, ate)) {
-        const raw: any = await getExtrato(cfg, d1, d2);
-        const lista: any[] = Array.isArray(raw?.transacoes) ? raw.transacoes : Array.isArray(raw) ? raw : [];
-        for (const t of lista) {
-          const data = (t.dataEntrada || t.dataInclusao || t.data || "").slice(0, 10);
-          const tipo = (t.tipoOperacao || t.tipo || "").toUpperCase() === "C" ? "credito" : "debito";
-          const valor = Number(t.valor || 0);
-          const descricao = t.descricao || t.detalhes?.descricaoOperacao || t.titulo || "";
-          const k = `${data}|${tipo}|${valor}|${descricao}`; if (seen.has(k)) continue; seen.add(k);
-          lancs.push({ data, tipo, valor, descricao, cat: classifica(tipo, `${descricao} ${t.titulo || ""}`) });
-        }
-      }
-    } catch (e: any) { return NextResponse.json({ error: `Inter recusou o extrato: ${e.message}` }, { status: 400 }); }
-  }
-
-  // contas bancárias manuais (cartão TP, C6…)
-  const txs: any[] = await prisma.bankTransaction.findMany({ where: { companyId }, select: { data: true, tipo: true, valor: true, descricao: true } });
-  for (const t of txs) {
-    const data = (t.data as Date).toISOString().slice(0, 10);
-    const tipo = t.tipo || (t.valor >= 0 ? "credito" : "debito");
-    const valor = Math.abs(Number(t.valor || 0));
-    lancs.push({ data, tipo, valor, descricao: t.descricao || "", cat: classifica(tipo, t.descricao || "") });
-  }
+  const banco = await getLancamentos(companyId, de, ate);
+  for (const t of banco) lancs.push({ data: t.data, tipo: t.tipo, valor: t.valor, descricao: t.descricao, cat: classifica(t.tipo, t.descricao) });
 
   // agrega
   const meses = new Set<string>();

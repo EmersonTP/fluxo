@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany, approversOf } from "@/lib/finance";
-import { getInterConfig, getExtrato } from "@/lib/inter";
+import { getLancamentos } from "@/lib/ledger";
 
 export const runtime = "nodejs";
 
@@ -44,26 +44,10 @@ export async function GET(req: Request) {
 
   const out: any[] = [];
 
-  // 1) extrato Inter
-  const cfg = await getInterConfig(companyId);
-  if (cfg) {
-    try {
-      const seen = new Set<string>();
-      for (const [d1, d2] of chunksMensais(de, ate)) {
-        const raw: any = await getExtrato(cfg, d1, d2);
-        const lista: any[] = Array.isArray(raw?.transacoes) ? raw.transacoes : Array.isArray(raw) ? raw : [];
-        for (const t of lista) {
-          const data = (t.dataEntrada || t.dataInclusao || t.data || "").slice(0, 10);
-          const tipo = (t.tipoOperacao || t.tipo || "").toUpperCase() === "C" ? "credito" : "debito";
-          const valor = Number(t.valor || 0);
-          const descricao = t.descricao || t.detalhes?.descricaoOperacao || t.titulo || "";
-          const k = `${data}|${tipo}|${valor}|${descricao}`;
-          if (seen.has(k)) continue; seen.add(k);
-          const c = classifica(tipo, `${descricao} ${t.titulo || ""}`);
-          out.push({ origem: "extrato", data, tipo, valor, descricao, grupo: c?.grupo || "", categoria: c?.nome || "", bloco: c?.bloco || "", status: "" });
-        }
-      }
-    } catch (e: any) { return NextResponse.json({ error: `Inter recusou o extrato: ${e.message}`, parcial: out }, { status: 400 }); }
+  // 1) lançamentos do banco (extrato Inter sincronizado + contas manuais)
+  for (const t of await getLancamentos(companyId, de, ate)) {
+    const c = classifica(t.tipo, t.descricao);
+    out.push({ origem: t.conta || "banco", data: t.data, tipo: t.tipo, valor: t.valor, descricao: t.descricao, grupo: c?.grupo || "", categoria: c?.nome || "", bloco: c?.bloco || "", status: "" });
   }
 
   // 2) contas a pagar
