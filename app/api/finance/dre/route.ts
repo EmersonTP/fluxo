@@ -2,14 +2,26 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany, approversOf } from "@/lib/finance";
+import { getInterConfig, getExtrato } from "@/lib/inter";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
-const ym = (d: Date | null) => (d ? d.toISOString().slice(0, 7) : "");
+function ymd(d: Date) { return d.toISOString().slice(0, 10); }
+const ym = (s: string) => (s || "").slice(0, 7);
+function chunksMensais(de: string, ate: string): [string, string][] {
+  const out: [string, string][] = []; let cur = new Date(de + "T00:00:00"); const fim = new Date(ate + "T00:00:00");
+  while (cur <= fim) {
+    const ini = new Date(cur.getFullYear(), cur.getMonth(), 1); const fimMes = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
+    out.push([ymd(ini > new Date(de + "T00:00:00") ? ini : new Date(de + "T00:00:00")), ymd(fimMes < fim ? fimMes : fim)]);
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+  return out;
+}
 
-// DRE por COMPETÊNCIA (data de vencimento). Receitas = contas a receber; despesas = contas a pagar.
-// Diferente do Fluxo de Caixa (que é por caixa / extrato).
+// DRE por competência aproximada (data do movimento; cartão na data da compra),
+// lida dos lançamentos REAIS: extrato Inter + contas bancárias (cartão TP, C6…) + recebíveis.
+// Cada categoria traz os lançamentos que a compõem (drill-down).
 export async function GET(req: Request) {
   const user = await requireUser();
   if (isResponse(user)) return user;
@@ -19,71 +31,95 @@ export async function GET(req: Request) {
   const fin = await approversOf(companyId);
   if (!isAdmin(user) && !fin.financeiros.includes(user.id)) return NextResponse.json({ error: "Acesso restrito." }, { status: 403 });
 
-  const de = url.searchParams.get("de");
-  const ate = url.searchParams.get("ate");
-  const inRange = (d: Date | null) => { if (!d) return true; if (de && ym(d) < de.slice(0, 7)) return false; if (ate && ym(d) > ate.slice(0, 7)) return false; return true; };
+  const de = url.searchParams.get("de") || ymd(new Date(2025, 11, 1));
+  const ate = url.searchParams.get("ate") || ymd(new Date());
 
+  const regras: any[] = await prisma.categoriaRegra.findMany({
+    where: { companyId }, orderBy: { prioridade: "desc" },
+    include: { categoria: { select: { grupo: true, nome: true, bloco: true, tipo: true } } },
+  });
+  const classifica = (tipo: string, txt: string) => {
+    const up = (txt || "").toUpperCase();
+    for (const r of regras) { if (r.aplicaA !== "ambos" && r.aplicaA !== tipo) continue; if (up.includes(r.padrao)) return r.categoria; }
+    return null;
+  };
+
+  type Lanc = { data: string; tipo: string; valor: number; descricao: string; cat: any };
+  const lancs: Lanc[] = [];
+
+  // extrato Inter (ao vivo)
+  const cfg = await getInterConfig(companyId);
+  if (cfg) {
+    try {
+      const seen = new Set<string>();
+      for (const [d1, d2] of chunksMensais(de, ate)) {
+        const raw: any = await getExtrato(cfg, d1, d2);
+        const lista: any[] = Array.isArray(raw?.transacoes) ? raw.transacoes : Array.isArray(raw) ? raw : [];
+        for (const t of lista) {
+          const data = (t.dataEntrada || t.dataInclusao || t.data || "").slice(0, 10);
+          const tipo = (t.tipoOperacao || t.tipo || "").toUpperCase() === "C" ? "credito" : "debito";
+          const valor = Number(t.valor || 0);
+          const descricao = t.descricao || t.detalhes?.descricaoOperacao || t.titulo || "";
+          const k = `${data}|${tipo}|${valor}|${descricao}`; if (seen.has(k)) continue; seen.add(k);
+          lancs.push({ data, tipo, valor, descricao, cat: classifica(tipo, `${descricao} ${t.titulo || ""}`) });
+        }
+      }
+    } catch (e: any) { return NextResponse.json({ error: `Inter recusou o extrato: ${e.message}` }, { status: 400 }); }
+  }
+
+  // contas bancárias manuais (cartão TP, C6…)
+  const txs: any[] = await prisma.bankTransaction.findMany({ where: { companyId }, select: { data: true, tipo: true, valor: true, descricao: true } });
+  for (const t of txs) {
+    const data = (t.data as Date).toISOString().slice(0, 10);
+    const tipo = t.tipo || (t.valor >= 0 ? "credito" : "debito");
+    const valor = Math.abs(Number(t.valor || 0));
+    lancs.push({ data, tipo, valor, descricao: t.descricao || "", cat: classifica(tipo, t.descricao || "") });
+  }
+
+  // agrega
   const meses = new Set<string>();
-  const add = (acc: Record<string, number>, m: string, v: number) => { acc[m] = (acc[m] || 0) + v; };
-
-  // ---- RECEITAS (contas a receber, competência = vencimento) ----
-  const recs: any[] = await prisma.receivable.findMany({
-    where: { companyId, status: { notIn: ["cancelada", "estornada"] } },
-    select: { valorCents: true, vencimento: true, createdAt: true, origem: true },
-  });
-  const receitaPorMes: Record<string, number> = {};
-  const receitaPorCat: Record<string, { nome: string; total: number; porMes: Record<string, number> }> = {};
-  for (const r of recs) {
-    const d = r.vencimento || r.createdAt; if (!inRange(d)) continue;
-    const m = ym(d); meses.add(m);
-    const v = (r.valorCents || 0) / 100;
-    const nome = r.origem === "assinatura" ? "Membership" : "Outras receitas";
-    add(receitaPorMes, m, v);
-    const c = (receitaPorCat[nome] = receitaPorCat[nome] || { nome, total: 0, porMes: {} });
-    c.total += v; add(c.porMes, m, v);
+  type Cat = { grupo: string; nome: string; total: number; porMes: Record<string, number>; itens: { data: string; descricao: string; valor: number }[] };
+  const mk = (): Record<string, Cat> => ({});
+  const rec: Record<string, Cat> = mk(), desp: Record<string, Cat> = mk(), inv: Record<string, Cat> = mk(), finc: Record<string, Cat> = mk();
+  const push = (store: Record<string, Cat>, grupo: string, nome: string, l: Lanc) => {
+    const key = `${grupo} › ${nome}`; const c = (store[key] = store[key] || { grupo, nome, total: 0, porMes: {}, itens: [] });
+    const m = ym(l.data); if (m) meses.add(m);
+    c.total += l.valor; c.porMes[m] = (c.porMes[m] || 0) + l.valor; c.itens.push({ data: l.data, descricao: l.descricao.slice(0, 60), valor: Math.round(l.valor) });
+  };
+  for (const l of lancs) {
+    const c = l.cat; const bloco = c?.bloco || (l.tipo === "credito" ? "" : "operacional");
+    if (l.tipo === "credito") {
+      if (c?.tipo === "receita") push(rec, c.grupo, c.nome, l);
+      else if (bloco === "financiamento") push(finc, c?.grupo || "Aporte de Sócios", c?.nome || "Aporte", l);
+      // outros créditos (resgates, etc.) ignorados no resultado
+    } else {
+      if (bloco === "investimento") push(inv, c?.grupo || "Investimento", c?.nome || "—", l);
+      else if (bloco === "financiamento") push(finc, c?.grupo || "Partes Relacionadas", c?.nome || "—", l);
+      else if (bloco === "interno") { /* transferência: fora do resultado */ }
+      else push(desp, c?.grupo || "Sem categoria", c?.nome || "Não categorizado", l);
+    }
   }
 
-  // ---- DESPESAS (contas a pagar, competência = vencimento) ----
-  const reqs: any[] = await prisma.paymentRequest.findMany({
-    where: { companyId, status: { notIn: ["cancelada", "recusada"] } },
-    include: { categoriaRef: { select: { grupo: true, nome: true, bloco: true, tipo: true } } },
-  });
-  // bloco -> grupo -> {categoria}
-  type Cat = { grupo: string; nome: string; total: number; porMes: Record<string, number> };
-  const blocos: Record<string, Record<string, Cat>> = { operacional: {}, investimento: {}, financiamento: {} };
-  const despOpPorMes: Record<string, number> = {};
-  for (const r of reqs) {
-    const d = r.vencimento || r.createdAt; if (!inRange(d)) continue;
-    const m = ym(d); meses.add(m);
-    const v = Number(r.valor || 0);
-    const cat = r.categoriaRef;
-    const bloco = cat?.bloco || "operacional";
-    const grupo = cat?.grupo || "Sem categoria";
-    const nome = cat?.nome || (r.categoria || "Sem categoria");
-    const key = `${grupo} › ${nome}`;
-    const dest = blocos[bloco] || (blocos[bloco] = {});
-    const c = (dest[key] = dest[key] || { grupo, nome, total: 0, porMes: {} });
-    c.total += v; add(c.porMes, m, v);
-    if (bloco === "operacional") add(despOpPorMes, m, v);
-  }
+  const round = (n: number) => Math.round(n);
+  const fmt = (store: Record<string, Cat>) => Object.values(store)
+    .map((c) => ({ grupo: c.grupo, nome: c.nome, total: round(c.total), porMes: Object.fromEntries(Object.entries(c.porMes).map(([k, v]) => [k, round(v)])), itens: c.itens.sort((a, b) => (a.data < b.data ? -1 : 1)) }))
+    .sort((a, b) => b.total - a.total);
+  const somaMes = (store: Record<string, Cat>) => { const o: Record<string, number> = {}; for (const c of Object.values(store)) for (const [m, v] of Object.entries(c.porMes)) o[m] = (o[m] || 0) + v; return o; };
+  const totalOf = (store: Record<string, Cat>) => Object.values(store).reduce((s, c) => s + c.total, 0);
 
   const mesesArr = [...meses].sort();
-  const round = (n: number) => Math.round(n);
-  const cats = (o: Record<string, Cat>) => Object.values(o).map((c) => ({ grupo: c.grupo, nome: c.nome, total: round(c.total), porMes: Object.fromEntries(Object.entries(c.porMes).map(([k, x]) => [k, round(x)])) })).sort((a, b) => b.total - a.total);
-
-  const receitaTotal = Object.values(receitaPorMes).reduce((s, v) => s + v, 0);
-  const despOpTotal = Object.values(despOpPorMes).reduce((s, v) => s + v, 0);
+  const recMes = somaMes(rec), despMes = somaMes(desp);
   const resultadoPorMes: Record<string, number> = {};
-  for (const m of mesesArr) resultadoPorMes[m] = round((receitaPorMes[m] || 0) - (despOpPorMes[m] || 0));
+  for (const m of mesesArr) resultadoPorMes[m] = round((recMes[m] || 0) - (despMes[m] || 0));
 
-  await logAudit({ req, user, action: "view", entity: "config", companyId, meta: "DRE competência" });
+  await logAudit({ req, user, action: "view", entity: "config", companyId, meta: "DRE drill-down" });
 
   return NextResponse.json({
-    regime: "competência (data de vencimento)",
+    regime: "competência aproximada (data do movimento; cartão na data da compra)",
     meses: mesesArr,
-    receitas: { total: round(receitaTotal), porMes: Object.fromEntries(Object.entries(receitaPorMes).map(([k, v]) => [k, round(v)])), categorias: cats(receitaPorCat as any) },
-    despesasOperacional: { total: round(despOpTotal), porMes: Object.fromEntries(Object.entries(despOpPorMes).map(([k, v]) => [k, round(v)])), categorias: cats(blocos.operacional) },
-    resultadoOperacional: { total: round(receitaTotal - despOpTotal), porMes: resultadoPorMes },
-    naoOperacional: { investimento: cats(blocos.investimento), financiamento: cats(blocos.financiamento) },
+    receitas: { total: round(totalOf(rec)), porMes: Object.fromEntries(Object.entries(recMes).map(([k, v]) => [k, round(v)])), categorias: fmt(rec) },
+    despesasOperacional: { total: round(totalOf(desp)), porMes: Object.fromEntries(Object.entries(despMes).map(([k, v]) => [k, round(v)])), categorias: fmt(desp) },
+    resultadoOperacional: { total: round(totalOf(rec) - totalOf(desp)), porMes: resultadoPorMes },
+    naoOperacional: { investimento: fmt(inv), financiamento: fmt(finc) },
   });
 }

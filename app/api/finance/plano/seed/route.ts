@@ -86,6 +86,24 @@ const REGRAS: [string, string, string, string, number][] = [
   ["GABRIELA", "Pessoal", "Financeiro", "debito", 10],
   ["FELICIANO", "Pessoal", "Financeiro", "debito", 10],
   ["CONCONI", "Administrativo", "Transporte", "debito", 12],
+  // Fornecedores de cartão (Software e Ferramentas / Hospedagem)
+  ["ANTHROPIC", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["CLAUDE", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["CLICKUP", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["CURSOR", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["OPENAI", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["CHATGPT", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["MIDJOURNEY", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["FIGMA", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["UI8", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["LOTTIE", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["CAPCUT", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["APPLE", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["UI8 NET", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["GOOGLE WORKSPACE", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["RAILWAY", "Administrativo", "Hospedagem / Infra", "debito", 11],
+  ["GODADDY", "Administrativo", "Hospedagem / Infra", "debito", 11],
+
   ["CG MARKETING", "Receita", "Membership", "credito", 9],
   // Pacientes → Receita Membership (recebimentos Pix)
   ...(["ANGELICA", "WALTER", "LUANA", "CRISTIANO", "GILSON", "ELIANA", "GIULIA", "MALIZIA", "SERON", "JOAQUIM", "JAQUELINE", "ROSI", "BETINHO", "BARBARA", "BÁRBARA", "BORGES", "ALEXSANDRO", "ZAYN", "MARCIA", "ANDRÉIA", "FERNANDO", "BRETT", "GABRIELLA", "AMADEU"]
