@@ -23,6 +23,7 @@ const CATEGORIAS: [string, string, string, string][] = [
   ["operacional", "Administrativo", "Software e Ferramentas", "despesa"],
   ["operacional", "Administrativo", "Taxas, Cartório e Registros", "despesa"],
   ["operacional", "Administrativo", "Transporte", "despesa"],
+  ["operacional", "Administrativo", "Manutenção e Equipamentos", "despesa"],
   ["operacional", "Financeiras", "Cartão de crédito", "despesa"],
   // INVESTIMENTO
   ["investimento", "Ativo Intangível", "Desenvolvimento de Software", "despesa"],
@@ -79,8 +80,15 @@ const REGRAS: [string, string, string, string, number][] = [
   ["GIANCARLO", "Aporte de Sócios", "Aporte", "credito", 20],
   ["GIANLUCCA", "Aporte de Sócios", "Aporte", "credito", 20],
   ["EMERSON HEALTHTECH", "Transferência entre contas", "Interno", "ambos", 15],
+  // Revisão manual jun/2026
+  ["FERNANDO FERREIRA", "Ativo Intangível", "Marca (INPI)", "debito", 12],
+  ["NOTEPRINT", "Administrativo", "Manutenção e Equipamentos", "debito", 12],
+  ["GABRIELA", "Pessoal", "Financeiro", "debito", 10],
+  ["FELICIANO", "Pessoal", "Financeiro", "debito", 10],
+  ["CONCONI", "Administrativo", "Transporte", "debito", 12],
+  ["CG MARKETING", "Receita", "Membership", "credito", 9],
   // Pacientes → Receita Membership (recebimentos Pix)
-  ...(["ELIANA", "GIULIA", "MALIZIA", "SERON", "JOAQUIM", "JAQUELINE", "ROSI", "BETINHO", "BARBARA", "BÁRBARA", "BORGES", "ALEXSANDRO", "ZYAN", "MARCIA", "ANDRÉIA", "FERNANDO", "BRETT", "GABRIELLA", "AMADEU"]
+  ...(["ANGELICA", "WALTER", "LUANA", "CRISTIANO", "GILSON", "ELIANA", "GIULIA", "MALIZIA", "SERON", "JOAQUIM", "JAQUELINE", "ROSI", "BETINHO", "BARBARA", "BÁRBARA", "BORGES", "ALEXSANDRO", "ZAYN", "MARCIA", "ANDRÉIA", "FERNANDO", "BRETT", "GABRIELLA", "AMADEU"]
     .map((n) => [n, "Receita", "Membership", "credito", 8] as [string, string, string, string, number])),
 ];
 
