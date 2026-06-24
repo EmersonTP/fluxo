@@ -40,6 +40,7 @@ const CATEGORIAS: [string, string, string, string][] = [
   ["operacional", "Financeiras", "IOF / Tarifas bancárias", "despesa"],
   ["operacional", "Financeiras", "Juros", "despesa"],
   ["financiamento", "Conta de Sócios", "Reembolso (pré-operacional)", "despesa"],
+  ["financiamento", "Partes Relacionadas", "Reembolso TP", "despesa"],
 ];
 
 // Departamentos (centros de custo) — a ÁREA. Dimensão separada da categoria.
