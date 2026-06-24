@@ -101,6 +101,7 @@ const REGRAS: [string, string, string, string, number][] = [
   ["APPLE", "Administrativo", "Software e Ferramentas", "debito", 11],
   ["UI8 NET", "Administrativo", "Software e Ferramentas", "debito", 11],
   ["GOOGLE WORKSPACE", "Administrativo", "Software e Ferramentas", "debito", 11],
+  ["GOOGLE", "Administrativo", "Software e Ferramentas", "debito", 6],
   ["RAILWAY", "Administrativo", "Hospedagem / Infra", "debito", 11],
   ["GODADDY", "Administrativo", "Hospedagem / Infra", "debito", 11],
 
