@@ -89,7 +89,7 @@ export async function GET(req: Request) {
   for (const l of lancs) {
     const c = l.cat; const bloco = c?.bloco || (l.tipo === "credito" ? "" : "operacional");
     if (l.tipo === "credito") {
-      if (c?.tipo === "receita") push(rec, c.grupo, c.nome, l);
+      if (c?.tipo === "receita" && bloco === "operacional") push(rec, c.grupo, c.nome, l);
       else if (bloco === "financiamento") push(finc, c?.grupo || "Aporte de Sócios", c?.nome || "Aporte", l);
       // outros créditos (resgates, etc.) ignorados no resultado
     } else {
