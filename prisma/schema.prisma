@@ -29,6 +29,7 @@ model Company {
   approverConfigs ApproverConfig[]
   categorias     Categoria[]
   categoriaRegras CategoriaRegra[]
+  departamentos  Departamento[]
   integrations   IntegrationConfig[]
   clientes       Cliente[]
   planos         Plano[]
@@ -407,6 +408,8 @@ model PaymentRequest {
   categoriaId     String?
   categoriaRef    Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
   categoria       String?  // texto resolvido "Grupo › Categoria" (histórico/Omie)
+  departamentoId  String?
+  departamento    Departamento? @relation(fields: [departamentoId], references: [id], onDelete: SetNull)
   centroCusto     String?
   classeGerencial String?
 
@@ -508,6 +511,23 @@ model CategoriaRegra {
   categoriaId String
   categoria   Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
 
+  @@index([companyId])
+}
+
+// Departamento (centro de custo): a ÁREA que gastou. Dimensão separada da categoria.
+model Departamento {
+  id        String   @id @default(cuid())
+  nome      String
+  ordem     Int      @default(0)
+  gestorId  String?  // usuário que aprova a 1ª alçada da área
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requests  PaymentRequest[]
+
+  @@unique([companyId, nome])
   @@index([companyId])
 }
 

@@ -32,6 +32,20 @@ const CATEGORIAS: [string, string, string, string][] = [
   ["financiamento", "Aporte de Sócios", "Aporte", "receita"],
   // INTERNO (excluído dos 3 blocos no relatório)
   ["interno", "Transferência entre contas", "Interno", "despesa"],
+  // ---- Categorias adicionais (plano completo, prontas pra seleção) ----
+  ["operacional", "Custo dos Serviços", "Terapeutas / Prestadores", "despesa"],
+  ["operacional", "Pessoal", "Pró-labore", "despesa"],
+  ["operacional", "Administrativo", "Hospedagem / Infra", "despesa"],
+  ["operacional", "Administrativo", "Telecom", "despesa"],
+  ["operacional", "Financeiras", "IOF / Tarifas bancárias", "despesa"],
+  ["operacional", "Financeiras", "Juros", "despesa"],
+  ["financiamento", "Conta de Sócios", "Reembolso (pré-operacional)", "despesa"],
+];
+
+// Departamentos (centros de custo) — a ÁREA. Dimensão separada da categoria.
+const DEPARTAMENTOS = [
+  "Marketing", "Comercial", "Tecnologia / Produto",
+  "Clínico / Operações", "Administrativo / Financeiro", "Não-operacional",
 ];
 
 // [padrao, grupo, nome, aplicaA, prioridade]
@@ -97,5 +111,15 @@ export async function POST(req: Request) {
     regrasCriadas++;
   }
 
-  return NextResponse.json({ ok: true, categorias: CATEGORIAS.length, regras: regrasCriadas });
+  // 3) departamentos (centros de custo)
+  let depOrdem = 0;
+  for (const nome of DEPARTAMENTOS) {
+    await prisma.departamento.upsert({
+      where: { companyId_nome: { companyId, nome } },
+      create: { companyId, nome, ordem: depOrdem++ },
+      update: {},
+    });
+  }
+
+  return NextResponse.json({ ok: true, categorias: CATEGORIAS.length, departamentos: DEPARTAMENTOS.length, regras: regrasCriadas });
 }
