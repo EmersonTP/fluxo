@@ -567,12 +567,16 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
   const [np, setNp] = useState({ nome: "", valor: "" });
   const [nc, setNc] = useState({ nome: "", email: "", documento: "", rg: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", consentimentoLGPD: false });
   const [na, setNa] = useState({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" });
+  const [links, setLinks] = useState<{ id: string; token: string; label: string | null; ativo: boolean; usos: number; plano: string; valor: number }[]>([]);
+  const [nl, setNl] = useState({ planoId: "", valor: "", diaCobranca: "", label: "" });
+  const [copiado, setCopiado] = useState("");
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const load = useCallback(() => {
     fetch(`/api/finance/planos?company=${companyId}`).then((r) => r.json()).then((d) => setPlanos(d.planos || []));
     fetch(`/api/finance/assinaturas?company=${companyId}`).then((r) => r.json()).then((d) => setAssin(d.assinaturas || []));
     fetch(`/api/finance/clientes?company=${companyId}`).then((r) => r.json()).then((d) => setClientes(d.clientes || []));
+    fetch(`/api/finance/onboarding-links?company=${companyId}`).then((r) => r.json()).then((d) => setLinks(d.links || []));
   }, [companyId]);
   useEffect(() => { load(); }, [load]);
 
@@ -582,6 +586,10 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
   async function addAssin() { if (!na.clienteId || !na.planoId) return; await fetch("/api/finance/assinaturas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...na }) }); setNa({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" }); load(); }
   async function delCliente(id: string) { if (!confirm("Excluir cliente? (precisa não ter títulos a receber)")) return; const r = await fetch(`/api/finance/clientes?id=${id}`, { method: "DELETE" }); if (!r.ok) { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao excluir."); } load(); }
   async function cancelAssin(id: string) { if (!confirm("Cancelar assinatura?")) return; await fetch(`/api/finance/assinaturas?id=${id}`, { method: "DELETE" }); load(); }
+  async function addLink() { if (!nl.planoId) return; await fetch("/api/finance/onboarding-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nl }) }); setNl({ planoId: "", valor: "", diaCobranca: "", label: "" }); load(); }
+  async function delLink(id: string) { if (!confirm("Desativar este link?")) return; await fetch(`/api/finance/onboarding-links?id=${id}`, { method: "DELETE" }); load(); }
+  function linkUrl(token: string) { return `${typeof window !== "undefined" ? window.location.origin : ""}/cadastro/${token}`; }
+  async function copiar(token: string) { try { await navigator.clipboard.writeText(linkUrl(token)); setCopiado(token); setTimeout(() => setCopiado(""), 1500); } catch { /* */ } }
   async function gerarMes() { setMsg("Gerando…"); const r = await fetch("/api/finance/receber/gerar-mes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId }) }); const d = await r.json(); setMsg(r.ok ? `Gerados ${d.criados} títulos do mês (${d.pulados} já existiam/sem vencimento).` : (d.error || "Erro.")); }
 
   if (!isAdmin) return <p style={{ color: "var(--txt-faint)" }}>Apenas administradores gerenciam memberships.</p>;
@@ -590,6 +598,24 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
       <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 16, maxWidth: 720 }}><b>Memberships (recorrente).</b> Cada cliente vira uma assinatura de um plano. No início do mês você gera os títulos a receber de todas as assinaturas ativas com um clique.</div>
       {msg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14, maxWidth: 640 }}>{msg}</div>}
       <button className="fx-btn fx-btn-primary" onClick={gerarMes} style={{ marginBottom: 18 }}>Gerar títulos do mês</button>
+
+      <Section title="Link de cadastro (paciente se cadastra sozinho)">
+        <div style={{ fontSize: 13, color: "var(--txt-soft)", marginBottom: 10, maxWidth: 700 }}>Gere um link por plano e mande pro paciente. Ele preenche os dados, aceita o contrato e a Sandra já cria o cadastro, a assinatura e a 1ª conta a receber.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+          {links.filter((l) => l.ativo).map((l) => (
+            <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
+              <div style={{ flex: 1, minWidth: 0 }}><b>{l.label || l.plano}</b> <span style={{ fontSize: 12, color: "var(--txt-faint)" }}>· {money(l.valor)} · {l.usos} cadastro(s)</span><div style={{ fontSize: 11.5, color: "var(--txt-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{linkUrl(l.token)}</div></div>
+              <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => copiar(l.token)}>{copiado === l.token ? "Copiado!" : "Copiar link"}</button>
+              <button className="fx-btn" style={{ fontSize: 12, color: "var(--coral-deep)" }} onClick={() => delLink(l.id)}>Desativar</button>
+            </div>
+          ))}
+          {links.filter((l) => l.ativo).length === 0 && <p style={{ color: "var(--txt-faint)", fontSize: 13 }}>Nenhum link ativo.</p>}
+        </div>
+        <Row><Field label="Plano"><select className="fx-input" value={nl.planoId} onChange={(e) => setNl({ ...nl, planoId: e.target.value })}><option value="">— selecione —</option>{planos.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></Field>
+          <Field label="Valor (R$) — opcional"><input className="fx-input" type="number" value={nl.valor} onChange={(e) => setNl({ ...nl, valor: e.target.value })} placeholder="usa o do plano" /></Field>
+          <Field label="Dia cobrança"><input className="fx-input" type="number" value={nl.diaCobranca} onChange={(e) => setNl({ ...nl, diaCobranca: e.target.value })} placeholder="ex.: 5" /></Field></Row>
+        <button className="fx-btn" disabled={!nl.planoId} onClick={addLink}>+ Gerar link</button>
+      </Section>
 
       <Section title="Planos">
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>

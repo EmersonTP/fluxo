@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 // Lightweight gate: checks cookie presence at the edge.
 // Full JWT verification happens in server components / API routes.
-const PUBLIC_PATHS = ["/login", "/redefinir", "/verificar"];
+const PUBLIC_PATHS = ["/login", "/redefinir", "/verificar", "/cadastro"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

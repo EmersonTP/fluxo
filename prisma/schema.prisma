@@ -36,6 +36,7 @@ model Company {
   planos         Plano[]
   assinaturas    Assinatura[]
   recebiveis     Receivable[]
+  onboardingLinks OnboardingLink[]
 }
 
 model User {
@@ -670,6 +671,7 @@ model Plano {
 
   @@unique([companyId, identifier])
   @@index([companyId])
+  onboardingLinks OnboardingLink[]
 }
 
 // Assinatura de um cliente a um plano. Espelha a subscription da Iugu.
@@ -744,4 +746,22 @@ model AuditLog {
   @@index([companyId, at])
   @@index([entity, entityId])
   @@index([userId, at])
+}
+
+model OnboardingLink {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  label      String?
+  valorCents Int?      // sobrepõe o valor do plano, se informado
+  diaCobranca Int?
+  ativo      Boolean  @default(true)
+  usos       Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planoId   String
+  plano     Plano   @relation(fields: [planoId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
