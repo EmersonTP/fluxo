@@ -160,6 +160,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   const isTP = (companies.find((c) => c.id === companyId)?.name || "").toLowerCase().includes("tp");
   const sections: { k: string; l: string; soon?: boolean }[] = [
     ...(isAdmin || isFinanceiro ? [{ k: "gestao", l: "Gestão" }] : []),
+    ...(isAdmin || isFinanceiro ? [{ k: "contas", l: "Contas Bancárias" }] : []),
     ...(isAdmin || isFinanceiro ? [{ k: "fluxo", l: "Fluxo de Caixa" }] : []),
     { k: "solicitar", l: "Solicitar" },
     ...(isApprover ? [{ k: "aprov", l: "Aprovações" }] : []),
@@ -318,6 +319,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
         )}
 
         {tab === "gestao" && (isAdmin || isFinanceiro) && <GestaoTab companyId={companyId} />}
+        {tab === "contas" && (isAdmin || isFinanceiro) && <ContasTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "fluxo" && (isAdmin || isFinanceiro) && <FluxoCaixaTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "seguranca" && isAdmin && <SegurancaTab companyId={companyId} />}
         {tab === "categorias" && <CategoriasTab companyId={companyId} isAdmin={isAdmin} />}
@@ -756,6 +758,69 @@ function GestaoTab({ companyId }: { companyId: string }) {
             })}
           </div>
         </>
+      )}
+    </>
+  );
+}
+
+/* ---------- Contas Bancárias (multi-conta) ---------- */
+function ContasTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
+  const [contas, setContas] = useState<{ id: string; nome: string; banco: string | null; conexao: string; _count: { transacoes: number } }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [novo, setNovo] = useState({ nome: "", banco: "c6" });
+  const [msg, setMsg] = useState("");
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/finance/contas?company=${companyId}`).then((r) => r.json()).then((d) => setContas(d.contas || [])).finally(() => setLoading(false));
+  }, [companyId]);
+  useEffect(() => { load(); }, [load]);
+
+  async function add() {
+    if (!novo.nome.trim()) return;
+    await fetch("/api/finance/contas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, nome: novo.nome, banco: novo.banco, conexao: "manual" }) });
+    setNovo({ nome: "", banco: "c6" }); load();
+  }
+  async function importar(id: string, file: File) {
+    setMsg("Importando…");
+    const csv = await file.text();
+    const r = await fetch(`/api/finance/contas/${id}/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv }) });
+    const d = await r.json();
+    setMsg(r.ok ? `Importado: ${d.criados} lançamentos (${d.pulados} pulados/duplicados).` : (d.error || "Erro ao importar."));
+    load();
+  }
+
+  return (
+    <>
+      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 16, maxWidth: 700 }}>
+        <b>Contas bancárias da empresa.</b> O caixa é a soma de todas. O <b>Inter</b> é conectado por API (ao vivo); as demais (C6, etc.) você importa o extrato em CSV — e tudo entra no fluxo de caixa e na conciliação.
+      </div>
+      {msg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14, maxWidth: 640 }}>{msg}</div>}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 720, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 15px", background: "var(--surface)" }}>
+          <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#0f6b50", flexShrink: 0 }} />
+          <div style={{ flex: 1 }}><b>Inter PJ</b> <span className="pill" style={{ background: "var(--verde-soft)", color: "var(--verde)", fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "2px 9px", marginLeft: 6 }}>conectada (API)</span><div style={{ fontSize: 12, color: "var(--txt-faint)" }}>Extrato ao vivo · conciliação automática</div></div>
+        </div>
+        {contas.map((c) => (
+          <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 15px", background: "var(--surface)" }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#b5781f", flexShrink: 0 }} />
+            <div style={{ flex: 1 }}><b>{c.nome}</b> <span style={{ fontSize: 11, fontWeight: 700, color: "#b5781f", background: "var(--amarelo)", borderRadius: 999, padding: "2px 9px", marginLeft: 6 }}>manual</span><div style={{ fontSize: 12, color: "var(--txt-faint)" }}>{c._count.transacoes} lançamentos importados</div></div>
+            <input ref={(el) => { fileRefs.current[c.id] = el; }} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) importar(c.id, f); e.currentTarget.value = ""; }} />
+            <button className="fx-btn" style={{ fontSize: 12.5 }} onClick={() => fileRefs.current[c.id]?.click()}>Importar extrato (CSV)</button>
+          </div>
+        ))}
+        {loading && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
+      </div>
+
+      {isAdmin && (
+        <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, maxWidth: 520 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 10 }}>+ Adicionar conta (manual)</div>
+          <Row><Field label="Nome"><input className="fx-input" value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} placeholder="ex.: C6 PJ" /></Field>
+            <Field label="Banco"><select className="fx-input" value={novo.banco} onChange={(e) => setNovo({ ...novo, banco: e.target.value })}><option value="c6">C6</option><option value="nubank">Nubank</option><option value="bradesco">Bradesco</option><option value="itau">Itaú</option><option value="outro">Outro</option></select></Field></Row>
+          <button className="fx-btn fx-btn-primary" disabled={!novo.nome.trim()} onClick={add}>Adicionar</button>
+        </div>
       )}
     </>
   );

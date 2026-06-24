@@ -30,6 +30,7 @@ model Company {
   categorias     Categoria[]
   categoriaRegras CategoriaRegra[]
   departamentos  Departamento[]
+  contas         BankAccount[]
   integrations   IntegrationConfig[]
   clientes       Cliente[]
   planos         Plano[]
@@ -512,6 +513,48 @@ model CategoriaRegra {
   categoria   Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+}
+
+// Conta bancária da empresa. O caixa é a soma de todas.
+model BankAccount {
+  id        String   @id @default(cuid())
+  nome      String   // ex.: "Inter PJ", "C6 PJ", "Nubank PJ"
+  banco     String?  // inter | c6 | nubank | outro
+  conexao   String   @default("manual") // inter (API) | manual (importa extrato)
+  ordem     Int      @default(0)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  transacoes BankTransaction[]
+
+  @@index([companyId])
+}
+
+// Lançamento de extrato (de conta manual importada OU sincronizado do Inter).
+model BankTransaction {
+  id         String   @id @default(cuid())
+  data       DateTime
+  valor      Float    // positivo = crédito, negativo = débito
+  tipo       String   // credito | debito
+  descricao  String   @db.Text @default("")
+  origem     String   @default("import") // import | inter_api
+  fitId      String?  // id único do lançamento (OFX FITID / Inter) p/ dedupe
+  // Classificação e conciliação
+  categoriaId String?
+  departamentoId String?
+  conciliado Boolean @default(false)
+  requestId  String?  // amarrado a uma conta a pagar/receber
+  importLote String?
+
+  accountId  String
+  account    BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  companyId  String
+
+  @@index([companyId, data])
+  @@index([accountId, data])
+  @@unique([accountId, fitId])
 }
 
 // Departamento (centro de custo): a ÁREA que gastou. Dimensão separada da categoria.
