@@ -65,6 +65,7 @@ const REGRAS: [string, string, string, string, number][] = [
   ["AVANTGARDE", "Administrativo", "Contabilidade", "debito", 10],
   ["OMIE", "Administrativo", "Software e Ferramentas", "debito", 10],
   ["INPI", "Ativo Intangível", "Marca (INPI)", "debito", 20],
+  ["JESSICA", "Ativo Intangível", "Marca (INPI)", "debito", 8], // brandbook/design de marca (pré-operacional)
   ["TABELIAO", "Administrativo", "Taxas, Cartório e Registros", "debito", 10],
   ["TABELIÃO", "Administrativo", "Taxas, Cartório e Registros", "debito", 10],
   ["DIRETORIA GERAL DE FINANC", "Administrativo", "Taxas, Cartório e Registros", "debito", 10],
