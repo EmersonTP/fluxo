@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       status: "solicitada",
       spaceId: b.spaceId || null,
       areaName: b.areaName,
+      departamentoId: b.departamentoId || null,
       credorId: b.credorId || null,
       descricao: b.descricao.trim(),
       valor,

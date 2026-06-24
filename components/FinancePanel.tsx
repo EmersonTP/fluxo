@@ -996,6 +996,8 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   const [catsLoaded, setCatsLoaded] = useState(false);
   const [grupo, setGrupo] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
+  const [departamentos, setDepartamentos] = useState<{ id: string; nome: string }[]>([]);
+  const [departamentoId, setDepartamentoId] = useState("");
   const [recorrencia, setRecorrencia] = useState("unica");
   const [docNumero, setDocNumero] = useState("");
   const [prazo, setPrazo] = useState("avista");
@@ -1011,6 +1013,10 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
       .then((r) => r.json())
       .then((d) => setCats(d.categorias || []))
       .finally(() => setCatsLoaded(true));
+    fetch(`/api/finance/departamentos?company=${companyId}`)
+      .then((r) => r.json())
+      .then((d) => setDepartamentos(d.departamentos || []))
+      .catch(() => {});
   }, [companyId]);
 
   const grupos = Array.from(new Set(cats.map((c) => c.grupo)));
@@ -1025,6 +1031,7 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   if (!Number(valor)) faltando.push("Valor");
   if (!vencimento) faltando.push("Vencimento");
   if (usaPlano && !categoriaId) faltando.push("Categoria");
+  if (departamentos.length > 0 && !departamentoId) faltando.push("Departamento");
   const completo = faltando.length === 0;
 
   async function submit() {
@@ -1037,7 +1044,7 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
     setBusy(true);
     const res = await fetch("/api/finance/requests", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyId, kind, spaceId, areaName: area.name, credorId: credorId || null, descricao, valor: Number(valor), vencimento: vencimento || null, formaPagamento: forma, categoriaId: categoriaId || null, categoria: categoriaTexto, recorrencia, docNumero: docNumero || null, prazoPagamento: prazo, prioridade, centroCusto: centroCusto || null, observacao: obs || null }),
+      body: JSON.stringify({ companyId, kind, spaceId, areaName: area.name, credorId: credorId || null, descricao, valor: Number(valor), vencimento: vencimento || null, formaPagamento: forma, categoriaId: categoriaId || null, categoria: categoriaTexto, departamentoId: departamentoId || null, recorrencia, docNumero: docNumero || null, prazoPagamento: prazo, prioridade, centroCusto: centroCusto || null, observacao: obs || null }),
     });
     const d = await res.json();
     if (res.ok) {
@@ -1073,7 +1080,12 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
       {catsLoaded && !usaPlano && <p style={{ fontSize: 11.5, color: "var(--txt-faint)", margin: "-4px 0 0" }}>Dica: o admin pode importar o plano de contas completo em Financeiro › Categorias.</p>}
       <Row><Field label="Prazo de pagamento"><select className="fx-input" value={prazo} onChange={(e) => setPrazo(e.target.value)}><option value="avista">À vista</option><option value="7">7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="data">Na data do vencimento</option><option value="parcelado">Parcelado</option></select></Field>
         <Field label="Prioridade"><select className="fx-input" value={prioridade} onChange={(e) => setPrioridade(e.target.value)}><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></Field></Row>
-      <Field label="Centro de custo (opcional)"><input className="fx-input" value={centroCusto} onChange={(e) => setCentroCusto(e.target.value)} placeholder="ex.: Sede / Obra / Cursinho" /></Field>
+      {departamentos.length > 0 ? (
+        <Row><Field label="Departamento*"><select className="fx-input" value={departamentoId} onChange={(e) => setDepartamentoId(e.target.value)}><option value="">Selecione…</option>{departamentos.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}</select></Field>
+          <Field label="Centro de custo (opcional)"><input className="fx-input" value={centroCusto} onChange={(e) => setCentroCusto(e.target.value)} placeholder="detalhe (ex.: Sede / Obra)" /></Field></Row>
+      ) : (
+        <Field label="Centro de custo (opcional)"><input className="fx-input" value={centroCusto} onChange={(e) => setCentroCusto(e.target.value)} placeholder="ex.: Sede / Obra / Cursinho" /></Field>
+      )}
       <Field label="Observações (opcional)"><textarea className="fx-input" rows={2} value={obs} onChange={(e) => setObs(e.target.value)} /></Field>
       <div style={{ marginTop: 4 }}>
         <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 5 }}>Documentos (NF, boleto, comprovante) — opcional, dá pra anexar depois</div>
