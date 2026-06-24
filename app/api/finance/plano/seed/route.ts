@@ -79,6 +79,7 @@ const REGRAS: [string, string, string, string, number][] = [
   ["CDB", "Aplicações Financeiras", "CDB", "ambos", 5],
   ["GIANCARLO", "Aporte de Sócios", "Aporte", "credito", 20],
   ["GIANLUCCA", "Aporte de Sócios", "Aporte", "credito", 20],
+  ["GIANCARLO", "Conta de Sócios", "Reembolso (pré-operacional)", "debito", 7],
   ["EMERSON HEALTHTECH", "Transferência entre contas", "Interno", "ambos", 15],
   // Revisão manual jun/2026
   ["FERNANDO FERREIRA", "Ativo Intangível", "Marca (INPI)", "debito", 12],
