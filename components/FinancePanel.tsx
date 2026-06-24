@@ -580,6 +580,7 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
   async function delPlano(id: string) { if (!confirm("Excluir plano?")) return; await fetch(`/api/finance/planos?id=${id}`, { method: "DELETE" }); load(); }
   async function addCliente() { if (!nc.nome.trim()) return; await fetch("/api/finance/clientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nc }) }); setNc({ nome: "", email: "", documento: "", rg: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", consentimentoLGPD: false }); load(); }
   async function addAssin() { if (!na.clienteId || !na.planoId) return; await fetch("/api/finance/assinaturas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...na }) }); setNa({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" }); load(); }
+  async function delCliente(id: string) { if (!confirm("Excluir cliente? (precisa não ter títulos a receber)")) return; const r = await fetch(`/api/finance/clientes?id=${id}`, { method: "DELETE" }); if (!r.ok) { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao excluir."); } load(); }
   async function cancelAssin(id: string) { if (!confirm("Cancelar assinatura?")) return; await fetch(`/api/finance/assinaturas?id=${id}`, { method: "DELETE" }); load(); }
   async function gerarMes() { setMsg("Gerando…"); const r = await fetch("/api/finance/receber/gerar-mes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId }) }); const d = await r.json(); setMsg(r.ok ? `Gerados ${d.criados} títulos do mês (${d.pulados} já existiam/sem vencimento).` : (d.error || "Erro.")); }
 
@@ -611,6 +612,7 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
             <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
               <div style={{ flex: 1 }}><b>{c.nome}</b>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}> · {c.documento}</span> : null}</div>
               <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/contrato`} target="_blank" rel="noopener">Gerar contrato</a>
+              <button className="fx-btn" style={{ fontSize: 12, color: "var(--coral-deep)" }} onClick={() => delCliente(c.id)}>Excluir</button>
             </div>
           ))}
           {clientes.length === 0 && <p style={{ color: "var(--txt-faint)", fontSize: 13 }}>Nenhum cliente cadastrado.</p>}

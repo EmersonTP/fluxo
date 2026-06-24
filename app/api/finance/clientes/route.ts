@@ -45,3 +45,18 @@ export async function POST(req: Request) {
   await logAudit({ req, user, action: "create", entity: "cliente", entityId: c.id, companyId: b.companyId });
   return NextResponse.json({ cliente: { id: c.id, nome: c.nome } });
 }
+
+// Exclui um cliente (bloqueado se tiver recebíveis; cancela assinaturas antes via UI).
+export async function DELETE(req: Request) {
+  const user = await requireUser();
+  if (isResponse(user)) return user;
+  if (!isAdmin(user)) return NextResponse.json({ error: "Só admin." }, { status: 403 });
+  const id = new URL(req.url).searchParams.get("id") || "";
+  const c = await prisma.cliente.findUnique({ where: { id }, select: { companyId: true, _count: { select: { recebiveis: true, assinaturas: true } } } });
+  if (!c || !canAccessCompany(user, c.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  if (c._count.recebiveis > 0) return NextResponse.json({ error: "Cliente tem títulos a receber — não pode ser excluído." }, { status: 400 });
+  await prisma.assinatura.deleteMany({ where: { clienteId: id } });
+  await prisma.cliente.delete({ where: { id } });
+  await logAudit({ req, user, action: "delete", entity: "cliente", entityId: id, companyId: c.companyId });
+  return NextResponse.json({ ok: true });
+}
