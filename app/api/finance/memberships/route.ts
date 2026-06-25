@@ -34,6 +34,7 @@ export async function POST(req: Request) {
   if (!valorCents || valorCents <= 0) return NextResponse.json({ error: "Informe um valor (ou um plano com valor)." }, { status: 400 });
 
   const recorrencia = b.recorrencia === "unica" ? "unica" : "mensal";
+  const situacao = ["emitir", "pago", "registrar"].includes(b.situacao) ? b.situacao : "emitir";
   const venc = new Date(String(b.vencimento).slice(0, 10) + "T12:00:00");
   const dia = b.diaCobranca ? Number(b.diaCobranca) : venc.getDate();
 
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
   const cfg = await getInterConfig(companyId);
   const podeEmitir = !!cfg && (doc.length === 11 || doc.length === 14) && p.cep && p.logradouro && p.cidade && p.uf;
 
-  if (b.emitirCobranca !== false && podeEmitir) {
+  if (situacao === "emitir" && podeEmitir) {
     try {
       const seuNumero = ("M" + Date.now().toString(36)).slice(0, 15);
       const payload: Record<string, unknown> = {
@@ -85,17 +86,19 @@ export async function POST(req: Request) {
       let det: any = null; try { det = await getCobranca(cfg!, cod); } catch {}
       cobranca = { codigoSolicitacao: cod, pixCopiaECola: det?.pix?.pixCopiaECola || null, secureUrl: det?.boleto?.linkPdf || null, linhaDigitavel: det?.boleto?.linhaDigitavel || null };
     } catch (e: any) { warning = `Paciente e título criados, mas a cobrança no Inter falhou: ${e.message}. Emita depois em Cobrança.`; }
-  } else if (b.emitirCobranca !== false && !podeEmitir) {
+  } else if (situacao === "emitir" && !podeEmitir) {
     warning = !cfg ? "Inter não conectado: título criado sem cobrança." : "Faltam dados do pagador (CPF + endereço) para o boleto: título criado, emita o Pix/boleto depois.";
   }
 
   // 4) recebível
+  const pago = situacao === "pago";
+  const pagoEm = pago ? (b.pagoEm ? new Date(String(b.pagoEm).slice(0, 10) + "T12:00:00") : venc) : null;
   const receivable = await prisma.receivable.create({
     data: {
       companyId, provider: cobranca ? "inter" : "manual",
       externalId: cobranca?.codigoSolicitacao || null,
       descricao: b.descricao || `Membership — ${p.nome}`,
-      valorCents, status: "pendente", metodo: cobranca ? "boleto_pix" : null,
+      valorCents, status: pago ? "paga" : "pendente", pagoEm, metodo: cobranca ? "boleto_pix" : null,
       vencimento: venc, pixCopiaECola: cobranca?.pixCopiaECola || null, secureUrl: cobranca?.secureUrl || null,
       origem: assinatura ? "assinatura" : "avulsa", clienteId: cliente.id, assinaturaId: assinatura?.id || null,
     },

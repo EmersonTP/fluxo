@@ -18,7 +18,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   const [na, setNa] = useState({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" });
   const [links, setLinks] = useState<{ id: string; token: string; label: string | null; ativo: boolean; usos: number; plano: string; valor: number }[]>([]);
   const [nl, setNl] = useState({ planoId: "", valor: "", diaCobranca: "", label: "" });
-  const [nm, setNm] = useState({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false });
+  const [nm, setNm] = useState({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false, situacao: "emitir", pagoEm: "" });
   const [cob, setCob] = useState<any>(null);
   const [savingM, setSavingM] = useState(false);
   const [copiado, setCopiado] = useState("");
@@ -50,12 +50,12 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   async function criarMembership() {
     if (!nm.nome.trim() || !nm.vencimento || (!nm.valor && !nm.planoId)) { setMsg("Preencha nome, valor (ou plano) e 1º vencimento."); return; }
     setSavingM(true); setCob(null);
-    const r = await fetch("/api/finance/memberships", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, paciente: { nome: nm.nome, documento: nm.documento, email: nm.email, telefone: nm.telefone, cep: nm.cep, logradouro: nm.logradouro, numero: nm.numero, bairro: nm.bairro, cidade: nm.cidade, uf: nm.uf, consentimentoLGPD: nm.consentimentoLGPD }, planoId: nm.planoId || null, valor: nm.valor ? Number(nm.valor) : null, recorrencia: nm.recorrencia, diaCobranca: nm.diaCobranca, vencimento: nm.vencimento }) });
+    const r = await fetch("/api/finance/memberships", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, paciente: { nome: nm.nome, documento: nm.documento, email: nm.email, telefone: nm.telefone, cep: nm.cep, logradouro: nm.logradouro, numero: nm.numero, bairro: nm.bairro, cidade: nm.cidade, uf: nm.uf, consentimentoLGPD: nm.consentimentoLGPD }, planoId: nm.planoId || null, valor: nm.valor ? Number(nm.valor) : null, recorrencia: nm.recorrencia, diaCobranca: nm.diaCobranca, vencimento: nm.vencimento, situacao: nm.situacao, pagoEm: nm.pagoEm }) });
     const d = await r.json(); setSavingM(false);
     if (!r.ok) { setMsg(d.error || "Erro ao cadastrar."); return; }
     setMsg(d.warning || "✓ Membership criado, conta a receber gerada e cobrança emitida no Inter.");
     setCob(d.cobranca || null);
-    setNm({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false });
+    setNm({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false, situacao: "emitir", pagoEm: "" });
     load();
   }
   async function addLink() { if (!nl.planoId) return; await fetch("/api/finance/onboarding-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nl }) }); setNl({ planoId: "", valor: "", diaCobranca: "", label: "" }); load(); }
@@ -100,8 +100,12 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
           <Field label="1º vencimento *"><input className="fx-input" type="date" value={nm.vencimento} onChange={(e) => setNm({ ...nm, vencimento: e.target.value })} /></Field>
           <Field label="Dia de cobrança"><input className="fx-input" type="number" value={nm.diaCobranca} onChange={(e) => setNm({ ...nm, diaCobranca: e.target.value })} placeholder="ex.: 5" /></Field>
         </Row>
+        <Row>
+          <Field label="Situação do 1º pagamento"><select className="fx-input" value={nm.situacao} onChange={(e) => setNm({ ...nm, situacao: e.target.value })}><option value="emitir">Emitir cobrança agora (Inter)</option><option value="pago">Já foi pago (só registrar)</option><option value="registrar">Em aberto (só registrar, sem emitir)</option></select></Field>
+          {nm.situacao === "pago" && <Field label="Pago em"><input className="fx-input" type="date" value={nm.pagoEm} onChange={(e) => setNm({ ...nm, pagoEm: e.target.value })} /></Field>}
+        </Row>
         <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--txt-soft)", margin: "4px 0 12px" }}><input type="checkbox" checked={nm.consentimentoLGPD} onChange={(e) => setNm({ ...nm, consentimentoLGPD: e.target.checked })} /> Consentimento LGPD registrado (execução de contrato)</label>
-        <button className="fx-btn fx-btn-primary" disabled={savingM} onClick={criarMembership}>{savingM ? "Cadastrando…" : "Cadastrar e emitir cobrança"}</button>
+        <button className="fx-btn fx-btn-primary" disabled={savingM} onClick={criarMembership}>{savingM ? "Cadastrando…" : nm.situacao === "emitir" ? "Cadastrar e emitir cobrança" : "Cadastrar membership"}</button>
         {cob && (
           <div style={{ marginTop: 12, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 14px", background: "var(--surface)", maxWidth: 640 }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Cobrança emitida — envie pro paciente:</div>
