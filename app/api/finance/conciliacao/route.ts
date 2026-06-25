@@ -34,22 +34,23 @@ export async function GET(req: Request) {
   const match = (tipo: string, txt: string) => { const up = (txt || "").toUpperCase(); for (const r of regras) { if (r.aplicaA !== "ambos" && r.aplicaA !== tipo) continue; if (up.includes(r.padrao)) return true; } return false; };
 
   const alertas: { sev: "critico" | "atencao" | "ok"; texto: string }[] = [];
-  const naoCat: { data: string; tipo: string; valor: number; descricao: string; origem: string }[] = [];
+  const naoCat: { id: string; data: string; tipo: string; valor: number; descricao: string; origem: string }[] = [];
   let ultimoExtrato = "";
 
   // 2) contas bancárias (frescor + não categorizado)
   const contas = await prisma.bankAccount.findMany({ where: { companyId }, include: { transacoes: { orderBy: { data: "desc" }, take: 1 } } });
   const contasOut: { nome: string; conexao: string; ultimo: string | null; total: number }[] = [];
   for (const c of contas as any[]) {
-    const txs: any[] = await prisma.bankTransaction.findMany({ where: { accountId: c.id }, select: { data: true, tipo: true, valor: true, descricao: true } });
+    const txs: any[] = await prisma.bankTransaction.findMany({ where: { accountId: c.id }, select: { id: true, data: true, tipo: true, valor: true, descricao: true, categoriaId: true } });
     const ultimo = txs.length ? txs.map((t) => t.data).sort((a, b) => (a > b ? -1 : 1))[0] : null;
     contasOut.push({ nome: c.nome, conexao: c.conexao, ultimo: ultimo ? ymd(ultimo as Date) : null, total: txs.length });
-    for (const t of txs) { if (!match(t.tipo || "debito", t.descricao || "")) naoCat.push({ data: ymd(t.data as Date), tipo: t.tipo, valor: Math.abs(Number(t.valor)), descricao: (t.descricao || "").slice(0, 50), origem: c.nome }); }
+    for (const t of txs) { if (!t.categoriaId && !match(t.tipo || "debito", t.descricao || "")) naoCat.push({ id: t.id, data: ymd(t.data as Date), tipo: t.tipo, valor: Math.abs(Number(t.valor)), descricao: (t.descricao || "").slice(0, 50), origem: c.nome }); }
     // frescor: conta sem lançamento no mês corrente
     const mesAtual = new Date().toISOString().slice(0, 7);
     if (c.conexao === "manual" && (!ultimo || ymd(ultimo as Date).slice(0, 7) < mesAtual)) alertas.push({ sev: "atencao", texto: `Conta "${c.nome}" sem lançamentos no mês atual — reimportar extrato/fatura.` });
   }
 
+  const categorias = await prisma.categoria.findMany({ where: { companyId }, select: { id: true, grupo: true, nome: true }, orderBy: [{ grupo: "asc" }, { nome: "asc" }] });
   ultimoExtrato = contasOut.filter((c) => c.ultimo).map((c) => c.ultimo as string).sort().pop() || "";
 
   // 3) só Inter conectado? sugerir outras contas
@@ -64,7 +65,8 @@ export async function GET(req: Request) {
   return NextResponse.json({
     periodo: { de, ate }, ultimoExtrato,
     contas: contasOut,
-    naoCategorizado: { qtd: naoCat.length, valor: Math.round(totalNaoCat), itens: naoCat.slice(0, 25) },
+    naoCategorizado: { qtd: naoCat.length, valor: Math.round(totalNaoCat), itens: naoCat.slice(0, 40) },
+    categorias,
     alertas,
   });
 }

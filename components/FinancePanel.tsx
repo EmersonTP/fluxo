@@ -1619,6 +1619,11 @@ function SaudeTab({ companyId }: { companyId: string }) {
   useEffect(() => { load(); }, [load]);
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function rodarConc() { setConcLoad(true); fetch(`/api/finance/conciliacao?company=${companyId}`).then((r) => r.json()).then(setConc).finally(() => setConcLoad(false)); }
+  async function identificar(txId: string, categoriaId: string) {
+    if (!categoriaId) return;
+    await fetch(`/api/finance/lancamentos?company=${companyId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ txId, categoriaId }) });
+    rodarConc();
+  }
   const tone = (s: string) => s === "critico" ? { bg: "#f3dcd8", fg: "#a8332c", dot: "#c0392b", l: "Crítico" } : s === "atencao" ? { bg: "#f6e7cd", fg: "#b5781f", dot: "#d68910", l: "Atenção" } : { bg: "#d7ebe2", fg: "#0f6b50", dot: "#1f9d57", l: "OK" };
   const order: Record<string, number> = { critico: 0, atencao: 1, ok: 2 };
   const sorted = [...checks].sort((a, b) => order[a.sev] - order[b.sev]);
@@ -1667,9 +1672,18 @@ function SaudeTab({ companyId }: { companyId: string }) {
             {conc.naoCategorizado?.qtd > 0 && (
               <div style={{ marginTop: 12 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--coral-deep)", marginBottom: 6 }}>Sem categoria ({conc.naoCategorizado.qtd}) — {money(conc.naoCategorizado.valor)}</div>
+                <div style={{ fontSize: 11.5, color: "var(--txt-faint)", marginBottom: 6 }}>Identifique cada lançamento escolhendo a categoria — ela é fixada nesse lançamento e tem prioridade sobre as regras.</div>
                 {conc.naoCategorizado.itens.map((it: any, i: number) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--txt-faint)", padding: "2px 0" }}>
-                    <span>{new Date(it.data).toLocaleDateString("pt-BR")} · {it.origem} · {it.descricao}</span><span>{it.tipo === "credito" ? "+" : "−"}{money(it.valor)}</span>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--txt-soft)", padding: "4px 0", borderBottom: "1px solid var(--line)" }}>
+                    <span style={{ width: 64, color: "var(--txt-faint)" }}>{new Date(it.data).toLocaleDateString("pt-BR").slice(0, 5)}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>{it.descricao} <span style={{ color: "var(--txt-faint)" }}>· {it.origem}</span></span>
+                    <span style={{ color: it.tipo === "credito" ? "#0f6b50" : "#a8332c", width: 90, textAlign: "right" }}>{it.tipo === "credito" ? "+" : "−"}{money(it.valor)}</span>
+                    {it.id && (
+                      <select className="fx-input" defaultValue="" style={{ maxWidth: 190, fontSize: 12 }} onChange={(e) => { if (e.target.value) identificar(it.id, e.target.value); }}>
+                        <option value="">categoria…</option>
+                        {(conc.categorias || []).map((c: any) => <option key={c.id} value={c.id}>{c.grupo} › {c.nome}</option>)}
+                      </select>
+                    )}
                   </div>
                 ))}
               </div>

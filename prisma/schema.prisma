@@ -499,6 +499,7 @@ model Categoria {
   @@unique([companyId, grupo, nome])
   @@index([companyId, tipo])
   @@index([companyId, bloco])
+  bankTransactions BankTransaction[] @relation("BankTxCategoria")
 }
 
 // Regra de auto-categorização do extrato: se a contraparte casar com 'padrao',
@@ -548,6 +549,7 @@ model BankTransaction {
   fitId      String?  // id único do lançamento (OFX FITID / Inter) p/ dedupe
   // Classificação e conciliação
   categoriaId String?
+  categoria   Categoria? @relation("BankTxCategoria", fields: [categoriaId], references: [id], onDelete: SetNull)
   departamentoId String?
   conciliado Boolean @default(false)
   requestId  String?  // amarrado a uma conta a pagar/receber

@@ -48,7 +48,7 @@ export async function GET(req: Request) {
   const lancs: Lanc[] = [];
 
   const banco = await getLancamentos(companyId, de, ate);
-  for (const t of banco) lancs.push({ data: t.data, tipo: t.tipo, valor: t.valor, descricao: t.descricao, cat: classifica(t.tipo, t.descricao) });
+  for (const t of banco) lancs.push({ data: t.data, tipo: t.tipo, valor: t.valor, descricao: t.descricao, cat: t.override || classifica(t.tipo, t.descricao) });
 
   // agrega
   const meses = new Set<string>();

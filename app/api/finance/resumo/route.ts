@@ -55,7 +55,7 @@ export async function GET(req: Request) {
   const classifica = await getClassifier(companyId);
   const lanc = await getLancamentos(companyId, de, ymd(hoje), {});
   let semCategoria = 0;
-  for (const l of lanc) { if (!classifica(l.tipo, l.descricao)) semCategoria++; }
+  for (const l of lanc) { if (!l.override && !classifica(l.tipo, l.descricao)) semCategoria++; }
 
   // últimos lançamentos
   const ult = await prisma.bankTransaction.findMany({

@@ -69,3 +69,20 @@ export async function GET(req: Request) {
   out.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
   return NextResponse.json({ periodo: { de, ate }, total: out.length, lancamentos: out });
 }
+
+// Override manual: fixa (ou limpa) a categoria de um lançamento. Tem prioridade sobre as regras.
+export async function PATCH(req: Request) {
+  const { requireUser, isResponse } = await import("@/lib/api");
+  const { isAdmin, canAccessCompany } = await import("@/lib/finance");
+  const { logAudit } = await import("@/lib/audit");
+  const user = await requireUser();
+  if (isResponse(user)) return user;
+  if (!isAdmin(user)) return NextResponse.json({ error: "Só admin." }, { status: 403 });
+  const b = await req.json();
+  const tx = await prisma.bankTransaction.findUnique({ where: { id: String(b.txId || "") }, select: { id: true, companyId: true } });
+  if (!tx || !canAccessCompany(user, tx.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  const categoriaId = b.categoriaId ? String(b.categoriaId) : null;
+  await prisma.bankTransaction.update({ where: { id: tx.id }, data: { categoriaId } });
+  await logAudit({ req, user, action: "update", entity: "extrato", companyId: tx.companyId, meta: `categoria do lançamento ${categoriaId ? "fixada" : "limpa"}` });
+  return NextResponse.json({ ok: true });
+}

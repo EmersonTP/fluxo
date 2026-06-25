@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 
   // 1) lancamentos de caixa (extrato Inter sincronizado + contas manuais; cartao fica de fora)
   const banco = await getLancamentos(companyId, de, ate, { apenasCaixa: true });
-  const lanc = banco.map((t) => ({ data: t.data as string | null, tipo: t.tipo, valor: t.valor, descricao: t.descricao, titulo: "" }));
+  const lanc = banco.map((t) => ({ data: t.data as string | null, tipo: t.tipo, valor: t.valor, descricao: t.descricao, titulo: "", override: t.override }));
 
   // 2) regras + categorias
   const regras = await prisma.categoriaRegra.findMany({
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
     if (mes) { mesesSet.add(mes); (movMes[mes] = movMes[mes] || { entrada: 0, saida: 0 }); }
     const item: Item = { data: (l.data || "").slice(0, 10), tipo: l.tipo, valor: Math.round(l.valor), descricao: (l.descricao || l.titulo).slice(0, 60) };
     if (l.tipo === "credito") { if (mes) movMes[mes].entrada += l.valor; } else { if (mes) movMes[mes].saida += l.valor; }
-    const c = classifica(l);
+    const c = l.override || classifica(l);
     const signed = l.tipo === "credito" ? l.valor : -l.valor;
     if (!c) {
       naoCat.itens.push(item);
