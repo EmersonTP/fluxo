@@ -303,8 +303,10 @@ export default function ChatPanel({ meId }: { meId: string }) {
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button className="fx-btn" title="Anexar arquivo" onClick={() => fileRef.current?.click()} style={{ padding: "8px 11px" }}>📎</button>
                 <input ref={fileRef} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.currentTarget.value = ""; }} />
-                <input className="fx-input" placeholder={active.kind === "dm" ? `Mensagem para ${active.name}` : `Mensagem em #${active.name}  (use @ para mencionar)`}
+                <textarea className="fx-input" rows={1} placeholder={active.kind === "dm" ? `Mensagem para ${active.name}` : `Mensagem em #${active.name}  (use @ para mencionar · Shift+Enter quebra linha)`}
                   value={text} onChange={(e) => onTextChange(e.target.value)}
+                  style={{ resize: "none", minHeight: 40, maxHeight: 160, lineHeight: 1.45, fontFamily: "inherit", paddingTop: 9 }}
+                  onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 160) + "px"; }}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
                 <button className="fx-btn fx-btn-primary" onClick={send}>Enviar</button>
               </div>
