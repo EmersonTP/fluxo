@@ -1540,6 +1540,25 @@ function SegurancaTab({ companyId }: { companyId: string }) {
     fetch(`/api/finance/audit?company=${companyId}`).then((r) => r.json()).then(setData).finally(() => setLoading(false));
   }, [companyId]);
 
+  // PIN de pagamento (o proprio usuario define; nunca devolvemos o PIN)
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
+  const [pin, setPin] = useState(""); const [pin2, setPin2] = useState("");
+  const [pinMsg, setPinMsg] = useState(""); const [savingPin, setSavingPin] = useState(false);
+  const loadPin = useCallback(() => { fetch(`/api/finance/payment-pin`).then((r) => r.json()).then((d) => setHasPin(!!d.hasPin)).catch(() => {}); }, []);
+  useEffect(() => { loadPin(); }, [loadPin]);
+  async function salvarPin() {
+    setPinMsg("");
+    if (pin.length < 4 || !/^[0-9]+$/.test(pin)) { setPinMsg("Use ao menos 4 dígitos numéricos."); return; }
+    if (pin !== pin2) { setPinMsg("Os dois campos não conferem."); return; }
+    setSavingPin(true);
+    try {
+      const r = await fetch(`/api/finance/payment-pin`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Falha");
+      setPin(""); setPin2(""); setPinMsg("PIN salvo com segurança."); loadPin();
+    } catch (e: any) { setPinMsg(e.message || "Falha"); }
+    setSavingPin(false);
+  }
+
   const ACT: Record<string, { l: string; c: string }> = {
     view: { l: "consultou", c: "#274b6d" }, create: { l: "criou", c: "#0f6b50" },
     update: { l: "alterou", c: "#b5781f" }, delete: { l: "excluiu", c: "#a8332c" },
@@ -1566,6 +1585,22 @@ function SegurancaTab({ companyId }: { companyId: string }) {
             <div><div style={{ fontSize: 13.5, fontWeight: 600 }}>{x.t}</div><div style={{ fontSize: 12.5, color: "var(--txt-faint)" }}>{x.d}</div></div>
           </div>
         ))}
+      </div>
+
+      {/* PIN de pagamento */}
+      <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", marginBottom: 8 }}>PIN de pagamento</div>
+      <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "14px 16px", background: "var(--surface)", maxWidth: 480, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, background: hasPin ? "#d7ebe2" : "#f6e7cd", color: hasPin ? "#0f6b50" : "#b5781f", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{hasPin ? "\u2713" : "!"}</span>
+          <span style={{ fontSize: 13.5, fontWeight: 600 }}>{hasPin == null ? "Verificando…" : hasPin ? "PIN cadastrado" : "Você ainda não tem PIN"}</span>
+        </div>
+        <p style={{ fontSize: 12.5, color: "var(--txt-faint)", margin: "0 0 12px" }}>O PIN confirma os pagamentos antes de saírem. É pessoal e só você o conhece — fica guardado cifrado, ninguém (nem a Sandra) consegue lê-lo.</p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Field label={hasPin ? "Novo PIN" : "PIN (mín. 4 dígitos)"}><input className="fx-input" type="password" inputMode="numeric" autoComplete="new-password" value={pin} onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))} maxLength={8} style={{ maxWidth: 150 }} /></Field>
+          <Field label="Repita o PIN"><input className="fx-input" type="password" inputMode="numeric" autoComplete="new-password" value={pin2} onChange={(e) => setPin2(e.target.value.replace(/[^0-9]/g, ""))} maxLength={8} style={{ maxWidth: 150 }} /></Field>
+          <button className="fx-btn fx-btn-primary" disabled={savingPin} onClick={salvarPin} style={{ marginBottom: 10 }}>{savingPin ? "Salvando…" : hasPin ? "Trocar PIN" : "Cadastrar PIN"}</button>
+        </div>
+        {pinMsg && <div style={{ fontSize: 12.5, color: pinMsg.includes("salvo") ? "#0f6b50" : "#a8332c", marginTop: 2 }}>{pinMsg}</div>}
       </div>
 
       <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", marginBottom: 8 }}>Trilha de auditoria</div>
