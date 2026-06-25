@@ -29,7 +29,7 @@ export function HomeTab({ companyId, go }: { companyId: string; go: (k: string) 
       {d && (
         <>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-            <Card label="Saldo em caixa" value={money(d.saldoTotal)} sub={`sincronizado ${quando(d.ultimoSync)}`} tone="#7a4fb0" onClick={() => go("fluxo")} />
+            <Card label="Saldo em caixa" value={money(d.saldoTotal)} sub={d.ultimoSync ? `sincronizado ${quando(d.ultimoSync)}` : "nunca sincronizado"} tone="#7a4fb0" onClick={() => go("fluxo")} />
             <Card label="A pagar (em aberto)" value={money(d.aPagar.total)} sub={`${d.aPagar.qtd} título(s)${d.aPagar.vencidas ? ` · ${d.aPagar.vencidas} vencido(s)` : ""}`} tone={d.aPagar.vencidas ? "#a8332c" : "#274b6d"} onClick={() => go("painel")} />
             <Card label="A receber (em aberto)" value={money(d.aReceber.total)} sub={`${d.aReceber.qtd} título(s)${d.aReceber.vencidas ? ` · ${d.aReceber.vencidas} vencido(s)` : ""}`} tone={d.aReceber.vencidas ? "#b5781f" : "#0f6b50"} onClick={() => go("receber")} />
             <Card label="Sem categoria" value={String(d.semCategoria)} sub="lançamentos a identificar (90d)" tone={d.semCategoria ? "#b5781f" : "#0f6b50"} onClick={() => go("conciliar")} />
