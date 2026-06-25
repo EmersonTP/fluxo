@@ -19,7 +19,7 @@ export type LancBanco = { data: string; tipo: string; valor: number; descricao: 
 export async function getLancamentos(companyId: string, de: string, ate: string, opts: { apenasCaixa?: boolean } = {}): Promise<LancBanco[]> {
   const ini = new Date(de + "T00:00:00"); const fim = new Date(ate + "T23:59:59");
   const txs: any[] = await prisma.bankTransaction.findMany({
-    where: { companyId, data: { gte: ini, lte: fim }, ...(opts.apenasCaixa ? { account: { tipo: { not: "cartao" } } } : {}) },
+    where: { companyId, data: { gte: ini, lte: fim }, ...(opts.apenasCaixa ? { account: { tipo: { notIn: ["cartao", "socio"] } } } : {}) },
     include: { account: { select: { nome: true } } },
     orderBy: { data: "asc" },
   });

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   if (!b.nome?.trim()) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
   const n = await prisma.bankAccount.count({ where: { companyId: b.companyId } });
   const conta = await prisma.bankAccount.create({
-    data: { companyId: b.companyId, nome: b.nome.trim(), banco: b.banco || "outro", conexao: b.conexao === "inter" ? "inter" : "manual", ordem: n },
+    data: { companyId: b.companyId, nome: b.nome.trim(), banco: b.banco || "outro", conexao: b.conexao === "inter" ? "inter" : "manual", tipo: ["caixa", "cartao", "socio"].includes(b.tipo) ? b.tipo : "caixa", ordem: n },
   });
   return NextResponse.json({ conta });
 }
@@ -53,7 +53,7 @@ export async function PATCH(req: Request) {
   const c = await prisma.bankAccount.findUnique({ where: { id: b.id }, select: { companyId: true } });
   if (!c || !canAccessCompany(user, c.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   const data: Record<string, unknown> = {};
-  if (b.tipo) data.tipo = b.tipo === "cartao" ? "cartao" : "caixa";
+  if (b.tipo) data.tipo = ["caixa", "cartao", "socio"].includes(b.tipo) ? b.tipo : "caixa";
   if (b.nome?.trim()) data.nome = b.nome.trim();
   await prisma.bankAccount.update({ where: { id: b.id }, data });
   return NextResponse.json({ ok: true });

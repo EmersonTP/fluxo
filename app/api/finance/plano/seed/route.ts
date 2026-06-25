@@ -63,6 +63,7 @@ const REGRAS: [string, string, string, string, number][] = [
   ["NAYARA", "Pessoal", "Financeiro", "debito", 10],
   ["JOAO VITOR", "Pessoal", "Recrutamento/Headhunting", "debito", 10],
   ["JOÃO VITOR", "Pessoal", "Recrutamento/Headhunting", "debito", 10],
+  ["MILENA", "Custo dos Serviços", "Terapeutas / Prestadores", "debito", 10],
   ["BEDIN", "Administrativo", "Contabilidade", "debito", 10],
   ["AVANTGARDE", "Administrativo", "Contabilidade", "debito", 10],
   ["OMIE", "Administrativo", "Software e Ferramentas", "debito", 10],

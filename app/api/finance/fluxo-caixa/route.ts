@@ -95,7 +95,7 @@ export async function GET(req: Request) {
   };
 
   // 4) saldos das contas de caixa (cartao fica de fora) + carimbo da ultima sincronizacao
-  const contasCaixa: any[] = await prisma.bankAccount.findMany({ where: { companyId, tipo: { not: "cartao" } } });
+  const contasCaixa: any[] = await prisma.bankAccount.findMany({ where: { companyId, tipo: { notIn: ["cartao", "socio"] } } });
   const saldos: { nome: string; saldo: number | null }[] = [];
   let ultimoSync: string | null = null;
   for (const c of contasCaixa) {
