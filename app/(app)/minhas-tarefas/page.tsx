@@ -44,6 +44,9 @@ export default function MyTasksPage() {
       const saved = localStorage.getItem("fluxo:view:mine");
       if (saved === "board" || saved === "list") setView(saved);
     } catch {}
+    const onCompany = () => load();
+    window.addEventListener("fx:company-changed", onCompany);
+    return () => window.removeEventListener("fx:company-changed", onCompany);
   }, [load]);
 
   function changeView(v: View) {

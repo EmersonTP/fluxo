@@ -57,6 +57,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     try { localStorage.setItem("fx:company", id); } catch {}
     // cookie para os server components (Início etc.) escoparem pela empresa ativa
     try { document.cookie = `fx_company=${id}; path=/; max-age=31536000; samesite=lax`; } catch {}
+    try { window.dispatchEvent(new Event("fx:company-changed")); } catch {}
     router.refresh();
   }
 
