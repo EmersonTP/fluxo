@@ -572,6 +572,10 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
   const [msg, setMsg] = useState("");
   const [np, setNp] = useState({ nome: "", valor: "" });
   const [nc, setNc] = useState({ nome: "", email: "", documento: "", rg: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", consentimentoLGPD: false });
+  const [docsCli, setDocsCli] = useState<string>("");
+  const [docs, setDocs] = useState<any[]>([]);
+  const [docTipo, setDocTipo] = useState("contrato");
+  const [docMsg, setDocMsg] = useState("");
   const [na, setNa] = useState({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" });
   const [links, setLinks] = useState<{ id: string; token: string; label: string | null; ativo: boolean; usos: number; plano: string; valor: number }[]>([]);
   const [nl, setNl] = useState({ planoId: "", valor: "", diaCobranca: "", label: "" });
@@ -588,6 +592,15 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
 
   async function addPlano() { if (!np.nome.trim() || !Number(np.valor)) return; await fetch("/api/finance/planos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, nome: np.nome, valor: Number(np.valor) }) }); setNp({ nome: "", valor: "" }); load(); }
   async function delPlano(id: string) { if (!confirm("Excluir plano?")) return; await fetch(`/api/finance/planos?id=${id}`, { method: "DELETE" }); load(); }
+  async function abrirDocs(id: string) { if (docsCli === id) { setDocsCli(""); return; } setDocsCli(id); setDocs([]); const d = await fetch(`/api/finance/documentos?company=${companyId}&cliente=${id}`).then((r) => r.json()); setDocs(d.documentos || []); }
+  async function subirDoc(id: string, file: File) {
+    setDocMsg("Enviando…");
+    const b64: string = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(file); });
+    const r = await fetch("/api/finance/documentos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, clienteId: id, tipo: docTipo, filename: file.name, mime: file.type, base64: b64 }) });
+    const d = await r.json(); setDocMsg(r.ok ? "Enviado." : (d.error || "Erro."));
+    const dd = await fetch(`/api/finance/documentos?company=${companyId}&cliente=${id}`).then((x) => x.json()); setDocs(dd.documentos || []);
+  }
+  async function delDoc(docId: string, cliId: string) { if (!confirm("Excluir documento?")) return; await fetch(`/api/finance/documentos/${docId}`, { method: "DELETE" }); const dd = await fetch(`/api/finance/documentos?company=${companyId}&cliente=${cliId}`).then((x) => x.json()); setDocs(dd.documentos || []); }
   async function addCliente() { if (!nc.nome.trim()) return; await fetch("/api/finance/clientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nc }) }); setNc({ nome: "", email: "", documento: "", rg: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", consentimentoLGPD: false }); load(); }
   async function addAssin() { if (!na.clienteId || !na.planoId) return; await fetch("/api/finance/assinaturas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...na }) }); setNa({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" }); load(); }
   async function delCliente(id: string) { if (!confirm("Excluir cliente? (precisa não ter títulos a receber)")) return; const r = await fetch(`/api/finance/clientes?id=${id}`, { method: "DELETE" }); if (!r.ok) { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao excluir."); } load(); }
@@ -641,10 +654,31 @@ function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: bo
       <Section title="Clientes / Pacientes">
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
           {clientes.map((c) => (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
+            <div key={c.id}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
               <div style={{ flex: 1 }}><b>{c.nome}</b>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}> · {c.documento}</span> : null}</div>
+              <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => abrirDocs(c.id)}>Documentos</button>
               <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/contrato`} target="_blank" rel="noopener">Gerar contrato</a>
               <button className="fx-btn" style={{ fontSize: 12, color: "var(--coral-deep)" }} onClick={() => delCliente(c.id)}>Excluir</button>
+            </div>
+            {docsCli === c.id && (
+              <div style={{ border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 var(--r-card) var(--r-card)", padding: "10px 14px", background: "var(--bg-soft, rgba(0,0,0,.02))" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+                  <select className="fx-input" style={{ maxWidth: 150 }} value={docTipo} onChange={(e) => setDocTipo(e.target.value)}><option value="contrato">Contrato</option><option value="nf">NF</option><option value="comprovante">Comprovante</option><option value="outro">Outro</option></select>
+                  <label className="fx-btn" style={{ fontSize: 12, cursor: "pointer" }}>Subir arquivo<input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subirDoc(c.id, f); e.currentTarget.value = ""; }} /></label>
+                  {docMsg && <span style={{ fontSize: 12, color: "var(--txt-faint)" }}>{docMsg}</span>}
+                  <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>protegido · LGPD · auditado</span>
+                </div>
+                {docs.length === 0 ? <p style={{ fontSize: 12.5, color: "var(--txt-faint)", margin: 0 }}>Nenhum documento ainda.</p> : docs.map((d) => (
+                  <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, padding: "3px 0" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#7a4fb0", background: "rgba(146,80,172,.12)", borderRadius: 999, padding: "1px 7px", textTransform: "uppercase" }}>{d.tipo}</span>
+                    <a href={`/api/finance/documentos/${d.id}`} target="_blank" rel="noopener" style={{ flex: 1, color: "var(--txt)" }}>{d.filename}</a>
+                    <span style={{ color: "var(--txt-faint)" }}>{new Date(d.createdAt).toLocaleDateString("pt-BR")}</span>
+                    <button className="fx-btn" style={{ fontSize: 11, color: "var(--coral-deep)" }} onClick={() => delDoc(d.id, c.id)}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
             </div>
           ))}
           {clientes.length === 0 && <p style={{ color: "var(--txt-faint)", fontSize: 13 }}>Nenhum cliente cadastrado.</p>}

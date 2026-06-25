@@ -37,6 +37,7 @@ model Company {
   assinaturas    Assinatura[]
   recebiveis     Receivable[]
   onboardingLinks OnboardingLink[]
+  documentos Documento[]
 }
 
 model User {
@@ -651,6 +652,7 @@ model Cliente {
 
   @@index([companyId])
   @@index([iuguCustomerId])
+  documentos Documento[]
 }
 
 // Plano de recorrência. Espelha o plan da Iugu.
@@ -765,4 +767,24 @@ model OnboardingLink {
   plano     Plano   @relation(fields: [planoId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+}
+
+model Documento {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clienteId  String?
+  cliente    Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  credorId   String?
+  tipo       String   @default("outro") // contrato | nf | comprovante | outro
+  filename   String
+  mime       String   @default("application/octet-stream")
+  size       Int      @default(0)
+  conteudo   String   @db.Text          // base64 (durável no banco)
+  driveFileId String?                   // quando sincronizado pro Google Drive
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId])
+  @@index([clienteId])
 }
