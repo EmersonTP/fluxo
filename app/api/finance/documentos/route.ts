@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany } from "@/lib/finance";
 import { logAudit } from "@/lib/audit";
+import { uploadToDrive } from "@/lib/gdrive";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,11 @@ export async function POST(req: Request) {
       conteudo, uploadedBy: user.id,
     },
   });
+  // replica no Google Drive, se a empresa estiver conectada (best-effort)
+  try {
+    const fileId = await uploadToDrive(b.companyId, d.filename, d.mime, Buffer.from(conteudo, "base64"), b.clienteNome || undefined);
+    if (fileId) await prisma.documento.update({ where: { id: d.id }, data: { driveFileId: fileId } });
+  } catch { /* Drive opcional */ }
   await logAudit({ req, user, action: "create", entity: "documento", entityId: d.id, companyId: b.companyId, meta: `${b.tipo} ${b.filename}` });
   return NextResponse.json({ ok: true, id: d.id });
 }

@@ -38,6 +38,7 @@ model Company {
   recebiveis     Receivable[]
   onboardingLinks OnboardingLink[]
   documentos Documento[]
+  driveConn DriveConn?
 }
 
 model User {
@@ -787,4 +788,14 @@ model Documento {
 
   @@index([companyId])
   @@index([clienteId])
+}
+
+model DriveConn {
+  id              String   @id @default(cuid())
+  companyId       String   @unique
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  refreshTokenEnc String   @db.Text
+  folderId        String?
+  email           String?
+  createdAt       DateTime @default(now())
 }

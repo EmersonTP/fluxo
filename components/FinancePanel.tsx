@@ -1880,6 +1880,8 @@ function CredoresTab({ companyId, credores, reload }: { companyId: string; credo
 
 /* ---------- Configuração de aprovadores ---------- */
 function ConfigTab({ companyId, areas, members, config, reload }: { companyId: string; areas: Area[]; members: Member[]; config: Cfg[]; reload: () => void }) {
+  const [drive, setDrive] = useState<any>(null);
+  useEffect(() => { fetch(`/api/finance/gdrive/status?company=${companyId}`).then((r) => r.json()).then(setDrive).catch(() => {}); }, [companyId]);
   async function add(role: string, userId: string, spaceId?: string) {
     if (!userId) return;
     await fetch("/api/finance/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, role, userId, spaceId }) });
@@ -1893,6 +1895,13 @@ function ConfigTab({ companyId, areas, members, config, reload }: { companyId: s
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 720 }}>
       <p style={{ fontSize: 13.5, color: "var(--txt-soft)", margin: 0 }}>Defina quem aprova em cada portão desta empresa. A solicitação roteia sozinha: gestor da área → financeiro → pagador.</p>
+
+      <Block title="Google Drive (Cofre de Documentos)">
+        {!drive ? <p style={{ fontSize: 13, color: "var(--txt-faint)", margin: 0 }}>Carregando…</p> :
+          !drive.credsOk ? <p style={{ fontSize: 13, color: "var(--txt-soft)", margin: 0 }}>Falta configurar <b>GOOGLE_CLIENT_ID</b> e <b>GOOGLE_CLIENT_SECRET</b> no servidor (Railway). Depois disso, o botão de conectar aparece aqui.</p> :
+          drive.conectado ? <div style={{ fontSize: 13.5, color: "var(--txt-soft)" }}>✓ <b>Conectado ao Google Drive.</b> Os documentos do Cofre são copiados pra pasta "Sandra - Documentos" no Drive da empresa.{drive.email ? ` (${drive.email})` : ""}</div> :
+          <div><p style={{ fontSize: 13.5, color: "var(--txt-soft)", marginTop: 0 }}>Conecte o Drive da empresa pra guardar os contratos/NFs também lá.</p><a className="fx-btn fx-btn-primary" style={{ textDecoration: "none" }} href={`/api/finance/gdrive/connect?company=${companyId}`}>Conectar Google Drive</a></div>}
+      </Block>
 
       <Block title="Gestor por área">
         {areas.map((a) => {
