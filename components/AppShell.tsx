@@ -212,193 +212,137 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
-      {/* Icon rail */}
-      <div className="fx-rail" style={{ overflow: "visible" }}>
-        {/* Topo fixo: marca + empresas + buscar + barra */}
-        <Link href="/" className="fx-rail-brand" title="Sandra">
-          S
-        </Link>
-        {companies.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 10, width: "100%", alignItems: "center", paddingBottom: 10, marginBottom: 2, borderBottom: "1px solid rgba(255,255,255,.1)", flexShrink: 0 }}>
-            {companies.map((c, i) => {
-              const on = c.id === activeCompany;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => switchCompany(c.id)}
-                  title={c.name}
-                  style={{ width: 34, height: 34, borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, color: "#fff", background: COMPANY_COLORS[i % COMPANY_COLORS.length], opacity: on ? 1 : 0.4, boxShadow: on ? "0 0 0 2px rgba(255,255,255,.6)" : "none", transition: "opacity .15s" }}
-                >
-                  {c.name.charAt(0).toUpperCase()}
-                </button>
-              );
-            })}
+      {collapsed ? (
+        /* ---------- Recolhido: rail de ícones ---------- */
+        <div className="fx-rail" style={{ overflow: "visible" }}>
+          <Link href="/" className="fx-rail-brand" title="Sandra">S</Link>
+          <div className="fx-rail-div" style={{ marginTop: 8 }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4, width: "100%", alignItems: "center", flexShrink: 0 }}>
+            <button className="fx-rail-item" title="Buscar (⌘K)" onClick={() => setSearchOpen(true)}><Icon name="search" /><span className="fx-rail-label">Buscar</span></button>
+            <button className="fx-rail-item" title="Abrir a barra" onClick={toggleCollapse}><Icon name="panel" /><span className="fx-rail-label">Abrir</span></button>
           </div>
-        )}
-        <div className="fx-rail-div" style={{ marginTop: 8 }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4, width: "100%", alignItems: "center", flexShrink: 0 }}>
-          <button className="fx-rail-item" title="Buscar (⌘K)" onClick={() => setSearchOpen(true)}>
-            <Icon name="search" />
-            <span className="fx-rail-label">Buscar</span>
-          </button>
-          <button
-            className={`fx-rail-item ${!collapsed ? "active" : ""}`}
-            title={collapsed ? "Mostrar espaços" : "Ocultar espaços"}
-            onClick={toggleCollapse}
-          >
-            <Icon name="panel" />
-            <span className="fx-rail-label">Espaços</span>
-          </button>
+          <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginTop: 4, scrollbarWidth: "none" }}>
+            {railGroups.map((group, gi) => (
+              <Fragment key={gi}>
+                {gi > 0 && <div className="fx-rail-div" />}
+                {group.map((it) => {
+                  const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
+                  return (<Link key={it.href} href={it.href} className={`fx-rail-item ${active ? "active" : ""}`} title={it.label}><Icon name={it.icon} /><span className="fx-rail-label">{it.label}</span></Link>);
+                })}
+              </Fragment>
+            ))}
+          </div>
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,.1)" }}>
+            <NotificationBell />
+            <button onClick={() => setMenuOpen((o) => !o)} className="fx-rail-avatar" title={user.name}>{user.name.charAt(0).toUpperCase()}</button>
+          </div>
         </div>
-        {/* Meio rolável: navegação */}
-        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginTop: 4, scrollbarWidth: "none" }}>
-          {railGroups.map((group, gi) => (
-            <Fragment key={gi}>
-              {gi > 0 && <div className="fx-rail-div" />}
-              {group.map((it) => {
-                const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
-                return (
-                  <Link key={it.href} href={it.href} className={`fx-rail-item ${active ? "active" : ""}`} title={it.label}>
-                    <Icon name={it.icon} />
-                    <span className="fx-rail-label">{it.label}</span>
-                  </Link>
-                );
-              })}
-            </Fragment>
-          ))}
-        </div>
-        {/* Rodapé fixo: avisos + avatar */}
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,.1)" }}>
-          <NotificationBell />
-        </div>
-        <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: 4 }}>
-          <button onClick={() => setMenuOpen((o) => !o)} className="fx-rail-avatar" title={user.name}>
-            {user.name.charAt(0).toUpperCase()}
-          </button>
-          {menuOpen && (
-            <>
-              <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-              <div className="fx-usermenu">
-                <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt)" }}>{user.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--txt-faint)", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
-                </div>
-                <Link href="/configuracoes" className="fx-menuitem" onClick={() => setMenuOpen(false)}>
-                  Configurações
-                </Link>
-                {isAdmin && (
-                  <Link href="/admin" className="fx-menuitem" onClick={() => setMenuOpen(false)}>
-                    Adicionar usuário
-                  </Link>
-                )}
-                <button className="fx-menuitem" onClick={toggleTheme}>
-                  {dark ? "Modo claro" : "Modo escuro"}
-                </button>
-                <button className="fx-menuitem" style={{ color: "var(--coral-deep)" }} onClick={logout}>
-                  Sair
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      ) : (
+        /* ---------- Expandido: sidebar única ---------- */
+        <aside
+          className="fx-side"
+          style={mobile
+            ? { position: "fixed", top: 0, bottom: 0, left: 0, width: "min(86vw, 300px)", zIndex: 45, boxShadow: "var(--shadow-modal)", display: "flex", flexDirection: "column", overflowX: "hidden" }
+            : { width, flexShrink: 0, display: "flex", flexDirection: "column", overflowX: "hidden" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 12px 8px 16px" }}>
+            <Link href="/" className="fx-brand">Sandra<b>.</b></Link>
+            <button onClick={toggleCollapse} title="Recolher" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--txt-faint)", fontSize: 18, lineHeight: 1, padding: "2px 6px" }}>«</button>
+          </div>
 
-      {/* Backdrop da gaveta no mobile */}
+          {companies.length > 0 && (() => {
+            const c = companies.find((x) => x.id === activeCompany);
+            const ci = Math.max(0, companies.findIndex((x) => x.id === activeCompany));
+            const color = COMPANY_COLORS[ci % COMPANY_COLORS.length];
+            return (
+              <div style={{ position: "relative", margin: "0 10px 8px" }}>
+                <button onClick={() => setCompanyMenu((o) => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, cursor: "pointer" }}>
+                  <span style={{ width: 24, height: 24, borderRadius: 7, background: color, color: "#fff", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{(c?.name || "?").charAt(0).toUpperCase()}</span>
+                  <span style={{ flex: 1, fontWeight: 600, fontSize: 13, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--txt)" }}>{c?.name || "Empresa"}</span>
+                  {companies.length > 1 && <span style={{ fontSize: 11, color: "var(--txt-faint)" }}>▾</span>}
+                </button>
+                {companyMenu && companies.length > 1 && (
+                  <>
+                    <div onClick={() => setCompanyMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                    <div style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 41, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "var(--shadow-modal)", padding: 5 }}>
+                      {companies.map((co, i) => (
+                        <button key={co.id} className="fx-menuitem" onClick={() => switchCompany(co.id)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", borderRadius: 7 }}>
+                          <span style={{ width: 18, height: 18, borderRadius: 5, background: COMPANY_COLORS[i % COMPANY_COLORS.length], color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{co.name.charAt(0).toUpperCase()}</span>
+                          <span style={{ flex: 1, textAlign: "left" }}>{co.name}</span>
+                          {co.id === activeCompany && <span style={{ color: "var(--roxo)" }}>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          <button onClick={() => setSearchOpen(true)} style={{ margin: "0 10px 8px", display: "flex", alignItems: "center", gap: 8, padding: "8px 11px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, cursor: "pointer", color: "var(--txt-faint)", fontSize: 13 }}><Icon name="search" size={16} /><span>Buscar (⌘K)</span></button>
+
+          <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: "0 6px" }}>
+            {railGroups.map((group, gi) => (
+              <div key={gi} style={{ marginBottom: 2 }}>
+                {gi > 0 && <div style={{ height: 1, background: "var(--line)", margin: "6px 10px" }} />}
+                {group.map((it) => {
+                  const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
+                  return (<Link key={it.href} href={it.href} className="fx-navitem" style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, fontWeight: active ? 700 : 500, background: active ? "rgba(146,80,172,.12)" : "none", color: active ? "var(--txt)" : "var(--txt-soft)" }}><Icon name={it.icon} size={18} /><span>{it.label}</span></Link>);
+                })}
+              </div>
+            ))}
+
+            {!pathname.startsWith("/financeiro") ? (
+              <div style={{ marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 8 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".09em", color: "var(--txt-faint)", padding: "2px 10px 4px" }}>Espaços</div>
+                {loading && <p className="fx-navgroup">Carregando...</p>}
+                {(() => {
+                  const visible = workspaces.filter((ws) => !activeCompany || ws.companyId === activeCompany);
+                  const colorAt = (ws: WorkspaceT) => COMPANY_COLORS[Math.max(0, workspaces.findIndex((w) => w.id === ws.id)) % COMPANY_COLORS.length];
+                  return visible.map((ws) => (
+                    <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={colorAt(ws)} onCreateList={createList} onCreateSpace={createSpace} isAdmin={isAdmin} refresh={loadHierarchy} hideHeader={visible.length === 1} />
+                  ));
+                })()}
+                {!loading && workspaces.length === 0 && isAdmin && (<p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>Sem dados ainda. Rode a importação do ClickUp.</p>)}
+                {!loading && workspaces.length === 0 && !isAdmin && <AccessRequest />}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--txt-faint)", padding: "10px", lineHeight: 1.5, marginTop: 8, borderTop: "1px solid var(--line)" }}>Módulo <b style={{ color: "var(--txt)" }}>Financeiro</b> — use o menu interno (Operação, Relatórios…). Troque a empresa acima.</div>
+            )}
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--line)", padding: "6px 10px", display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+            <NotificationBell />
+            <span style={{ flex: 1 }} />
+            <button onClick={() => setMenuOpen((o) => !o)} className="fx-rail-avatar" title={user.name}>{user.name.charAt(0).toUpperCase()}</button>
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                <div className="fx-usermenu">
+                  <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt)" }}>{user.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--txt-faint)", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+                  </div>
+                  <Link href="/configuracoes" className="fx-menuitem" onClick={() => setMenuOpen(false)}>Configurações</Link>
+                  {isAdmin && (<Link href="/admin" className="fx-menuitem" onClick={() => setMenuOpen(false)}>Adicionar usuário</Link>)}
+                  <button className="fx-menuitem" onClick={toggleTheme}>{dark ? "Modo claro" : "Modo escuro"}</button>
+                  <button className="fx-menuitem" style={{ color: "var(--coral-deep)" }} onClick={logout}>Sair</button>
+                </div>
+              </>
+            )}
+          </div>
+        </aside>
+      )}
+
       {mobile && !collapsed && (
         <div onClick={toggleCollapse} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.35)", zIndex: 44 }} />
       )}
 
-      {/* Wider sidebar (spaces) */}
-      <aside
-        className="fx-side"
-        style={
-          mobile
-            ? {
-                position: "fixed",
-                top: 0,
-                bottom: 0,
-                left: 66,
-                width: collapsed ? 0 : "min(82vw, 300px)",
-                zIndex: 45,
-                boxShadow: collapsed ? "none" : "var(--shadow-modal)",
-                display: "flex",
-                flexDirection: "column",
-                padding: collapsed ? 0 : "16px 12px",
-                overflowX: "hidden",
-                overflowY: "auto",
-              }
-            : {
-                width: collapsed ? 0 : width,
-                flexShrink: 0,
-                display: "flex",
-                flexDirection: "column",
-                padding: collapsed ? 0 : "16px 12px",
-                overflowX: "hidden",
-                overflowY: "auto",
-              }
-        }
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 6px 8px 10px" }}>
-          <Link href="/" className="fx-brand">
-            Sandra<b>.</b>
-          </Link>
-          <button onClick={toggleCollapse} title="Recolher barra" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--txt-faint)", fontSize: 18, lineHeight: 1, padding: "2px 6px" }}>
-            «
-          </button>
-        </div>
-
-        {/* Empresa ativa (troca na coluna de ícones à esquerda) */}
-        {companies.length > 0 && (() => {
-          const c = companies.find((x) => x.id === activeCompany);
-          const color = COMPANY_COLORS[Math.max(0, companies.findIndex((x) => x.id === activeCompany)) % COMPANY_COLORS.length];
-          return (
-            <div style={{ display: "flex", alignItems: "center", gap: 9, margin: "0 4px 12px", padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10 }}>
-              <span style={{ width: 24, height: 24, borderRadius: 7, background: color, color: "#fff", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{(c?.name || "?").charAt(0).toUpperCase()}</span>
-              <span style={{ flex: 1, fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c?.name || "Empresa"}</span>
-              {companies.length > 1 && <span style={{ fontSize: 10, color: "var(--txt-faint)" }} title="Troque pela coluna de empresas à esquerda">↤</span>}
-            </div>
-          );
-        })()}
-
-        {pathname.startsWith("/financeiro") ? (
-          <div style={{ fontSize: 12, color: "var(--txt-faint)", padding: "10px 10px", lineHeight: 1.5 }}>
-            Módulo <b style={{ color: "var(--txt)" }}>Financeiro</b> da empresa ativa. Use o menu ao lado (Solicitar, Aprovações, Contas a Pagar…). Troque a empresa no seletor acima.
-          </div>
-        ) : (
-          <>
-            {loading && <p className="fx-navgroup">Carregando...</p>}
-            {(() => {
-              const visible = workspaces.filter((ws) => !activeCompany || ws.companyId === activeCompany);
-              const colorAt = (ws: WorkspaceT) => COMPANY_COLORS[Math.max(0, workspaces.findIndex((w) => w.id === ws.id)) % COMPANY_COLORS.length];
-              // 1 workspace (caso comum): mostra os espaços direto, sem cabeçalho duplicado da empresa.
-              return visible.map((ws) => (
-                <WorkspaceNode key={ws.id} ws={ws} pathname={pathname} color={colorAt(ws)} onCreateList={createList} onCreateSpace={createSpace} isAdmin={isAdmin} refresh={loadHierarchy} hideHeader={visible.length === 1} />
-              ));
-            })()}
-            {!loading && workspaces.length === 0 && isAdmin && (
-              <p style={{ fontSize: 12, color: "var(--txt-faint)", padding: "12px 10px" }}>Sem dados ainda. Rode a importação do ClickUp.</p>
-            )}
-            {!loading && workspaces.length === 0 && !isAdmin && <AccessRequest />}
-          </>
-        )}
-      </aside>
-
-      {/* Resize handle (apenas desktop) */}
       {!collapsed && !mobile && (
         <div onMouseDown={startResize} title="Arraste para redimensionar" style={{ width: 5, flexShrink: 0, cursor: "col-resize", background: "var(--line)" }} />
       )}
 
-      {/* Main */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
-        {collapsed && (
-          <button
-            onClick={toggleCollapse}
-            title="Expandir barra"
-            style={{ position: "absolute", left: 8, top: 12, zIndex: 20, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", color: "var(--txt-soft)", fontSize: 16, padding: "4px 9px", boxShadow: "var(--shadow-card)" }}
-          >
-            »
-          </button>
-        )}
         {children}
       </div>
 
