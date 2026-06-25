@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
-import { isAdmin, canAccessCompany } from "@/lib/finance";
+import { isAdmin, canAccessCompany, periodoFechado } from "@/lib/finance";
 
 export const runtime = "nodejs";
 
@@ -50,12 +50,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const iId = idx("identificador", "fitid", "id");
   if (iData < 0 || iValor < 0) return NextResponse.json({ error: "Não achei colunas Data/Valor no CSV." }, { status: 400 });
 
+  const _co = await prisma.company.findUnique({ where: { id: conta.companyId }, select: { fechadoAte: true } });
+  const _fechado = _co?.fechadoAte || null;
   const lote = "imp_" + Date.now().toString(36);
   let criados = 0, pulados = 0;
   for (let i = 1; i < lines.length; i++) {
     const c = splitCsvLine(lines[i], sep);
     const data = parseData(c[iData]); const valor = parseValor(c[iValor]);
     if (!data || !valor) { pulados++; continue; }
+    if (_fechado && data <= _fechado) { pulados++; continue; }
     const descricao = (iDesc >= 0 ? c[iDesc] : "").slice(0, 200);
     const rawId = iId >= 0 && c[iId] ? c[iId] : crypto.createHash("md5").update(`${c[iData]}|${valor}|${descricao}`).digest("hex");
     try {

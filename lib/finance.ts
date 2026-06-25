@@ -106,3 +106,10 @@ export async function logStep(requestId: string, action: string, fromStatus: str
     data: { requestId, action, fromStatus, toStatus, note: note || null, userId: user?.id || null, userName: user?.name || null },
   });
 }
+
+// Período fechado? (trava de fechamento de mês)
+export async function periodoFechado(companyId: string, data: Date): Promise<boolean> {
+  const { prisma } = await import("./prisma");
+  const c = await prisma.company.findUnique({ where: { id: companyId }, select: { fechadoAte: true } });
+  return !!(c?.fechadoAte && data <= c.fechadoAte);
+}

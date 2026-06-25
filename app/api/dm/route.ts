@@ -29,7 +29,7 @@ export async function GET() {
       return { id: c.id, other, unread, lastAt: last?.createdAt || null };
     })
   );
-  out.sort((a, b) => (b.lastAt ? new Date(b.lastAt).getTime() : 0) - (a.lastAt ? new Date(a.lastAt).getTime() : 0));
+  out.sort((a: any, b: any) => (b.lastAt ? new Date(b.lastAt).getTime() : 0) - (a.lastAt ? new Date(a.lastAt).getTime() : 0));
   return NextResponse.json({ dms: out });
 }
 

@@ -79,8 +79,10 @@ export async function PATCH(req: Request) {
   if (isResponse(user)) return user;
   if (!isAdmin(user)) return NextResponse.json({ error: "Só admin." }, { status: 403 });
   const b = await req.json();
-  const tx = await prisma.bankTransaction.findUnique({ where: { id: String(b.txId || "") }, select: { id: true, companyId: true } });
+  const tx = await prisma.bankTransaction.findUnique({ where: { id: String(b.txId || "") }, select: { id: true, companyId: true, data: true } });
   if (!tx || !canAccessCompany(user, tx.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  const { periodoFechado } = await import("@/lib/finance");
+  if (tx.data && await periodoFechado(tx.companyId, tx.data as Date)) return NextResponse.json({ error: "Período fechado: não é possível reclassificar lançamento de mês fechado." }, { status: 409 });
   const categoriaId = b.categoriaId ? String(b.categoriaId) : null;
   await prisma.bankTransaction.update({ where: { id: tx.id }, data: { categoriaId } });
   await logAudit({ req, user, action: "update", entity: "extrato", companyId: tx.companyId, meta: `categoria do lançamento ${categoriaId ? "fixada" : "limpa"}` });

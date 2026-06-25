@@ -39,6 +39,7 @@ model Company {
   onboardingLinks OnboardingLink[]
   documentos Documento[]
   driveConn DriveConn?
+  fechadoAte DateTime? // financeiro fechado ate esta data (trava de periodo)
 }
 
 model User {
