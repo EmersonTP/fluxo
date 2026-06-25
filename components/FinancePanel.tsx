@@ -185,13 +185,11 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
       ...(af ? [{ k: "fluxo", l: "Fluxo de Caixa" }] : []),
       ...(af ? [{ k: "dre", l: "DRE" }] : []),
       ...(af ? [{ k: "gestao", l: "Gestão" }] : []),
-      { k: "relatorios", l: "Relatórios", soon: true },
     ] },
     { g: "Cadastros", items: [
       ...(af ? [{ k: "contas", l: "Contas Bancárias" }] : []),
       ...(af ? [{ k: "categorias", l: "Categorias" }] : []),
       ...(af ? [{ k: "cred", l: "Credores" }] : []),
-      ...(isTP ? [{ k: "aulas", l: "Aulas Particulares", soon: true }] : []),
     ] },
     { g: "Sistema", items: [
       ...(isAdmin ? [{ k: "saude", l: "Saúde" }] : []),
@@ -209,8 +207,8 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
     <>
       <div className="fx-topbar">
         <div>
-          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>Financeiro · Portal de Solicitações</div>
-          <div className="fx-title">Pagamentos</div>
+          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>Grupo Gariglia</div>
+          <div className="fx-title">Financeiro</div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
           <select className="fx-input" value={companyId} onChange={(e) => { setOpenId(null); setCompanyId(e.target.value); }}>
@@ -222,7 +220,6 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         <nav style={{ width: 196, flexShrink: 0, borderRight: "1px solid var(--line)", padding: "12px 8px", overflowY: "auto" }}>
-          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt-faint)", padding: "4px 10px 8px" }}>Financeiro</div>
           {groups.filter((gr) => gr.items.length > 0).map((gr) => (
             <div key={gr.g || "_top"} style={{ marginBottom: 4 }}>
               {gr.g && <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".09em", color: "var(--txt-faint)", padding: "10px 10px 3px", fontWeight: 700 }}>{gr.g}</div>}
