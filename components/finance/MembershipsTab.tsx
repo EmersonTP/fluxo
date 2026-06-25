@@ -18,6 +18,9 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   const [na, setNa] = useState({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" });
   const [links, setLinks] = useState<{ id: string; token: string; label: string | null; ativo: boolean; usos: number; plano: string; valor: number }[]>([]);
   const [nl, setNl] = useState({ planoId: "", valor: "", diaCobranca: "", label: "" });
+  const [nm, setNm] = useState({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false });
+  const [cob, setCob] = useState<any>(null);
+  const [savingM, setSavingM] = useState(false);
   const [copiado, setCopiado] = useState("");
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -44,6 +47,17 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   async function addAssin() { if (!na.clienteId || !na.planoId) return; await fetch("/api/finance/assinaturas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...na }) }); setNa({ clienteId: "", planoId: "", proximaCobranca: "", valor: "", diaCobranca: "" }); load(); }
   async function delCliente(id: string) { if (!confirm("Excluir cliente? (precisa não ter títulos a receber)")) return; const r = await fetch(`/api/finance/clientes?id=${id}`, { method: "DELETE" }); if (!r.ok) { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao excluir."); } load(); }
   async function cancelAssin(id: string) { if (!confirm("Cancelar assinatura?")) return; await fetch(`/api/finance/assinaturas?id=${id}`, { method: "DELETE" }); load(); }
+  async function criarMembership() {
+    if (!nm.nome.trim() || !nm.vencimento || (!nm.valor && !nm.planoId)) { setMsg("Preencha nome, valor (ou plano) e 1º vencimento."); return; }
+    setSavingM(true); setCob(null);
+    const r = await fetch("/api/finance/memberships", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, paciente: { nome: nm.nome, documento: nm.documento, email: nm.email, telefone: nm.telefone, cep: nm.cep, logradouro: nm.logradouro, numero: nm.numero, bairro: nm.bairro, cidade: nm.cidade, uf: nm.uf, consentimentoLGPD: nm.consentimentoLGPD }, planoId: nm.planoId || null, valor: nm.valor ? Number(nm.valor) : null, recorrencia: nm.recorrencia, diaCobranca: nm.diaCobranca, vencimento: nm.vencimento }) });
+    const d = await r.json(); setSavingM(false);
+    if (!r.ok) { setMsg(d.error || "Erro ao cadastrar."); return; }
+    setMsg(d.warning || "✓ Membership criado, conta a receber gerada e cobrança emitida no Inter.");
+    setCob(d.cobranca || null);
+    setNm({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false });
+    load();
+  }
   async function addLink() { if (!nl.planoId) return; await fetch("/api/finance/onboarding-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nl }) }); setNl({ planoId: "", valor: "", diaCobranca: "", label: "" }); load(); }
   async function delLink(id: string) { if (!confirm("Desativar este link?")) return; await fetch(`/api/finance/onboarding-links?id=${id}`, { method: "DELETE" }); load(); }
   function linkUrl(token: string) { return `${typeof window !== "undefined" ? window.location.origin : ""}/cadastro/${token}`; }
@@ -53,9 +67,50 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   if (!isAdmin) return <p style={{ color: "var(--txt-faint)" }}>Apenas administradores gerenciam memberships.</p>;
   return (
     <>
-      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 16, maxWidth: 720 }}><b>Memberships (recorrente).</b> Cada cliente vira uma assinatura de um plano. No início do mês você gera os títulos a receber de todas as assinaturas ativas com um clique.</div>
+      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 16, maxWidth: 720 }}><b>Gestão de memberships.</b> Cadastre o paciente abaixo (valor, recorrência, vencimento) e a Sandra cria o cadastro, a assinatura, a conta a receber e emite a cobrança. No início de cada mês, "Gerar títulos do mês" cria os recebíveis das assinaturas ativas.</div>
       {msg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14, maxWidth: 640 }}>{msg}</div>}
       <button className="fx-btn fx-btn-primary" onClick={gerarMes} style={{ marginBottom: 18 }}>Gerar títulos do mês</button>
+
+      <Section title="Novo membership (paciente + cobrança)">
+        <div style={{ fontSize: 13, color: "var(--txt-soft)", marginBottom: 10, maxWidth: 720 }}>Cadastre o paciente, o valor e a recorrência. A Sandra cria o cadastro, a assinatura, a conta a receber e <b>emite o Pix/boleto no Inter</b> (precisa de CPF + endereço pro boleto).</div>
+        <Row>
+          <Field label="Nome do paciente *"><input className="fx-input" value={nm.nome} onChange={(e) => setNm({ ...nm, nome: e.target.value })} /></Field>
+          <Field label="CPF"><input className="fx-input" value={nm.documento} onChange={(e) => setNm({ ...nm, documento: e.target.value })} placeholder="000.000.000-00" /></Field>
+        </Row>
+        <Row>
+          <Field label="E-mail"><input className="fx-input" value={nm.email} onChange={(e) => setNm({ ...nm, email: e.target.value })} /></Field>
+          <Field label="Telefone"><input className="fx-input" value={nm.telefone} onChange={(e) => setNm({ ...nm, telefone: e.target.value })} /></Field>
+        </Row>
+        <Row>
+          <Field label="CEP"><input className="fx-input" value={nm.cep} onChange={(e) => setNm({ ...nm, cep: e.target.value })} /></Field>
+          <Field label="Endereço"><input className="fx-input" value={nm.logradouro} onChange={(e) => setNm({ ...nm, logradouro: e.target.value })} /></Field>
+          <Field label="Nº"><input className="fx-input" value={nm.numero} onChange={(e) => setNm({ ...nm, numero: e.target.value })} /></Field>
+        </Row>
+        <Row>
+          <Field label="Bairro"><input className="fx-input" value={nm.bairro} onChange={(e) => setNm({ ...nm, bairro: e.target.value })} /></Field>
+          <Field label="Cidade"><input className="fx-input" value={nm.cidade} onChange={(e) => setNm({ ...nm, cidade: e.target.value })} /></Field>
+          <Field label="UF"><input className="fx-input" value={nm.uf} maxLength={2} onChange={(e) => setNm({ ...nm, uf: e.target.value.toUpperCase() })} /></Field>
+        </Row>
+        <Row>
+          <Field label="Plano (opcional)"><select className="fx-input" value={nm.planoId} onChange={(e) => setNm({ ...nm, planoId: e.target.value })}><option value="">— valor avulso —</option>{planos.map((p) => <option key={p.id} value={p.id}>{p.nome} ({money(p.valor)})</option>)}</select></Field>
+          <Field label="Valor (R$)"><input className="fx-input" type="number" value={nm.valor} onChange={(e) => setNm({ ...nm, valor: e.target.value })} placeholder={nm.planoId ? "usa o do plano" : "ex.: 500"} /></Field>
+        </Row>
+        <Row>
+          <Field label="Recorrência"><select className="fx-input" value={nm.recorrencia} onChange={(e) => setNm({ ...nm, recorrencia: e.target.value })}><option value="mensal">Mensal (assinatura)</option><option value="unica">Única (1 cobrança)</option></select></Field>
+          <Field label="1º vencimento *"><input className="fx-input" type="date" value={nm.vencimento} onChange={(e) => setNm({ ...nm, vencimento: e.target.value })} /></Field>
+          <Field label="Dia de cobrança"><input className="fx-input" type="number" value={nm.diaCobranca} onChange={(e) => setNm({ ...nm, diaCobranca: e.target.value })} placeholder="ex.: 5" /></Field>
+        </Row>
+        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--txt-soft)", margin: "4px 0 12px" }}><input type="checkbox" checked={nm.consentimentoLGPD} onChange={(e) => setNm({ ...nm, consentimentoLGPD: e.target.checked })} /> Consentimento LGPD registrado (execução de contrato)</label>
+        <button className="fx-btn fx-btn-primary" disabled={savingM} onClick={criarMembership}>{savingM ? "Cadastrando…" : "Cadastrar e emitir cobrança"}</button>
+        {cob && (
+          <div style={{ marginTop: 12, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 14px", background: "var(--surface)", maxWidth: 640 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Cobrança emitida — envie pro paciente:</div>
+            {cob.secureUrl && <div style={{ fontSize: 13, marginBottom: 4 }}>Boleto/PDF: <a href={cob.secureUrl} target="_blank" rel="noreferrer" style={{ color: "var(--roxo)" }}>abrir</a></div>}
+            {cob.linhaDigitavel && <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 4 }}>Linha digitável: {cob.linhaDigitavel}</div>}
+            {cob.pixCopiaECola && <div style={{ fontSize: 12, color: "var(--txt-soft)", wordBreak: "break-all" }}>Pix copia-e-cola: {cob.pixCopiaECola}</div>}
+          </div>
+        )}
+      </Section>
 
       <Section title="Link de cadastro (paciente se cadastra sozinho)">
         <div style={{ fontSize: 13, color: "var(--txt-soft)", marginBottom: 10, maxWidth: 700 }}>Gere um link por plano e mande pro paciente. Ele preenche os dados, aceita o contrato e a Sandra já cria o cadastro, a assinatura e a 1ª conta a receber.</div>

@@ -5,8 +5,8 @@ import { MembershipsTab } from "./MembershipsTab";
 import { TitulosTab } from "./TitulosTab";
 
 export function ContasReceber({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
-  const [sub, setSub] = useState<"titulos" | "memberships" | "cobranca">("titulos");
-  const subs = [["titulos", "Títulos"], ["memberships", "Memberships"], ["cobranca", "Cobrança (gateway)"]] as const;
+  const [sub, setSub] = useState<"titulos" | "memberships" | "cobranca">("memberships");
+  const subs = [["memberships", "Memberships"], ["titulos", "Títulos a receber"], ["cobranca", "Cobrança (gateway)"]] as const;
   return (
     <>
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
