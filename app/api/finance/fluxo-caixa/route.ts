@@ -11,20 +11,6 @@ export const runtime = "nodejs";
 function ymd(d: Date) { return d.toISOString().slice(0, 10); }
 function ym(s: string) { return (s || "").slice(0, 7); }
 
-// Lista [de,ate] por mês entre duas datas (respeita limite de período do Inter).
-function chunksMensais(de: string, ate: string): [string, string][] {
-  const out: [string, string][] = [];
-  let cur = new Date(de + "T00:00:00");
-  const fim = new Date(ate + "T00:00:00");
-  while (cur <= fim) {
-    const ini = new Date(cur.getFullYear(), cur.getMonth(), 1);
-    const fimMes = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
-    out.push([ymd(ini > new Date(de + "T00:00:00") ? ini : new Date(de + "T00:00:00")), ymd(fimMes < fim ? fimMes : fim)]);
-    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
-  }
-  return out;
-}
-
 export async function GET(req: Request) {
   const user = await requireUser();
   if (isResponse(user)) return user;
@@ -38,7 +24,7 @@ export async function GET(req: Request) {
   const de = url.searchParams.get("de") || ymd(new Date(2026, 2, 1)); // mar/2026
   const ate = url.searchParams.get("ate") || ymd(hoje);
 
-  // 1) lançamentos do banco (extrato Inter sincronizado + contas manuais)
+  // 1) lancamentos de caixa (extrato Inter sincronizado + contas manuais; cartao fica de fora)
   const banco = await getLancamentos(companyId, de, ate, { apenasCaixa: true });
   const lanc = banco.map((t) => ({ data: t.data as string | null, tipo: t.tipo, valor: t.valor, descricao: t.descricao, titulo: "" }));
 
@@ -48,7 +34,6 @@ export async function GET(req: Request) {
     orderBy: { prioridade: "desc" },
     include: { categoria: { select: { grupo: true, nome: true, bloco: true, tipo: true } } },
   });
-
   function classifica(l: { tipo: string; descricao: string; titulo: string }) {
     const txt = `${l.descricao} ${l.titulo}`.toUpperCase();
     for (const r of regras) {
@@ -58,27 +43,32 @@ export async function GET(req: Request) {
     return null;
   }
 
-  // 3) agrega por bloco › categoria › mês
-  type Cat = { grupo: string; nome: string; entrada: number; saida: number; porMes: Record<string, number> };
+  // 3) agrega por bloco > categoria > mes, guardando os itens p/ drill-down
+  type Item = { data: string; tipo: string; valor: number; descricao: string };
+  type Cat = { grupo: string; nome: string; entrada: number; saida: number; porMes: Record<string, number>; itens: Item[] };
   const blocos: Record<string, { entrada: number; saida: number; cats: Record<string, Cat> }> = {};
-  const naoCat: { itens: any[]; entrada: number; saida: number } = { itens: [], entrada: 0, saida: 0 };
+  const naoCat: { itens: Item[]; entrada: number; saida: number } = { itens: [], entrada: 0, saida: 0 };
   const mesesSet = new Set<string>();
+  const movMes: Record<string, { entrada: number; saida: number }> = {};
 
   for (const l of lanc) {
     const mes = ym(l.data || "");
-    if (mes) mesesSet.add(mes);
+    if (mes) { mesesSet.add(mes); (movMes[mes] = movMes[mes] || { entrada: 0, saida: 0 }); }
+    const item: Item = { data: (l.data || "").slice(0, 10), tipo: l.tipo, valor: Math.round(l.valor), descricao: (l.descricao || l.titulo).slice(0, 60) };
+    if (l.tipo === "credito") { if (mes) movMes[mes].entrada += l.valor; } else { if (mes) movMes[mes].saida += l.valor; }
     const c = classifica(l);
     const signed = l.tipo === "credito" ? l.valor : -l.valor;
     if (!c) {
-      naoCat.itens.push({ data: (l.data || "").slice(0, 10), tipo: l.tipo, valor: Math.round(l.valor), descricao: (l.descricao || l.titulo).slice(0, 40) });
+      naoCat.itens.push(item);
       if (l.tipo === "credito") naoCat.entrada += l.valor; else naoCat.saida += l.valor;
       continue;
     }
     const b = (blocos[c.bloco] = blocos[c.bloco] || { entrada: 0, saida: 0, cats: {} });
-    const key = `${c.grupo} › ${c.nome}`;
-    const cat = (b.cats[key] = b.cats[key] || { grupo: c.grupo, nome: c.nome, entrada: 0, saida: 0, porMes: {} });
+    const key = `${c.grupo} > ${c.nome}`;
+    const cat = (b.cats[key] = b.cats[key] || { grupo: c.grupo, nome: c.nome, entrada: 0, saida: 0, porMes: {}, itens: [] });
     if (l.tipo === "credito") { cat.entrada += l.valor; b.entrada += l.valor; } else { cat.saida += l.valor; b.saida += l.valor; }
     cat.porMes[mes] = (cat.porMes[mes] || 0) + signed;
+    cat.itens.push(item);
   }
 
   const meses = [...mesesSet].sort();
@@ -91,6 +81,7 @@ export async function GET(req: Request) {
       categorias: Object.values(x.cats).map((c) => ({
         grupo: c.grupo, nome: c.nome, entrada: round(c.entrada), saida: round(c.saida), liquido: round(c.entrada - c.saida),
         porMes: Object.fromEntries(Object.entries(c.porMes).map(([m, v]) => [m, round(v)])),
+        itens: c.itens.sort((a, z) => (a.data < z.data ? 1 : -1)).slice(0, 200),
       })).sort((a, b2) => (b2.entrada + b2.saida) - (a.entrada + a.saida)),
     };
   });
@@ -103,10 +94,12 @@ export async function GET(req: Request) {
     variacaoCaixa: round(liq("operacional") + liq("investimento") + liq("financiamento")),
   };
 
-  // saldos das contas de caixa (cartão fica de fora)
+  // 4) saldos das contas de caixa (cartao fica de fora) + carimbo da ultima sincronizacao
   const contasCaixa: any[] = await prisma.bankAccount.findMany({ where: { companyId, tipo: { not: "cartao" } } });
   const saldos: { nome: string; saldo: number | null }[] = [];
+  let ultimoSync: string | null = null;
   for (const c of contasCaixa) {
+    if (c.lastSyncAt && (!ultimoSync || c.lastSyncAt > new Date(ultimoSync))) ultimoSync = c.lastSyncAt.toISOString();
     if (c.conexao === "inter") {
       const cfg = await getInterConfig(companyId);
       const s = cfg ? await getSaldo(cfg) : NaN;
@@ -118,13 +111,34 @@ export async function GET(req: Request) {
   }
   const saldoTotal = saldos.reduce((acc, x) => acc + (x.saldo || 0), 0);
 
-  await logAudit({ req, user, action: "view", entity: "config", companyId, meta: `fluxo de caixa ${de}…${ate}` });
+  // 5) evolucao do saldo mes a mes - ancorada no saldo atual real, caminhando de tras pra frente
+  const porMes: { mes: string; entradas: number; saidas: number; saldoInicial: number; saldoFinal: number }[] = [];
+  const mov = meses.map((m) => ({ mes: m, e: movMes[m]?.entrada || 0, s: movMes[m]?.saida || 0 }));
+  const saldoFinalArr: number[] = new Array(mov.length).fill(0);
+  for (let i = mov.length - 1; i >= 0; i--) {
+    if (i === mov.length - 1) saldoFinalArr[i] = saldoTotal;
+    else saldoFinalArr[i] = saldoFinalArr[i + 1] - (mov[i + 1].e - mov[i + 1].s);
+  }
+  for (let i = 0; i < mov.length; i++) {
+    const liquido = mov[i].e - mov[i].s;
+    porMes.push({
+      mes: mov[i].mes,
+      entradas: round(mov[i].e),
+      saidas: round(mov[i].s),
+      saldoFinal: round(saldoFinalArr[i]),
+      saldoInicial: round(saldoFinalArr[i] - liquido),
+    });
+  }
+
+  await logAudit({ req, user, action: "view", entity: "config", companyId, meta: `fluxo de caixa ${de}...${ate}` });
 
   return NextResponse.json({
     periodo: { de, ate }, meses,
     saldos, saldoTotal: Math.round(saldoTotal),
+    ultimoSync,
+    porMes,
     blocos: blocosOut,
-    naoCategorizado: { entrada: round(naoCat.entrada), saida: round(naoCat.saida), itens: naoCat.itens.sort((a, b) => b.valor - a.valor).slice(0, 40) },
+    naoCategorizado: { entrada: round(naoCat.entrada), saida: round(naoCat.saida), itens: naoCat.itens.sort((a, b) => b.valor - a.valor).slice(0, 60) },
     resumo,
   });
 }

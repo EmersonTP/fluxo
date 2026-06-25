@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       }
     } catch (e: any) { erros.push(`${d1}: ${e.message}`); }
   }
+  await prisma.bankAccount.update({ where: { id: conta.id }, data: { lastSyncAt: new Date() } });
   await logAudit({ req, user, action: "update", entity: "extrato", companyId, meta: `sync inter: ${criados} novos` });
   return NextResponse.json({ ok: true, criados, pulados, erros, contaId: conta.id });
 }

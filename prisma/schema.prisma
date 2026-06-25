@@ -534,6 +534,7 @@ model BankAccount {
 
   @@index([companyId])
   tipo      String  @default("caixa") // caixa | cartao
+  lastSyncAt DateTime?
 }
 
 // Lançamento de extrato (de conta manual importada OU sincronizado do Inter).
