@@ -4,6 +4,7 @@ import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany } from "@/lib/finance";
 import { logAudit } from "@/lib/audit";
 import { uploadToDrive } from "@/lib/gdrive";
+import { encryptField } from "@/lib/crypto";
 
 export const runtime = "nodejs";
 
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
       companyId: b.companyId, clienteId: b.clienteId || null, credorId: b.credorId || null,
       tipo: ["contrato", "nf", "comprovante", "outro"].includes(b.tipo) ? b.tipo : "outro",
       filename: String(b.filename).slice(0, 160), mime: b.mime || "application/octet-stream", size,
-      conteudo, uploadedBy: user.id,
+      conteudo: encryptField(conteudo) ?? conteudo, uploadedBy: user.id,
     },
   });
   // replica no Google Drive, se a empresa estiver conectada (best-effort)
