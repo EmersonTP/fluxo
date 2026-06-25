@@ -294,7 +294,6 @@ export default function AppShell({ user, children }: { user: User; children: Rea
 
             {!pathname.startsWith("/financeiro") ? (
               <div style={{ marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 8 }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".09em", color: "var(--txt-faint)", padding: "2px 10px 4px" }}>Espaços</div>
                 {loading && <p className="fx-navgroup">Carregando...</p>}
                 {(() => {
                   const visible = workspaces.filter((ws) => !activeCompany || ws.companyId === activeCompany);
