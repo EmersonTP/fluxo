@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { encryptField } from "@/lib/crypto";
 import { logAudit } from "@/lib/audit";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ function nextDue(dia?: number | null): Date {
 
 // Info pública do link (sem dados sensíveis).
 export async function GET(_req: Request, { params }: { params: { token: string } }) {
+  if (!rateLimit(`cad-get:${clientIp(_req)}`, 40, 10 * 60 * 1000)) return NextResponse.json({ error: "Muitas requisições. Aguarde alguns minutos." }, { status: 429 });
   const l: any = await linkBy(params.token);
   if (!l || !l.ativo) return NextResponse.json({ error: "Link inválido ou desativado." }, { status: 404 });
   return NextResponse.json({
@@ -31,6 +33,9 @@ export async function GET(_req: Request, { params }: { params: { token: string }
 
 // Cadastro self-service: cria cliente + assinatura + 1ª conta a receber.
 export async function POST(req: Request, { params }: { params: { token: string } }) {
+  const ip = clientIp(req);
+  if (!rateLimit(`cad-post-ip:${ip}`, 5, 10 * 60 * 1000) || !rateLimit(`cad-post-tok:${params.token}`, 15, 60 * 60 * 1000))
+    return NextResponse.json({ error: "Muitas tentativas de cadastro. Tente novamente em alguns minutos." }, { status: 429 });
   const l: any = await linkBy(params.token);
   if (!l || !l.ativo) return NextResponse.json({ error: "Link inválido ou desativado." }, { status: 404 });
   const b = await req.json().catch(() => ({}));
