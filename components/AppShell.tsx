@@ -235,18 +235,19 @@ export default function AppShell({ user, children }: { user: User; children: Rea
             })}
           </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, width: "100%", alignItems: "center", flexShrink: 0 }}>
+        <div className="fx-rail-div" style={{ marginTop: 8 }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4, width: "100%", alignItems: "center", flexShrink: 0 }}>
           <button className="fx-rail-item" title="Buscar (⌘K)" onClick={() => setSearchOpen(true)}>
             <Icon name="search" />
             <span className="fx-rail-label">Buscar</span>
           </button>
           <button
             className={`fx-rail-item ${!collapsed ? "active" : ""}`}
-            title={collapsed ? "Abrir a barra lateral" : "Recolher a barra lateral"}
+            title={collapsed ? "Mostrar espaços" : "Ocultar espaços"}
             onClick={toggleCollapse}
           >
             <Icon name="panel" />
-            <span className="fx-rail-label">Barra</span>
+            <span className="fx-rail-label">Espaços</span>
           </button>
         </div>
         {/* Meio rolável: navegação */}
