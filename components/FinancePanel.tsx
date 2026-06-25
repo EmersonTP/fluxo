@@ -158,23 +158,33 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   }
 
   const isTP = (companies.find((c) => c.id === companyId)?.name || "").toLowerCase().includes("tp");
-  const sections: { k: string; l: string; soon?: boolean }[] = [
-    ...(isAdmin || isFinanceiro ? [{ k: "gestao", l: "Gestão" }] : []),
-    ...(isAdmin ? [{ k: "saude", l: "Saúde" }] : []),
-    ...(isAdmin || isFinanceiro ? [{ k: "contas", l: "Contas Bancárias" }] : []),
-    ...(isAdmin || isFinanceiro ? [{ k: "fluxo", l: "Fluxo de Caixa" }] : []),
-    ...(isAdmin ? [{ k: "conciliar", l: "Conciliação" }] : []),
-    ...(isAdmin || isFinanceiro ? [{ k: "dre", l: "DRE" }] : []),
-    { k: "solicitar", l: "Solicitar" },
-    ...(isApprover ? [{ k: "aprov", l: "Aprovações" }] : []),
-    ...(isAdmin || isFinanceiro ? [{ k: "painel", l: "Contas a Pagar" }] : []),
-    ...(isAdmin || isFinanceiro ? [{ k: "cred", l: "Credores" }] : []),
-    ...(isAdmin || isFinanceiro ? [{ k: "receber", l: "Contas a Receber" }] : []),
-    ...(isAdmin || isFinanceiro ? [{ k: "categorias", l: "Categorias" }] : []),
-    ...(isTP ? [{ k: "aulas", l: "Aulas Particulares", soon: true }] : []),
-    { k: "relatorios", l: "Relatórios", soon: true },
-    ...(isAdmin ? [{ k: "seguranca", l: "Segurança & LGPD" }] : []),
-    ...(isAdmin ? [{ k: "cfg", l: "Configuração" }] : []),
+  type NavItem = { k: string; l: string; soon?: boolean };
+  const af = isAdmin || isFinanceiro;
+  const groups: { g: string; items: NavItem[] }[] = [
+    { g: "Operação", items: [
+      { k: "solicitar", l: "Solicitar" },
+      ...(isApprover ? [{ k: "aprov", l: "Aprovações" }] : []),
+      ...(af ? [{ k: "painel", l: "Contas a Pagar" }] : []),
+      ...(af ? [{ k: "receber", l: "Contas a Receber" }] : []),
+    ] },
+    { g: "Relatórios", items: [
+      ...(af ? [{ k: "fluxo", l: "Fluxo de Caixa" }] : []),
+      ...(af ? [{ k: "dre", l: "DRE" }] : []),
+      ...(af ? [{ k: "gestao", l: "Gestão" }] : []),
+      { k: "relatorios", l: "Relatórios", soon: true },
+    ] },
+    { g: "Cadastros", items: [
+      ...(af ? [{ k: "contas", l: "Contas Bancárias" }] : []),
+      ...(af ? [{ k: "categorias", l: "Categorias" }] : []),
+      ...(af ? [{ k: "cred", l: "Credores" }] : []),
+      ...(isTP ? [{ k: "aulas", l: "Aulas Particulares", soon: true }] : []),
+    ] },
+    { g: "Sistema", items: [
+      ...(isAdmin ? [{ k: "saude", l: "Saúde" }] : []),
+      ...(isAdmin ? [{ k: "conciliar", l: "Conciliação" }] : []),
+      ...(isAdmin ? [{ k: "seguranca", l: "Segurança & LGPD" }] : []),
+      ...(isAdmin ? [{ k: "cfg", l: "Configuração" }] : []),
+    ] },
   ];
   const SOON: Record<string, string> = {
     aulas: "Aulas Particulares — registro de aula gera conta a receber (aluno) + conta a pagar (professor) pela tabela de valores. Só TP. Próxima fase.",
@@ -199,16 +209,21 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         <nav style={{ width: 196, flexShrink: 0, borderRight: "1px solid var(--line)", padding: "12px 8px", overflowY: "auto" }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt-faint)", padding: "4px 10px 8px" }}>Financeiro</div>
-          {sections.map((s) => (
-            <button
-              key={s.k}
-              onClick={() => setTab(s.k)}
-              className="fx-navitem"
-              style={{ width: "100%", fontSize: 13.5, fontWeight: tab === s.k ? 700 : 400, background: tab === s.k ? "rgba(146,80,172,.12)" : "none", color: tab === s.k ? "var(--txt)" : "var(--txt-soft)" }}
-            >
-              <span style={{ flex: 1, textAlign: "left" }}>{s.l}</span>
-              {s.soon && <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--txt-faint)", background: "var(--col)", borderRadius: 999, padding: "1px 6px" }}>em breve</span>}
-            </button>
+          {groups.filter((gr) => gr.items.length > 0).map((gr) => (
+            <div key={gr.g} style={{ marginBottom: 4 }}>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".09em", color: "var(--txt-faint)", padding: "10px 10px 3px", fontWeight: 700 }}>{gr.g}</div>
+              {gr.items.map((s) => (
+                <button
+                  key={s.k}
+                  onClick={() => setTab(s.k)}
+                  className="fx-navitem"
+                  style={{ width: "100%", fontSize: 13.5, fontWeight: tab === s.k ? 700 : 400, background: tab === s.k ? "rgba(146,80,172,.12)" : "none", color: tab === s.k ? "var(--txt)" : "var(--txt-soft)" }}
+                >
+                  <span style={{ flex: 1, textAlign: "left" }}>{s.l}</span>
+                  {s.soon && <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--txt-faint)", background: "var(--col)", borderRadius: 999, padding: "1px 6px" }}>em breve</span>}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
 
