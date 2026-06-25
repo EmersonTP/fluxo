@@ -41,6 +41,7 @@ const CATEGORIAS: [string, string, string, string][] = [
   ["operacional", "Financeiras", "IOF / Tarifas bancárias", "despesa"],
   ["operacional", "Financeiras", "Juros", "despesa"],
   ["financiamento", "Conta de Sócios", "Reembolso (pré-operacional)", "despesa"],
+  ["financiamento", "Conta de Sócios", "Reembolso a sócios", "despesa"],
   ["financiamento", "Partes Relacionadas", "Reembolso TP", "despesa"],
 ];
 
@@ -78,6 +79,8 @@ const REGRAS: [string, string, string, string, number][] = [
   ["APLICACAO", "Aplicações Financeiras", "CDB", "ambos", 20],
   ["RESGATE", "Aplicações Financeiras", "CDB", "ambos", 20],
   ["CDB", "Aplicações Financeiras", "CDB", "ambos", 5],
+  ["GIANCARLO", "Conta de Sócios", "Reembolso a sócios", "debito", 25],
+  ["GIANLUCCA", "Conta de Sócios", "Reembolso a sócios", "debito", 25],
   ["GIANCARLO", "Aporte de Sócios", "Aporte", "credito", 20],
   ["GIANLUCCA", "Aporte de Sócios", "Aporte", "credito", 20],
   ["GIANCARLO", "Conta de Sócios", "Reembolso (pré-operacional)", "debito", 7],
