@@ -185,24 +185,29 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   const activeCo = companies.find((c) => c.id === activeCompany);
   const financeOn = !activeCo || (activeCo.modules || "").includes("financeiro");
   type RailItem = { icon: string; label: string; href: string };
-  const railGroups: RailItem[][] = [
+  const railGroups: RailItem[][] = ([
+    // Início
     [{ icon: "home", label: "Início", href: "/" }],
+    // Trabalho do dia a dia
     [
       { icon: "tasks", label: "Tarefas", href: "/minhas-tarefas" },
       { icon: "sprint", label: "Sprints", href: "/sprints" },
-    ],
-    [
       { icon: "chat", label: "Chat", href: "/chat" },
       { icon: "docs", label: "Docs", href: "/documentos" },
     ],
-    ...(financeOn ? [[{ icon: "finance", label: "Finanças", href: "/financeiro" }]] : []),
+    // Financeiro / análise
     [
+      ...(financeOn ? [{ icon: "finance", label: "Finanças", href: "/financeiro" }] : []),
       { icon: "reports", label: "Relatórios", href: "/relatorios" },
+    ],
+    // Gestão (admin)
+    [
       ...(isAdmin ? [{ icon: "productivity", label: "Produtividade", href: "/produtividade" }] : []),
       ...(isAdmin ? [{ icon: "admin", label: "Admin", href: "/admin" }] : []),
     ],
+    // Config
     [{ icon: "gear", label: "Config", href: "/configuracoes" }],
-  ];
+  ] as RailItem[][]).filter((g) => g.length > 0);
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
