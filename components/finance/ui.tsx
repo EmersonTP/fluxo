@@ -55,3 +55,5 @@ export function Alerta({ tone, txt, acao, onClick }: { tone: "critico" | "atenca
     </div>
   );
 }
+
+export function BRLcents(c: number) { return (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
