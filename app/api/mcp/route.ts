@@ -31,6 +31,7 @@ const TOOLS = [
       "• contas_a_receber — params: {companyId}. Recebíveis (boleto/Pix Inter): valor, vencimento, status.\n" +
       "• extrato — params: {companyId, de?, ate?} (YYYY-MM-DD). Extrato bancário Inter (crédito/débito).\n" +
       "• sync_extrato — params: {companyId, de?, ate?}. Sincroniza o extrato do Inter no banco (para relatórios). Roda no agendamento.\n" +
+      "• conciliacao_chat — roda a conciliação de todas as empresas e posta o resumo no canal #financeiro. Sem params. Roda no agendamento.\n" +
       "• criar_conta_pagar — params: {companyId, areaName, descricao, valor, vencimento?, formaPagamento?, docTipo?, docNumero?, categoria?, observacao?}. Use ao ler um boleto/NF.\n" +
       "• acao_conta — params: {requestId, action(aprovar_gestor|conferir|pagar|recusar), note?, dataPagamento?}. Avança a conta na esteira.\n" +
       "• listar_canais — lista canais de chat (IDs). Sem params.\n" +
@@ -38,7 +39,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        action: { type: "string", enum: ["empresas", "contas_a_pagar", "contas_a_receber", "extrato", "sync_extrato", "criar_conta_pagar", "acao_conta", "listar_canais", "postar_chat"] },
+        action: { type: "string", enum: ["empresas", "contas_a_pagar", "contas_a_receber", "extrato", "sync_extrato", "conciliacao_chat", "criar_conta_pagar", "acao_conta", "listar_canais", "postar_chat"] },
         params: { type: "object", description: "Parâmetros da ação (veja a descrição)." },
       },
       required: ["action"],
@@ -122,6 +123,8 @@ async function callTool(bases: string[], key: string, name: string, a: any = {})
           return api(bases, key, `/api/finance/inter/extrato?company=${enc(p.companyId)}${p.de ? `&de=${p.de}` : ""}${p.ate ? `&ate=${p.ate}` : ""}`);
         case "sync_extrato":
           return api(bases, key, "/api/finance/inter/sync", "POST", p);
+        case "conciliacao_chat":
+          return api(bases, key, "/api/finance/cron/conciliacao", "POST", {});
         case "criar_conta_pagar":
           return api(bases, key, "/api/finance/requests", "POST", p);
         case "acao_conta": {
