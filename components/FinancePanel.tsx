@@ -89,7 +89,8 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
     if (tabInit.current) return;
     if (config.length === 0 && !isAdmin) return;
     tabInit.current = true;
-    if (isApprover) setTab("aprov");
+    if (isAdmin || isFinanceiro) setTab("home");
+    else if (isApprover) setTab("aprov");
   }, [config, isApprover, isAdmin]);
 
   function refresh() { loadRequests(companyId); loadAll(companyId); }
@@ -161,6 +162,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   type NavItem = { k: string; l: string; soon?: boolean };
   const af = isAdmin || isFinanceiro;
   const groups: { g: string; items: NavItem[] }[] = [
+    ...(af ? [{ g: "", items: [{ k: "home", l: "Visão geral" }] as NavItem[] }] : []),
     { g: "Operação", items: [
       { k: "solicitar", l: "Solicitar" },
       ...(isApprover ? [{ k: "aprov", l: "Aprovações" }] : []),
@@ -210,8 +212,8 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
         <nav style={{ width: 196, flexShrink: 0, borderRight: "1px solid var(--line)", padding: "12px 8px", overflowY: "auto" }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt-faint)", padding: "4px 10px 8px" }}>Financeiro</div>
           {groups.filter((gr) => gr.items.length > 0).map((gr) => (
-            <div key={gr.g} style={{ marginBottom: 4 }}>
-              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".09em", color: "var(--txt-faint)", padding: "10px 10px 3px", fontWeight: 700 }}>{gr.g}</div>
+            <div key={gr.g || "_top"} style={{ marginBottom: 4 }}>
+              {gr.g && <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".09em", color: "var(--txt-faint)", padding: "10px 10px 3px", fontWeight: 700 }}>{gr.g}</div>}
               {gr.items.map((s) => (
                 <button
                   key={s.k}
@@ -229,6 +231,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
 
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 26px 48px", minWidth: 0 }}>
         {flash && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "11px 15px", fontSize: 13.5, fontWeight: 500, marginBottom: 16 }}>{flash}</div>}
+        {tab === "home" && (isAdmin || isFinanceiro) && <HomeTab companyId={companyId} go={setTab} />}
         {tab === "solicitar" && (
           <>
             <button className="fx-btn fx-btn-primary" onClick={() => setShowNew(true)} style={{ marginBottom: 16 }}>+ Nova solicitação</button>
@@ -1087,9 +1090,7 @@ function ContasTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean
 
   return (
     <>
-      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 16, maxWidth: 720 }}>
-        <b>Contas bancárias da empresa.</b> O caixa é a soma das contas de <b>caixa</b>. <b>Cartão</b> e <b>sócio (PF)</b> entram na DRE como despesa, mas ficam fora do Fluxo de Caixa (o caixa da empresa não se mexe). O <b>Inter</b> é ao vivo; as demais você importa o CSV ou lança manualmente.
-      </div>
+      <TabHeader title="Contas bancárias" subtitle="O caixa soma as contas de tipo caixa. Cartão e sócio (PF) entram na DRE, mas ficam fora do Fluxo. Inter é ao vivo; as demais você importa CSV ou lança manual." />
       {msg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14, maxWidth: 640 }}>{msg}</div>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 760, marginBottom: 20 }}>
@@ -1266,6 +1267,100 @@ function ConciliacaoTab({ companyId }: { companyId: string }) {
         ))}
       </div>
     </>
+  );
+}
+
+/* ---------- Cabeçalho padrão de aba (consistência visual) ---------- */
+function TabHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div className="serif" style={{ fontSize: 19, fontWeight: 600 }}>{title}</div>
+        {subtitle && <div style={{ fontSize: 13, color: "var(--txt-soft)", marginTop: 2 }}>{subtitle}</div>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+/* ---------- Visão geral (home do financeiro) ---------- */
+function HomeTab({ companyId, go }: { companyId: string; go: (k: string) => void }) {
+  const [d, setD] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(() => { setLoading(true); fetch(`/api/finance/resumo?company=${companyId}`).then((r) => r.json()).then(setD).finally(() => setLoading(false)); }, [companyId]);
+  useEffect(() => { load(); }, [load]);
+  const money = (v: number) => (v < 0 ? "−" : "") + "R$ " + Math.abs(v || 0).toLocaleString("pt-BR");
+  function quando(iso: string | null) {
+    if (!iso) return "sem sincronização";
+    const ms = Date.now() - new Date(iso).getTime(); const min = Math.floor(ms / 60000), h = Math.floor(min / 60), dias = Math.floor(h / 24);
+    return min < 60 ? `há ${min} min` : h < 24 ? `há ${h} h` : dias === 1 ? "ontem" : `há ${dias} dias`;
+  }
+
+  const Card = ({ label, value, sub, tone, onClick }: { label: string; value: string; sub?: string; tone?: string; onClick?: () => void }) => (
+    <div onClick={onClick} style={{ flex: 1, minWidth: 170, border: "1px solid var(--line)", borderLeft: `3px solid ${tone || "var(--roxo, #7a4fb0)"}`, borderRadius: "var(--r-card)", padding: "13px 16px", background: "var(--surface)", cursor: onClick ? "pointer" : "default" }}>
+      <div style={{ fontSize: 12, color: "var(--txt-soft)" }}>{label}</div>
+      <div style={{ fontSize: 21, fontWeight: 800, color: tone || "var(--txt)" }}>{value}</div>
+      {sub && <div style={{ fontSize: 11.5, color: "var(--txt-faint)", marginTop: 1 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <>
+      <TabHeader title="Visão geral" subtitle="O resumo do financeiro da empresa — atualizado direto do banco." right={<button className="fx-btn" onClick={load} disabled={loading}>{loading ? "…" : "Recarregar"}</button>} />
+      {loading && !d && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
+      {d && (
+        <>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+            <Card label="Saldo em caixa" value={money(d.saldoTotal)} sub={`sincronizado ${quando(d.ultimoSync)}`} tone="#7a4fb0" onClick={() => go("fluxo")} />
+            <Card label="A pagar (em aberto)" value={money(d.aPagar.total)} sub={`${d.aPagar.qtd} título(s)${d.aPagar.vencidas ? ` · ${d.aPagar.vencidas} vencido(s)` : ""}`} tone={d.aPagar.vencidas ? "#a8332c" : "#274b6d"} onClick={() => go("painel")} />
+            <Card label="A receber (em aberto)" value={money(d.aReceber.total)} sub={`${d.aReceber.qtd} título(s)${d.aReceber.vencidas ? ` · ${d.aReceber.vencidas} vencido(s)` : ""}`} tone={d.aReceber.vencidas ? "#b5781f" : "#0f6b50"} onClick={() => go("receber")} />
+            <Card label="Sem categoria" value={String(d.semCategoria)} sub="lançamentos a identificar (90d)" tone={d.semCategoria ? "#b5781f" : "#0f6b50"} onClick={() => go("conciliar")} />
+          </div>
+
+          {(d.aPagar.vencidas > 0 || d.aReceber.vencidas > 0 || d.semCategoria > 0) && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18, maxWidth: 760 }}>
+              {d.aPagar.vencidas > 0 && <Alerta tone="critico" txt={`${d.aPagar.vencidas} conta(s) a pagar vencida(s) — ${money(d.aPagar.totalVencidas)}.`} acao="Ver contas a pagar" onClick={() => go("painel")} />}
+              {d.aReceber.vencidas > 0 && <Alerta tone="atencao" txt={`${d.aReceber.vencidas} recebível(is) vencido(s) — ${money(d.aReceber.totalVencidas)}.`} acao="Ver contas a receber" onClick={() => go("receber")} />}
+              {d.semCategoria > 0 && <Alerta tone="atencao" txt={`${d.semCategoria} lançamento(s) sem categoria nos últimos 90 dias.`} acao="Identificar na conciliação" onClick={() => go("conciliar")} />}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div style={{ flex: 1, minWidth: 320 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", marginBottom: 8 }}>Últimos lançamentos</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {d.ultimos.length === 0 && <p style={{ color: "var(--txt-faint)", fontSize: 13 }}>Nenhum lançamento ainda.</p>}
+                {d.ultimos.map((l: any, i: number) => (
+                  <div key={i} style={{ display: "flex", gap: 10, fontSize: 12.5, padding: "6px 10px", border: "1px solid var(--line)", borderRadius: "var(--r-card)", background: "var(--surface)" }}>
+                    <span style={{ width: 70, color: "var(--txt-faint)" }}>{l.data.slice(5)}</span>
+                    <span style={{ flex: 1, color: "var(--txt-soft)" }}>{l.descricao}<span style={{ color: "var(--txt-faint)" }}> · {l.conta}</span></span>
+                    <span style={{ color: l.tipo === "credito" ? "#0f6b50" : "#a8332c", fontWeight: 600 }}>{l.tipo === "credito" ? "+" : "−"}{money(l.valor)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ minWidth: 200 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", marginBottom: 8 }}>Atalhos</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {[["solicitar", "Solicitar pagamento"], ["fluxo", "Fluxo de Caixa"], ["dre", "DRE"], ["receber", "Contas a Receber"], ["saude", "Saúde do financeiro"]].map(([k, l]) => (
+                  <button key={k} className="fx-btn" style={{ justifyContent: "flex-start" }} onClick={() => go(k)}>{l}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+function Alerta({ tone, txt, acao, onClick }: { tone: "critico" | "atencao"; txt: string; acao: string; onClick: () => void }) {
+  const c = tone === "critico" ? { bg: "#f3dcd8", fg: "#a8332c", dot: "#c0392b" } : { bg: "#f6e7cd", fg: "#b5781f", dot: "#d68910" };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, background: c.bg, borderRadius: "var(--r-card)", padding: "9px 14px" }}>
+      <span style={{ width: 9, height: 9, borderRadius: "50%", background: c.dot, flexShrink: 0 }} />
+      <span style={{ flex: 1, fontSize: 13, color: c.fg }}>{txt}</span>
+      <button onClick={onClick} style={{ background: "none", border: "none", color: c.fg, fontWeight: 700, fontSize: 12.5, cursor: "pointer", textDecoration: "underline" }}>{acao} →</button>
+    </div>
   );
 }
 
@@ -1529,7 +1624,7 @@ function SaudeTab({ companyId }: { companyId: string }) {
   const sorted = [...checks].sort((a, b) => order[a.sev] - order[b.sev]);
   return (
     <>
-      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 14, maxWidth: 720 }}><b>Saúde do financeiro.</b> A Sandra checa sozinha o que falta configurar ou está pendente. Recarregue a qualquer momento.</div>
+      <TabHeader title="Saúde do financeiro" subtitle="A Sandra checa sozinha o que falta configurar ou está pendente." />
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         {([["critico", resumo.critico, "#a8332c", "#f3dcd8"], ["atencao", resumo.atencao, "#b5781f", "#f6e7cd"], ["ok", resumo.ok, "#0f6b50", "#d7ebe2"]] as const).map(([k, n, fg, bg]) => (
           <div key={k} style={{ flex: 1, minWidth: 130, borderRadius: "var(--r-card)", padding: "12px 15px", background: bg }}>
@@ -1622,9 +1717,7 @@ function SegurancaTab({ companyId }: { companyId: string }) {
 
   return (
     <>
-      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 16, maxWidth: 680 }}>
-        <b>Segurança & LGPD.</b> Aqui você acompanha quem acessou e alterou dados sensíveis (financeiro e de paciente). Dado de saúde é <b>categoria especial na LGPD</b> — por isso registramos tudo e protegemos os dados.
-      </div>
+      <TabHeader title="Segurança & LGPD" subtitle="Quem acessou e alterou dados sensíveis. Dado de saúde é categoria especial na LGPD — registramos tudo e protegemos." />
 
       {/* Estado das proteções */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 680, marginBottom: 22 }}>
