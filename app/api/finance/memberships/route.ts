@@ -51,9 +51,17 @@ export async function POST(req: Request) {
     },
   });
 
-  // 2) assinatura (se recorrente)
+  // 2) assinatura (se recorrente). Sem plano selecionado, usa um plano "Avulso" (valor por paciente) por empresa.
   let assinatura: any = null;
   if (recorrencia === "mensal") {
+    if (!planoId) {
+      const avulso = await prisma.plano.upsert({
+        where: { companyId_identifier: { companyId, identifier: "avulso" } },
+        update: {},
+        create: { companyId, nome: "Avulso (valor por paciente)", identifier: "avulso", valorCents: 0 },
+      });
+      planoId = avulso.id;
+    }
     const prox = new Date(venc.getFullYear(), venc.getMonth() + 1, Math.min(dia, 28));
     assinatura = await prisma.assinatura.create({
       data: { companyId, clienteId: cliente.id, planoId, status: "ativa", valorCents, diaCobranca: dia, proximaCobranca: prox },
