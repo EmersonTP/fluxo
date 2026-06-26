@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Drawer, Row, Field, Grid2, Info, Section, Block, Chip, Metric, TabHeader, Alerta } from "./finance/ui";
 import { FluxoCaixaTab } from "./finance/FluxoCaixaTab";
+import { BalancoTab } from "./finance/BalancoTab";
 import { Member, Area, Cfg, Credor } from "./finance/types";
 import { ConfigTab } from "./finance/ConfigTab";
 import { ContasReceber } from "./finance/ContasReceber";
@@ -184,6 +185,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
     { g: "Relatórios", items: [
       ...(af ? [{ k: "fluxo", l: "Fluxo de Caixa" }] : []),
       ...(af ? [{ k: "dre", l: "DRE" }] : []),
+      ...(af ? [{ k: "balanco", l: "Balanço" }] : []),
       ...(af ? [{ k: "gestao", l: "Gestão" }] : []),
     ] },
     { g: "Cadastros", items: [
@@ -353,6 +355,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
         {tab === "fluxo" && (isAdmin || isFinanceiro) && <FluxoCaixaTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "conciliar" && isAdmin && <ConciliacaoTab companyId={companyId} />}
         {tab === "dre" && (isAdmin || isFinanceiro) && <DreTab companyId={companyId} />}
+        {tab === "balanco" && (isAdmin || isFinanceiro) && <BalancoTab companyId={companyId} />}
         {tab === "saude" && isAdmin && <SaudeTab companyId={companyId} />}
         {tab === "seguranca" && isAdmin && <SegurancaTab companyId={companyId} />}
         {tab === "categorias" && <CategoriasTab companyId={companyId} isAdmin={isAdmin} />}
