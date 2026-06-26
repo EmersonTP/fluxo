@@ -40,6 +40,7 @@ model Company {
   documentos Documento[]
   driveConn DriveConn?
   fechadoAte DateTime? // financeiro fechado ate esta data (trava de periodo)
+  gruposSessao GrupoSessao[]
 }
 
 model User {
@@ -658,6 +659,7 @@ model Cliente {
   @@index([companyId])
   @@index([iuguCustomerId])
   documentos Documento[]
+  presencasSessao SessaoPresenca[]
 }
 
 // Plano de recorrência. Espelha o plan da Iugu.
@@ -802,4 +804,30 @@ model DriveConn {
   folderId        String?
   email           String?
   createdAt       DateTime @default(now())
+}
+
+model GrupoSessao {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  data      DateTime
+  titulo    String   @default("Sessão em grupo")
+  createdAt DateTime @default(now())
+  presencas SessaoPresenca[]
+  @@index([companyId, data])
+}
+
+model SessaoPresenca {
+  id         String      @id @default(cuid())
+  sessaoId   String
+  sessao     GrupoSessao @relation(fields: [sessaoId], references: [id], onDelete: Cascade)
+  clienteId  String
+  cliente    Cliente     @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  presente   Boolean     @default(false)
+  marcado    Boolean     @default(false)
+  motivo     String?
+  observacao String?     @db.Text
+  updatedAt  DateTime    @updatedAt
+  @@unique([sessaoId, clienteId])
+  @@index([clienteId])
 }

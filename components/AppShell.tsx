@@ -12,6 +12,7 @@ import PrivacyMenu from "./PrivacyMenu";
 type User = { id: string; name: string; email: string; role: string };
 
 const ICONS: Record<string, string> = {
+  patients: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
   home: "M3 10.5 12 3l9 7.5M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5",
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.3-4.3",
   spaces: "M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
@@ -195,6 +196,7 @@ export default function AppShell({ user, children }: { user: User; children: Rea
       { icon: "sprint", label: "Sprints", href: "/sprints" },
       { icon: "chat", label: "Chat", href: "/chat" },
       { icon: "docs", label: "Docs", href: "/documentos" },
+      { icon: "patients", label: "Acompanhamento", href: "/acompanhamento" },
     ],
     // Financeiro / análise
     [
