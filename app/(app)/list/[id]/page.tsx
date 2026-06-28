@@ -405,7 +405,7 @@ function BoardView({
               {visible.map((t, i) => (
                 <div key={t.id} data-card-id={t.id}>
                   {lineAt === i && <div className="fx-dropline" style={{ background: st.color }} />}
-                  <TaskCard task={t} onOpen={onOpen} onPointerDown={(e) => handleCardPointerDown(e, t)} statuses={statuses} onSetStatus={(sid) => onMove(t.id, sid)} />
+                  <TaskCard task={t} onOpen={onOpen} onPointerDown={(e) => handleCardPointerDown(e, t)} statuses={statuses} onSetStatus={(sid) => onMove(t.id, sid)} onChanged={onCreated} />
                 </div>
               ))}
               {lineAt === visible.length && <div className="fx-dropline" style={{ background: st.color }} />}

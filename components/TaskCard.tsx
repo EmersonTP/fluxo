@@ -13,6 +13,7 @@ export function TaskCard({
   dragging,
   statuses,
   onSetStatus,
+  onChanged,
 }: {
   task: TaskT;
   onOpen: (id: string) => void;
@@ -21,6 +22,7 @@ export function TaskCard({
   dragging?: boolean;
   statuses?: StatusT[];
   onSetStatus?: (statusId: string) => void;
+  onChanged?: () => void;
 }) {
   const prio = priorityMeta(task.priority);
   const bar = task.status?.color || "var(--roxo)";
@@ -31,6 +33,13 @@ export function TaskCard({
   const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
   const canPick = !!(statuses && statuses.length && onSetStatus);
 
+  // Menu de ações do cartão (⋯): duplicar / excluir
+  const kebabRef = useRef<HTMLButtonElement>(null);
+  const [actMenu, setActMenu] = useState<{ top: number; left: number } | null>(null);
+  const [hover, setHover] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const canAct = !!onChanged;
+
   function openStatusMenu(e: React.MouseEvent) {
     e.stopPropagation();
     if (!canPick) return;
@@ -40,20 +49,89 @@ export function TaskCard({
     }
   }
 
+  function openActMenu(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (kebabRef.current) {
+      const r = kebabRef.current.getBoundingClientRect();
+      setActMenu({ top: Math.min(r.bottom + 4, window.innerHeight - 120), left: Math.max(8, r.right - 168) });
+    }
+  }
+
+  async function duplicar(e: React.MouseEvent) {
+    e.stopPropagation();
+    setActMenu(null);
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/tasks/${task.id}/duplicate`, { method: "POST" });
+      if (r.ok) onChanged?.();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function excluir(e: React.MouseEvent) {
+    e.stopPropagation();
+    setActMenu(null);
+    if (busy) return;
+    if (!window.confirm(`Excluir a tarefa "${task.name}"? Esta ação não pode ser desfeita.`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
+      if (r.ok) onChanged?.();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div
       className="fx-card"
       onPointerDown={onPointerDown}
       onClick={onPointerDown ? undefined : () => onOpen(task.id)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         ["--bar" as any]: bar,
+        position: "relative",
         userSelect: "none",
         touchAction: "none",
         cursor: onPointerDown ? "grab" : "pointer",
         ...(dragging ? { opacity: 0.4, borderStyle: "dashed", borderColor: "var(--roxo)" } : {}),
       }}
     >
-      <div className="fx-card-title">{task.name}</div>
+      {canAct && (
+        <button
+          ref={kebabRef}
+          type="button"
+          aria-label="Ações da tarefa"
+          title="Ações"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={openActMenu}
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            width: 24,
+            height: 24,
+            borderRadius: 7,
+            border: "none",
+            background: actMenu ? "var(--line)" : "transparent",
+            color: "var(--txt-soft)",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: hover || actMenu ? 1 : 0.35,
+            transition: "opacity .12s, background .12s",
+            zIndex: 3,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+        </button>
+      )}
+
+      <div className="fx-card-title" style={canAct ? { paddingRight: 20 } : undefined}>{task.name}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
         {task.status && (
           <button
@@ -135,6 +213,23 @@ export function TaskCard({
                 {(task.statusId || "none") === s.id && <span style={{ marginLeft: "auto", color: "var(--roxo)" }}>✓</span>}
               </button>
             ))}
+          </div>
+        </>,
+        document.body
+      )}
+
+      {actMenu && canAct && createPortal(
+        <>
+          <div onClick={(e) => { e.stopPropagation(); setActMenu(null); }} onPointerDown={(e) => e.stopPropagation()} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
+          <div className="fx-popover" style={{ position: "fixed", top: actMenu.top, left: actMenu.left, width: 168, zIndex: 2001, padding: 5 }} onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+            <button className="fx-menuitem" style={{ width: "100%", borderRadius: 7, display: "flex", alignItems: "center", gap: 9 }} onClick={duplicar}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              Duplicar
+            </button>
+            <button className="fx-menuitem" style={{ width: "100%", borderRadius: 7, display: "flex", alignItems: "center", gap: 9, color: "#a8332c" }} onClick={excluir}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+              Excluir
+            </button>
           </div>
         </>,
         document.body
