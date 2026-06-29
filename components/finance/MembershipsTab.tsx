@@ -24,6 +24,9 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   const [etapa, setEtapa] = useState(1);
   const [novoId, setNovoId] = useState("");
   const [copiado, setCopiado] = useState("");
+  const [fichaId, setFichaId] = useState("");
+  const [ficha, setFicha] = useState<any>(null);
+  const [fichaLoad, setFichaLoad] = useState(false);
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const load = useCallback(() => {
@@ -68,6 +71,11 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   async function copiar(token: string) { try { await navigator.clipboard.writeText(linkUrl(token)); setCopiado(token); setTimeout(() => setCopiado(""), 1500); } catch { /* */ } }
   async function gerarMes() { setMsg("Gerando…"); const r = await fetch("/api/finance/receber/gerar-mes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId }) }); const d = await r.json(); setMsg(r.ok ? `Gerados ${d.criados} títulos do mês (${d.pulados} já existiam/sem vencimento).` : (d.error || "Erro.")); }
 
+  async function abrirFicha(id: string) {
+    setFichaId(id); setFicha(null); setFichaLoad(true);
+    try { const d = await fetch(`/api/finance/clientes/${id}`).then((r) => r.json()); setFicha(d); } catch { setFicha({ error: "Erro ao carregar." }); }
+    setFichaLoad(false);
+  }
   if (!isAdmin) return <p style={{ color: "var(--txt-faint)" }}>Apenas administradores gerenciam memberships.</p>;
   return (
     <>
@@ -204,7 +212,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
           {clientes.map((c) => (
             <div key={c.id}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
-              <div style={{ flex: 1 }}><b>{c.nome}</b>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}> · {c.documento}</span> : null}</div>
+              <div style={{ flex: 1 }}><button type="button" onClick={() => abrirFicha(c.id)} title="Abrir ficha do paciente" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--txt)", font: "inherit", textAlign: "left" }}><b style={{ borderBottom: "1px dashed var(--line)" }}>{c.nome}</b></button>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}> · {c.documento}</span> : null}</div>
               <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => abrirDocs(c.id)}>Documentos</button>
               <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/contrato`} target="_blank" rel="noopener">Gerar contrato</a>
               <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/recibo`} target="_blank" rel="noopener">Recibo (reembolso)</a>
@@ -266,6 +274,84 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
           <Field label="1ª cobrança"><input className="fx-input" type="date" value={na.proximaCobranca} onChange={(e) => setNa({ ...na, proximaCobranca: e.target.value })} /></Field></Row>
         <button className="fx-btn" disabled={!na.clienteId || !na.planoId} onClick={addAssin}>+ Criar assinatura</button>
       </Section>
+
+      {fichaId && (
+        <div onClick={() => setFichaId("")} style={{ position: "fixed", inset: 0, background: "rgba(20,12,30,.45)", zIndex: 1000, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "5vh 16px", overflowY: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface)", borderRadius: "var(--r-card)", width: "100%", maxWidth: 720, boxShadow: "0 20px 60px rgba(0,0,0,.3)", padding: 0, overflow: "hidden" }}>
+            {fichaLoad && <div style={{ padding: 28, color: "var(--txt-faint)" }}>Carregando ficha…</div>}
+            {!fichaLoad && ficha?.error && <div style={{ padding: 28, color: "var(--coral-deep)" }}>{ficha.error}</div>}
+            {!fichaLoad && ficha?.cliente && (() => {
+              const cl = ficha.cliente, re = ficha.resumo, as = ficha.assinatura, q = ficha.qualificacao;
+              const dt = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
+              const stCor: Record<string, string> = { paga: "#0f6b50", pendente: "#b5651d", vencida: "#c0392b", cancelada: "#9a8f84", estornada: "#9a8f84" };
+              const card = (label: string, valor: string, cor?: string) => (
+                <div style={{ flex: 1, minWidth: 130, border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>{label}</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: cor || "var(--txt)", marginTop: 2 }}>{valor}</div>
+                </div>
+              );
+              return (
+                <div>
+                  <div style={{ padding: "18px 22px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 19, fontWeight: 700 }}>{cl.nome} {!cl.ativo && <span style={{ fontSize: 11, color: "var(--coral-deep)", fontWeight: 600 }}>· inativo</span>}</div>
+                      <div style={{ fontSize: 12.5, color: "var(--txt-faint)", marginTop: 3 }}>
+                        {cl.documento ? `CPF/CNPJ ${cl.documento}` : "sem CPF"}{cl.rg ? ` · RG ${cl.rg}` : ""} · cliente desde {dt(re.desdeCliente)}
+                      </div>
+                    </div>
+                    <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => setFichaId("")}>fechar</button>
+                  </div>
+                  <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 18 }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {card("MRR", "R$ " + (re.mrr || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}
+                      {card("Em aberto", `R$ ${(re.emAbertoValor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, re.emAbertoValor > 0 ? "#b5651d" : undefined)}
+                      {card("Vencido", `R$ ${(re.vencidoValor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` + (re.vencidoCount ? ` (${re.vencidoCount})` : ""), re.vencidoValor > 0 ? "#c0392b" : undefined)}
+                      {card("Pago (total)", `R$ ${(re.pagoTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "#0f6b50")}
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 7 }}>Assinatura / Plano</div>
+                      {as ? (
+                        <div style={{ fontSize: 13.5 }}>{as.plano} · <b>R$ {(as.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês</b> · desde {dt(as.desde)} · próxima cobrança {dt(as.proximaCobranca)}{as.diaCobranca ? ` · dia ${as.diaCobranca}` : ""}</div>
+                      ) : <div style={{ fontSize: 13, color: "var(--txt-faint)" }}>Sem assinatura ativa.</div>}
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 7 }}>Qualificação (engajamento)</div>
+                      <div style={{ fontSize: 13.5 }}>{q.taxaPresenca === null ? "Sem sessões marcadas ainda." : <>Presença: <b>{q.taxaPresenca}%</b> · {q.presentes} de {q.marcadas} sessões · último pagamento {dt(re.ultimoPagamento)}</>}</div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 7 }}>Recebíveis ({ficha.recebiveis.length})</div>
+                      {ficha.recebiveis.length === 0 ? <div style={{ fontSize: 13, color: "var(--txt-faint)" }}>Nenhuma conta a receber lançada.</div> : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {ficha.recebiveis.map((r: any) => (
+                            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
+                              <span style={{ width: 8, height: 8, borderRadius: "50%", background: stCor[r.status] || "#9a8f84" }} />
+                              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.descricao || "Conta a receber"}</span>
+                              <span style={{ color: "var(--txt-faint)", fontSize: 12 }}>{r.status === "paga" ? "pago " + dt(r.pagoEm) : "vence " + dt(r.vencimento)}</span>
+                              <b style={{ minWidth: 90, textAlign: "right" }}>R$ {(r.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</b>
+                              {r.secureUrl && <a href={r.secureUrl} target="_blank" rel="noreferrer" className="fx-btn" style={{ fontSize: 11 }}>cobrança</a>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+                      <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${cl.id}/contrato`} target="_blank" rel="noopener">Gerar contrato</a>
+                      <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${cl.id}/recibo`} target="_blank" rel="noopener">Recibo (reembolso)</a>
+                      <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => { setFichaId(""); abrirDocs(cl.id); }}>Documentos ({ficha.documentos.length})</button>
+                      <span style={{ fontSize: 11.5, color: "var(--txt-faint)", alignSelf: "center" }}>{cl.consentimentoLGPD ? "LGPD: consentimento registrado" : "LGPD: sem consentimento"}{cl.email ? ` · ${cl.email}` : ""}{cl.telefone ? ` · ${cl.telefone}` : ""}</span>
+                    </div>
+                    {cl.endereco && <div style={{ fontSize: 12, color: "var(--txt-faint)" }}>{cl.endereco}</div>}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </>
   );
 }
