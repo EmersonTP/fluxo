@@ -124,6 +124,8 @@ export default function TaskModal({
   const [showAssign, setShowAssign] = useState(false);
   const [assignSearch, setAssignSearch] = useState("");
   const [newSubtask, setNewSubtask] = useState("");
+  const [subTab, setSubTab] = useState("Diária");
+  const [novaCad, setNovaCad] = useState("Diária");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [depPickerOpen, setDepPickerOpen] = useState(false);
@@ -301,12 +303,15 @@ export default function TaskModal({
     }
   }
 
+  const TAG_CAD: Record<string, string> = { "Diária": "[DIÁRIA] ", "Semanal": "[SEMANAL] ", "Mensal": "[MENSAL] ", "Uma vez": "[UMA VEZ] ", "Sem cadência": "" };
   async function addSubtask() {
     if (!task || !newSubtask.trim()) return;
+    const jaTemTag = /^\s*\[[^\]]*\]/.test(newSubtask);
+    const nome = jaTemTag ? newSubtask : (TAG_CAD[novaCad] || "") + newSubtask;
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listId: task.list.id, name: newSubtask, parentId: task.id }),
+      body: JSON.stringify({ listId: task.list.id, name: nome, parentId: task.id }),
     });
     const data = await res.json();
     if (data.task) {
@@ -515,13 +520,13 @@ export default function TaskModal({
             <div>
               {(() => {
                 const isDone = (st: SubtaskT) => st.status?.type === "done" || st.status?.type === "closed";
-                const grupoDe = (name: string) => { const m = /^\[\s*([^\]]+?)\s*\]/.exec(name || ""); const t = (m ? m[1] : "").toUpperCase(); if (t.startsWith("DI")) return "Diária"; if (t.startsWith("SEMANAL")) return "Semanal"; if (t.startsWith("UMA")) return "Uma vez"; return "Outras"; };
+                const grupoDe = (name: string) => { const m = /^\[\s*([^\]]+?)\s*\]/.exec(name || ""); const t = (m ? m[1] : "").toUpperCase(); if (t.startsWith("DI")) return "Diária"; if (t.startsWith("SEMANAL")) return "Semanal"; if (t.startsWith("MENSAL") || t.startsWith("MES")) return "Mensal"; if (t.startsWith("UMA")) return "Uma vez"; return "Outras"; };
                 const semTag = (name: string) => name.replace(/^\[[^\]]*\]\s*/, "");
-                const ordem = ["Diária", "Semanal", "Uma vez", "Outras"];
+                const ordem = ["Diária", "Semanal", "Mensal", "Uma vez", "Outras"];
                 const grupos: Record<string, SubtaskT[]> = {};
                 for (const st of task.subtasks) { const g = grupoDe(st.name); (grupos[g] = grupos[g] || []).push(st); }
                 const chaves = Object.keys(grupos).sort((a, b) => (ordem.indexOf(a) < 0 ? 9 : ordem.indexOf(a)) - (ordem.indexOf(b) < 0 ? 9 : ordem.indexOf(b)));
-                const corG: Record<string, string> = { "Diária": "#274b6d", "Semanal": "#7a4fb0", "Uma vez": "#0f6b50", "Outras": "#9a8f84" };
+                const corG: Record<string, string> = { "Diária": "#274b6d", "Semanal": "#7a4fb0", "Mensal": "#b5651d", "Uma vez": "#0f6b50", "Outras": "#9a8f84" };
                 const row = (st: SubtaskT) => {
                   const done = isDone(st);
                   return (
@@ -532,16 +537,49 @@ export default function TaskModal({
                     </div>
                   );
                 };
-                return chaves.map((g) => (
-                  <div key={g} style={{ marginBottom: 4 }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: corG[g], margin: "10px 0 3px", display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: corG[g] }} />{g} <span style={{ color: "var(--txt-faint)", fontWeight: 400 }}>({grupos[g].filter(isDone).length}/{grupos[g].length})</span>
+                if (chaves.length === 0) return null;
+                // aba ativa: respeita a escolha; se a escolhida nao existe, cai na 1a (default Diária)
+                const ativa = subTab === "Todas" ? "Todas" : (chaves.includes(subTab) ? subTab : chaves[0]);
+                const abas = [...chaves, "Todas"];
+                return (
+                  <>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "2px 0 10px" }}>
+                      {abas.map((g) => {
+                        const on = g === ativa;
+                        const cor = g === "Todas" ? "var(--txt-faint)" : corG[g];
+                        const cnt = g === "Todas" ? task.subtasks.length : grupos[g].length;
+                        return (
+                          <button key={g} type="button" onClick={() => { setSubTab(g); if (g !== "Todas") setNovaCad(g); }}
+                            style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: on ? 700 : 500, border: on ? `1px solid ${cor}` : "1px solid var(--line)", background: on ? cor : "transparent", color: on ? "#fff" : "var(--txt)" }}>
+                            {g !== "Todas" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: on ? "#fff" : corG[g] }} />}
+                            {g} <span style={{ opacity: on ? 0.85 : 0.5, fontWeight: 400 }}>{cnt}</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    {grupos[g].map(row)}
-                  </div>
-                ));
+                    {ativa === "Todas"
+                      ? chaves.map((g) => (
+                          <div key={g} style={{ marginBottom: 4 }}>
+                            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: corG[g], margin: "10px 0 3px", display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ width: 7, height: 7, borderRadius: "50%", background: corG[g] }} />{g} <span style={{ color: "var(--txt-faint)", fontWeight: 400 }}>({grupos[g].filter(isDone).length}/{grupos[g].length})</span>
+                            </div>
+                            {grupos[g].map(row)}
+                          </div>
+                        ))
+                      : grupos[ativa].map(row)}
+                  </>
+                );
               })()}
-              <input className="fx-input" style={{ marginTop: 8 }} value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addSubtask()} placeholder="+ Adicionar subtarefa" />
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <select className="fx-input" value={novaCad} onChange={(e) => setNovaCad(e.target.value)} title="Cadência da subtarefa" style={{ flex: "0 0 130px", width: 130 }}>
+                  <option value="Diária">Diária</option>
+                  <option value="Semanal">Semanal</option>
+                  <option value="Mensal">Mensal</option>
+                  <option value="Uma vez">Uma vez</option>
+                  <option value="Sem cadência">Sem cadência</option>
+                </select>
+                <input className="fx-input" style={{ flex: 1 }} value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addSubtask()} placeholder="+ Adicionar subtarefa" />
+              </div>
             </div>
 
             <div className="fx-field-label">Dependências</div>
