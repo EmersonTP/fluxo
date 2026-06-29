@@ -513,30 +513,34 @@ export default function TaskModal({
               Subtarefas ({task.subtasks.filter((s) => s.status?.type === "done" || s.status?.type === "closed").length}/{task.subtasks.length})
             </div>
             <div>
-              {task.subtasks.map((st) => {
-                const done = st.status?.type === "done" || st.status?.type === "closed";
-                return (
-                  <div key={st.id} className={`fx-subtask ${done ? "done" : ""}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="checkbox" checked={done} onChange={() => toggleSubtask(st)} />
-                    <span
-                      style={{ flex: 1, minWidth: 0, cursor: onOpenTask ? "pointer" : "default", textDecoration: onOpenTask ? "none" : undefined }}
-                      onClick={onOpenTask ? () => onOpenTask(st.id) : undefined}
-                      title={onOpenTask ? "Abrir subtarefa (criar sub-subtarefas, prazo, responsável, descrição…)" : undefined}
-                    >
-                      {st.name}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Excluir subtarefa"
-                      title="Excluir subtarefa"
-                      onClick={() => deleteSubtask(st)}
-                      style={{ background: "none", border: "none", color: "var(--txt-faint)", cursor: "pointer", padding: "2px 4px", lineHeight: 1, fontSize: 13 }}
-                    >
-                      ✕
-                    </button>
+              {(() => {
+                const isDone = (st: SubtaskT) => st.status?.type === "done" || st.status?.type === "closed";
+                const grupoDe = (name: string) => { const m = /^\[\s*([^\]]+?)\s*\]/.exec(name || ""); const t = (m ? m[1] : "").toUpperCase(); if (t.startsWith("DI")) return "Diária"; if (t.startsWith("SEMANAL")) return "Semanal"; if (t.startsWith("UMA")) return "Uma vez"; return "Outras"; };
+                const semTag = (name: string) => name.replace(/^\[[^\]]*\]\s*/, "");
+                const ordem = ["Diária", "Semanal", "Uma vez", "Outras"];
+                const grupos: Record<string, SubtaskT[]> = {};
+                for (const st of task.subtasks) { const g = grupoDe(st.name); (grupos[g] = grupos[g] || []).push(st); }
+                const chaves = Object.keys(grupos).sort((a, b) => (ordem.indexOf(a) < 0 ? 9 : ordem.indexOf(a)) - (ordem.indexOf(b) < 0 ? 9 : ordem.indexOf(b)));
+                const corG: Record<string, string> = { "Diária": "#274b6d", "Semanal": "#7a4fb0", "Uma vez": "#0f6b50", "Outras": "#9a8f84" };
+                const row = (st: SubtaskT) => {
+                  const done = isDone(st);
+                  return (
+                    <div key={st.id} className={`fx-subtask ${done ? "done" : ""}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input type="checkbox" checked={done} onChange={() => toggleSubtask(st)} />
+                      <span style={{ flex: 1, minWidth: 0, cursor: onOpenTask ? "pointer" : "default" }} onClick={onOpenTask ? () => onOpenTask(st.id) : undefined} title={onOpenTask ? "Abrir subtarefa (criar sub-subtarefas, prazo, responsável, descrição…)" : undefined}>{semTag(st.name)}</span>
+                      <button type="button" aria-label="Excluir subtarefa" title="Excluir subtarefa" onClick={() => deleteSubtask(st)} style={{ background: "none", border: "none", color: "var(--txt-faint)", cursor: "pointer", padding: "2px 4px", lineHeight: 1, fontSize: 13 }}>✕</button>
+                    </div>
+                  );
+                };
+                return chaves.map((g) => (
+                  <div key={g} style={{ marginBottom: 4 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: corG[g], margin: "10px 0 3px", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: corG[g] }} />{g} <span style={{ color: "var(--txt-faint)", fontWeight: 400 }}>({grupos[g].filter(isDone).length}/{grupos[g].length})</span>
+                    </div>
+                    {grupos[g].map(row)}
                   </div>
-                );
-              })}
+                ));
+              })()}
               <input className="fx-input" style={{ marginTop: 8 }} value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addSubtask()} placeholder="+ Adicionar subtarefa" />
             </div>
 
