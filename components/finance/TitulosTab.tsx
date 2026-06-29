@@ -11,6 +11,7 @@ export function TitulosTab({ companyId, isAdmin }: { companyId: string; isAdmin:
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ descricao: "", valor: "", vencimento: "", clienteId: "", metodo: "" });
   const [open, setOpen] = useState(false);
+  const [edit, setEdit] = useState<{ id: string; descricao: string; valor: string; vencimento: string } | null>(null);
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const load = useCallback(() => {
@@ -29,6 +30,12 @@ export function TitulosTab({ companyId, isAdmin }: { companyId: string; isAdmin:
     if (action === "delete") { if (!confirm("Excluir este título?")) return; await fetch(`/api/finance/receber/${id}`, { method: "DELETE" }); }
     else await fetch(`/api/finance/receber/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
     load();
+  }
+  function abrirEdit(r: Tit) { setEdit({ id: r.id, descricao: r.descricao, valor: String(r.valor), vencimento: r.vencimento ? r.vencimento.slice(0, 10) : "" }); }
+  async function salvarEdit() {
+    if (!edit) return;
+    await fetch(`/api/finance/receber/${edit.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "editar", descricao: edit.descricao, valor: Number(edit.valor), vencimento: edit.vencimento }) });
+    setEdit(null); load();
   }
   const tone = (s: string) => s === "paga" ? { bg: "#d7ebe2", fg: "#0f6b50", l: "Recebido" } : s === "vencida" ? { bg: "#f3dcd8", fg: "#a8332c", l: "Vencido" } : s === "cancelada" ? { bg: "var(--line)", fg: "var(--txt-faint)", l: "Cancelado" } : { bg: "#f6e7cd", fg: "#b5781f", l: "A receber" };
   const shown = filtro ? list.filter((r) => r.status === filtro) : list;
@@ -65,7 +72,16 @@ export function TitulosTab({ companyId, isAdmin }: { companyId: string; isAdmin:
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {loading && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
         {!loading && shown.length === 0 && <p style={{ color: "var(--txt-faint)" }}>Nenhum título. Lance um avulso ou gere os das memberships na aba Memberships.</p>}
-        {shown.map((r) => { const t = tone(r.status); return (
+        {shown.map((r) => { const t = tone(r.status); return edit?.id === r.id ? (
+          <div key={r.id} style={{ border: "1px solid var(--roxo)", borderRadius: "var(--r-card)", padding: "12px 15px", background: "var(--bg-soft, rgba(0,0,0,.02))" }}>
+            <Row>
+              <Field label="Descrição"><input className="fx-input" value={edit.descricao} onChange={(e) => setEdit({ ...edit, descricao: e.target.value })} /></Field>
+              <Field label="Valor (R$)"><input className="fx-input" type="number" value={edit.valor} onChange={(e) => setEdit({ ...edit, valor: e.target.value })} /></Field>
+              <Field label="Vencimento"><input className="fx-input" type="date" value={edit.vencimento} onChange={(e) => setEdit({ ...edit, vencimento: e.target.value })} /></Field>
+            </Row>
+            <div style={{ display: "flex", gap: 8 }}><button className="fx-btn fx-btn-primary" style={{ fontSize: 12 }} onClick={salvarEdit}>Salvar</button><button className="fx-btn" style={{ fontSize: 12 }} onClick={() => setEdit(null)}>Cancelar</button></div>
+          </div>
+        ) : (
           <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 15px", background: "var(--surface)" }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600 }}>{r.descricao} {r.recorrente && <span style={{ fontSize: 10, fontWeight: 700, color: "#7a4fb0", background: "rgba(146,80,172,.12)", borderRadius: 999, padding: "1px 7px" }}>membership</span>}</div>
@@ -74,6 +90,7 @@ export function TitulosTab({ companyId, isAdmin }: { companyId: string; isAdmin:
             <div style={{ fontWeight: 700 }}>{money(r.valor)}</div>
             <span style={{ fontSize: 11, fontWeight: 700, color: t.fg, background: t.bg, borderRadius: 999, padding: "2px 10px" }}>{t.l}</span>
             {isAdmin && r.status !== "paga" && r.status !== "cancelada" && <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => acao(r.id, "receber")}>Receber</button>}
+            {isAdmin && r.status !== "paga" && r.status !== "cancelada" && <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => abrirEdit(r)}>Editar</button>}
             {isAdmin && r.status === "paga" && <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => acao(r.id, "reabrir")}>Reabrir</button>}
             {isAdmin && r.provider === "manual" && r.status !== "paga" && <button className="fx-btn" style={{ fontSize: 12, color: "var(--coral-deep)" }} onClick={() => acao(r.id, "delete")}>Excluir</button>}
           </div>

@@ -10,6 +10,7 @@ export function ContasTab({ companyId, isAdmin }: { companyId: string; isAdmin: 
   const [lancarEm, setLancarEm] = useState<string | null>(null);
   const [lanc, setLanc] = useState({ data: new Date().toISOString().slice(0, 10), tipo: "debito", valor: "", descricao: "" });
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [editConta, setEditConta] = useState<{ id: string; nome: string; tipo: string } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -29,6 +30,18 @@ export function ContasTab({ companyId, isAdmin }: { companyId: string; isAdmin: 
     const d = await r.json();
     setMsg(r.ok ? `Importado: ${d.criados} lançamentos (${d.pulados} pulados/duplicados).` : (d.error || "Erro ao importar."));
     load();
+  }
+  async function salvarConta() {
+    if (!editConta) return;
+    const r = await fetch("/api/finance/contas", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editConta.id, nome: editConta.nome, tipo: editConta.tipo }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao salvar."); return; }
+    setEditConta(null); load();
+  }
+  async function excluirConta(id: string, nome: string, n: number) {
+    if (n > 0) { setMsg(`A conta "${nome}" tem ${n} lançamento(s) — esvazie/importe em outra antes de excluir.`); return; }
+    if (!confirm(`Excluir a conta "${nome}"?`)) return;
+    const r = await fetch(`/api/finance/contas?id=${id}`, { method: "DELETE" });
+    if (r.ok) load(); else { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao excluir."); }
   }
   async function lancarManual(id: string) {
     const r = await fetch(`/api/finance/contas/${id}/lancar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lanc) });
@@ -69,7 +82,18 @@ export function ContasTab({ companyId, isAdmin }: { companyId: string; isAdmin: 
                 {isAdmin && <button className="fx-btn" style={{ fontSize: 12.5 }} onClick={() => setLancarEm(aberto ? null : c.id)}>{aberto ? "Fechar" : "Lançar"}</button>}
                 <input ref={(el) => { fileRefs.current[c.id] = el; }} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) importar(c.id, f); e.currentTarget.value = ""; }} />
                 <button className="fx-btn" style={{ fontSize: 12.5 }} onClick={() => fileRefs.current[c.id]?.click()}>Importar CSV</button>
+                {isAdmin && <button className="fx-btn" style={{ fontSize: 12.5 }} onClick={() => setEditConta({ id: c.id, nome: c.nome, tipo: c.tipo || "caixa" })}>Editar</button>}
+                {isAdmin && <button className="fx-btn" style={{ fontSize: 12.5, color: "var(--coral-deep)" }} onClick={() => excluirConta(c.id, c.nome, c._count.transacoes)}>Excluir</button>}
               </div>
+              {editConta?.id === c.id && (
+                <div style={{ borderTop: "1px solid var(--line)", background: "var(--bg-soft, rgba(0,0,0,.02))", padding: "12px 15px" }}>
+                  <Row>
+                    <Field label="Nome da conta"><input className="fx-input" value={editConta.nome} onChange={(e) => setEditConta({ ...editConta, nome: e.target.value })} /></Field>
+                    <Field label="Tipo"><select className="fx-input" value={editConta.tipo} onChange={(e) => setEditConta({ ...editConta, tipo: e.target.value })}><option value="caixa">Caixa</option><option value="cartao">Cartão</option><option value="socio">Sócio (PF)</option></select></Field>
+                  </Row>
+                  <div style={{ display: "flex", gap: 8 }}><button className="fx-btn fx-btn-primary" style={{ fontSize: 12 }} onClick={salvarConta}>Salvar</button><button className="fx-btn" style={{ fontSize: 12 }} onClick={() => setEditConta(null)}>Cancelar</button></div>
+                </div>
+              )}
               {aberto && (
                 <div style={{ borderTop: "1px solid var(--line)", background: "var(--bg, #faf8fb)", padding: "12px 15px" }}>
                   <Row>

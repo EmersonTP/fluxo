@@ -19,6 +19,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (action === "receber") data = { status: "paga", pagoEm: b.dataPagamento ? new Date(b.dataPagamento) : new Date() };
   else if (action === "cancelar") data = { status: "cancelada" };
   else if (action === "reabrir") data = { status: "pendente", pagoEm: null };
+  else if (action === "editar") {
+    if (typeof b.descricao === "string" && b.descricao.trim()) data.descricao = b.descricao.trim();
+    if (b.valor != null && !isNaN(Number(b.valor))) data.valorCents = Math.round(Number(b.valor) * 100);
+    if (typeof b.vencimento === "string") data.vencimento = b.vencimento ? new Date(b.vencimento) : null;
+    if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nada para editar." }, { status: 400 });
+  }
   else return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
   await prisma.receivable.update({ where: { id: params.id }, data });
   await logAudit({ req, user, action: action === "receber" ? "pay" : "update", entity: "recebivel", entityId: params.id, companyId: r.companyId, meta: action });

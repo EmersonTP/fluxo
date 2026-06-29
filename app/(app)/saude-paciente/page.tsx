@@ -28,6 +28,10 @@ function SaudeView() {
   const [companyId, setCompanyId] = useState("");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fichaId, setFichaId] = useState("");
+  const [ficha, setFicha] = useState<any>(null);
+  const [fichaLoad, setFichaLoad] = useState(false);
+  async function abrirFicha(id: string) { setFichaId(id); setFicha(null); setFichaLoad(true); try { const d = await fetch(`/api/finance/clientes/${id}`).then((r) => r.json()); setFicha(d); } catch { setFicha({ error: "Erro ao carregar." }); } setFichaLoad(false); }
 
   useEffect(() => {
     let c = "";
@@ -81,7 +85,7 @@ function SaudeView() {
         {pacientes.map((p: any) => (
           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, border: "1px solid var(--line)", borderLeft: `4px solid ${COR[p.score as keyof typeof COR]}`, borderRadius: "var(--r-card)", background: "var(--surface)", padding: "12px 16px", flexWrap: "wrap" }}>
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: COR[p.score as keyof typeof COR], flexShrink: 0 }} />
-            <span style={{ fontWeight: 600, fontSize: 14, minWidth: 160, flex: 1 }}>{p.nome}</span>
+            <button type="button" onClick={() => abrirFicha(p.id)} title="Abrir ficha do paciente" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--txt)", font: "inherit", textAlign: "left", fontWeight: 600, fontSize: 14, minWidth: 160, flex: 1 }}><span style={{ borderBottom: "1px dashed var(--line)" }}>{p.nome}</span></button>
             <span style={{ fontSize: 12.5, color: "var(--txt-soft)", minWidth: 130 }}>
               Presença: {p.presenca.total ? `${p.presenca.presentes}/${p.presenca.total}${p.presenca.taxa !== null ? ` (${p.presenca.taxa}%)` : ""}` : "—"}
             </span>
@@ -95,6 +99,67 @@ function SaudeView() {
           </div>
         ))}
       </div>
+
+      {fichaId && (
+        <div onClick={() => setFichaId("")} style={{ position: "fixed", inset: 0, background: "rgba(20,12,30,.45)", zIndex: 1000, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "5vh 16px", overflowY: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface)", borderRadius: "var(--r-card)", width: "100%", maxWidth: 680, boxShadow: "0 20px 60px rgba(0,0,0,.3)", overflow: "hidden" }}>
+            {fichaLoad && <div style={{ padding: 28, color: "var(--txt-faint)" }}>Carregando ficha…</div>}
+            {!fichaLoad && ficha?.error && <div style={{ padding: 28, color: "#a8332c" }}>{ficha.error}</div>}
+            {!fichaLoad && ficha?.cliente && (() => {
+              const cl = ficha.cliente, re = ficha.resumo, as = ficha.assinatura, q = ficha.qualificacao;
+              const dt = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
+              const brl = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+              const stCor: Record<string, string> = { paga: "#0f6b50", pendente: "#b5651d", vencida: "#a8332c", cancelada: "#9a8f84" };
+              const card = (label: string, valor: string, cor?: string) => (
+                <div style={{ flex: 1, minWidth: 120, border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>{label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: cor || "var(--txt)", marginTop: 2 }}>{valor}</div>
+                </div>
+              );
+              return (
+                <div>
+                  <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 18, fontWeight: 700 }}>{cl.nome}</div>
+                      <div style={{ fontSize: 12.5, color: "var(--txt-faint)", marginTop: 3 }}>{cl.documento ? `CPF ${cl.documento} · ` : ""}cliente desde {dt(re.desdeCliente)}</div>
+                    </div>
+                    <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => setFichaId("")}>fechar</button>
+                  </div>
+                  <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {card("MRR", brl(re.mrr))}
+                      {card("Em aberto", brl(re.emAbertoValor), re.emAbertoValor > 0 ? "#b5651d" : undefined)}
+                      {card("Vencido", brl(re.vencidoValor) + (re.vencidoCount ? ` (${re.vencidoCount})` : ""), re.vencidoValor > 0 ? "#a8332c" : undefined)}
+                      {card("Pago", brl(re.pagoTotal), "#0f6b50")}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 }}>Plano · Qualificação</div>
+                      <div style={{ fontSize: 13.5 }}>{as ? <>{as.plano} · <b>{brl(as.valor)}/mês</b> · desde {dt(as.desde)} · próxima {dt(as.proximaCobranca)}</> : "Sem assinatura ativa."}</div>
+                      <div style={{ fontSize: 13.5, marginTop: 3 }}>{q.taxaPresenca === null ? "Sem sessões marcadas ainda." : <>Presença: <b>{q.taxaPresenca}%</b> ({q.presentes}/{q.marcadas}) · último pagamento {dt(re.ultimoPagamento)}</>}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 }}>Recebíveis ({ficha.recebiveis.length})</div>
+                      {ficha.recebiveis.length === 0 ? <div style={{ fontSize: 13, color: "var(--txt-faint)" }}>Nenhuma conta a receber.</div> : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {ficha.recebiveis.map((r: any) => (
+                            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "5px 0", borderBottom: "1px solid var(--line)" }}>
+                              <span style={{ width: 8, height: 8, borderRadius: "50%", background: stCor[r.status] || "#9a8f84" }} />
+                              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.descricao || "Conta a receber"}</span>
+                              <span style={{ color: "var(--txt-faint)", fontSize: 12 }}>{r.status === "paga" ? "pago " + dt(r.pagoEm) : "vence " + dt(r.vencimento)}</span>
+                              <b style={{ minWidth: 84, textAlign: "right" }}>{brl(r.valor)}</b>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "var(--txt-faint)" }}>{cl.email || ""}{cl.telefone ? ` · ${cl.telefone}` : ""}{cl.endereco ? ` · ${cl.endereco}` : ""}</div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
