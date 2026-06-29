@@ -66,7 +66,7 @@ export function ContasTab({ companyId, isAdmin }: { companyId: string; isAdmin: 
           <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#0f6b50", flexShrink: 0 }} />
           <div style={{ flex: 1 }}><b>Inter PJ</b> <span className="pill" style={{ background: "var(--verde-soft)", color: "var(--verde)", fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "2px 9px", marginLeft: 6 }}>conectada (API)</span><div style={{ fontSize: 12, color: "var(--txt-faint)" }}>Extrato ao vivo · conciliação automática</div></div>
         </div>
-        {contas.map((c) => {
+        {contas.filter((c) => c.conexao !== "inter").map((c) => {
           const t = TIPO[c.tipo || "caixa"] || TIPO.caixa;
           const aberto = lancarEm === c.id;
           return (
