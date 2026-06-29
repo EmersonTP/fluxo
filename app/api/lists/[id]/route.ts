@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, requireAdmin, isResponse, canAccessList, companyIdForList } from "@/lib/api";
 import { accessibleCompanyIds } from "@/lib/auth";
+import { resetRotina } from "@/lib/rotina-reset";
 
 // Privacidade da lista: tornar privada e definir quem acessa (admin/owner).
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -31,6 +32,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!(await canAccessList(user, params.id))) {
     return NextResponse.json({ error: "Sem acesso a esta lista." }, { status: 403 });
   }
+
+  // Rotina recorrente: ao abrir a lista, reseta os itens [DIÁRIA]/[SEMANAL] se o ciclo virou.
+  try { await resetRotina(params.id); } catch { /* best-effort */ }
 
   const list = await prisma.list.findUnique({
     where: { id: params.id },

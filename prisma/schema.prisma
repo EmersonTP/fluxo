@@ -846,3 +846,10 @@ model RotinaMetricaLog {
   @@unique([itemId, label, data])
   @@index([listId, data])
 }
+
+model RotinaCiclo {
+  listId      String   @id
+  lastDiaria  String?  // YYYY-MM-DD do último ciclo diário resetado
+  lastSemanal String?  // YYYY-MM-DD do início da semana (domingo) do último reset semanal
+  updatedAt   DateTime @updatedAt
+}

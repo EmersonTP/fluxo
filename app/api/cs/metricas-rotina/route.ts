@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse, canAccessList } from "@/lib/api";
+import { resetRotina } from "@/lib/rotina-reset";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
   if (isResponse(user)) return user;
   const listId = new URL(req.url).searchParams.get("list") || "";
   if (!listId || !(await canAccessList(user, listId))) return NextResponse.json({ hoje: [], semana: [] });
+  try { await resetRotina(listId); } catch { /* best-effort */ }
 
   const tasks: any[] = await prisma.task.findMany({
     where: { listId, customFields: { not: null as any } },
