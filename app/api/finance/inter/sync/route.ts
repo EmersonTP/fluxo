@@ -32,12 +32,16 @@ export async function POST(req: Request) {
 
   // Conta Inter canônica: usa a que JÁ tem os lançamentos (evita criar conta duplicada/stub).
   // Candidatas: conexao "inter", banco "inter" ou nome contendo "inter". Escolhe a com mais lançamentos.
-  const candidatas = await prisma.bankAccount.findMany({
-    where: { companyId, OR: [{ conexao: "inter" }, { banco: "inter" }, { nome: { contains: "inter", mode: "insensitive" } }] },
-    include: { _count: { select: { transacoes: true } } },
-  });
-  let conta = candidatas.sort((a: any, b: any) => b._count.transacoes - a._count.transacoes)[0];
-  if (!conta) { const n = await prisma.bankAccount.count({ where: { companyId } }); conta = await prisma.bankAccount.create({ data: { companyId, nome: "Inter PJ", banco: "inter", conexao: "inter", ordem: n } }) as any; }
+  // 1º: conta conexao="inter" (a oficial). Fallback: conta de caixa (não cartão/sócio) banco/nome "inter" com mais lançamentos.
+  let conta: any = await prisma.bankAccount.findFirst({ where: { companyId, conexao: "inter" } });
+  if (!conta) {
+    const cands = await prisma.bankAccount.findMany({
+      where: { companyId, tipo: { notIn: ["cartao", "socio"] }, OR: [{ banco: "inter" }, { nome: { contains: "inter", mode: "insensitive" } }] },
+      include: { _count: { select: { transacoes: true } } },
+    });
+    conta = cands.sort((a: any, b: any) => b._count.transacoes - a._count.transacoes)[0];
+  }
+  if (!conta) { const n = await prisma.bankAccount.count({ where: { companyId } }); conta = await prisma.bankAccount.create({ data: { companyId, nome: "Inter PJ", banco: "inter", conexao: "inter", ordem: n } }); }
 
   // Auto-conciliação do "barulho": transferências, CDB/aplicação, fatura, tarifas — nascem conciliados.
   const classifica = await getClassifier(companyId);
