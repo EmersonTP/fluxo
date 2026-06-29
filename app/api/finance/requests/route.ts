@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   const created = await prisma.paymentRequest.create({
     data: {
       companyId,
-      kind: b.kind === "reembolso" ? "reembolso" : "padrao",
+      kind: ["padrao", "remuneracao", "prolabore", "imposto", "aluguel", "reembolso", "outras"].includes(b.kind) ? b.kind : "padrao",
       status: "solicitada",
       spaceId: b.spaceId || null,
       areaName: b.areaName,

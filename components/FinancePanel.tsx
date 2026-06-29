@@ -42,6 +42,9 @@ const STATUS: Record<string, { label: string; bg: string; fg: string }> = {
   cancelada: { label: "Cancelada", bg: "#eee", fg: "#777" },
 };
 const CATS = ["Aluguel", "Condomínio", "IPTU", "Energia Elétrica", "Água", "Internet/Telefone", "Contabilidade", "Tecnologia/Software", "Marketing", "Aulas/Professores", "Coordenação", "Salários", "Prestador PJ", "Impostos (DAS/INSS/FGTS)", "Retirada de Sócios", "Manutenção", "Materiais/Insumos", "Reembolso", "Outros"];
+const KINDS: [string, string][] = [["padrao", "Padrão (compra/serviço)"], ["remuneracao", "Remuneração mensal"], ["prolabore", "Pró-labore / sócios"], ["imposto", "Imposto / guia"], ["aluguel", "Aluguel"], ["reembolso", "Reembolso"], ["outras", "Outras"]];
+const KIND_LABEL: Record<string, string> = Object.fromEntries(KINDS);
+const KIND_PRECISA_CREDOR = new Set(["padrao", "remuneracao", "prolabore", "aluguel"]);
 const BRL = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("pt-BR") : "—");
 
@@ -159,7 +162,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.descricao || "(sem descrição)"}</div>
           <div style={{ fontSize: 12, color: "var(--txt-faint)", marginTop: 2 }}>
-            {r.kind === "reembolso" ? "Reembolso" : "Padrão"} · {r.areaName} · {r.credor?.nome || "—"} {sol ? `· por ${sol.name}` : ""}{hint ? ` · ${hint}` : ""}
+            {KIND_LABEL[r.kind] || "Padrão"} · {r.areaName} · {r.credor?.nome || "—"} {sol ? `· por ${sol.name}` : ""}{hint ? ` · ${hint}` : ""}
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -427,7 +430,7 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   // Campos obrigatórios — a solicitação só é enviada com tudo preenchido.
   const faltando: string[] = [];
   if (!spaceId) faltando.push("Área");
-  if (kind === "padrao" && !credorId) faltando.push("Credor/Favorecido");
+  if (KIND_PRECISA_CREDOR.has(kind) && !credorId) faltando.push("Credor/Favorecido");
   if (!descricao.trim()) faltando.push("Descrição");
   if (!Number(valor)) faltando.push("Valor");
   if (!vencimento) faltando.push("Vencimento");
@@ -462,9 +465,9 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
 
   return (
     <Drawer title="Nova solicitação de pagamento" onClose={onClose}>
-      <Row><Field label="Tipo"><select className="fx-input" value={kind} onChange={(e) => setKind(e.target.value)}><option value="padrao">Padrão (compra/serviço)</option><option value="reembolso">Reembolso</option></select></Field>
+      <Row><Field label="Tipo"><select className="fx-input" value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
         <Field label="Área*"><select className="fx-input" value={spaceId} onChange={(e) => setSpaceId(e.target.value)}><option value="">Selecione…</option>{areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field></Row>
-      <Field label={kind === "padrao" ? "Credor / Favorecido*" : "Credor / Favorecido"}><select className="fx-input" value={credorId} onChange={(e) => setCredorId(e.target.value)}><option value="">— selecione ou cadastre na aba Credores —</option>{credores.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.documento}</option>)}</select></Field>
+      <Field label={KIND_PRECISA_CREDOR.has(kind) ? "Credor / Favorecido*" : "Credor / Favorecido"}><select className="fx-input" value={credorId} onChange={(e) => setCredorId(e.target.value)}><option value="">— selecione ou cadastre na aba Credores —</option>{credores.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.documento}</option>)}</select></Field>
       <Field label="Descrição / justificativa*"><textarea className="fx-input" rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} /></Field>
       <Row><Field label="Valor (R$)*"><input className="fx-input" type="number" value={valor} onChange={(e) => setValor(e.target.value)} /></Field>
         <Field label="Vencimento*"><input className="fx-input" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} /></Field></Row>
@@ -563,7 +566,7 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
     <Drawer title={`Solicitação #${r.code}`} onClose={onClose} wide>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <span style={{ background: st.bg, color: st.fg, fontSize: 11.5, fontWeight: 700, padding: "3px 11px", borderRadius: 999 }}>{st.label}</span>
-        <span style={{ fontSize: 12, color: "var(--txt-faint)" }}>{r.kind === "reembolso" ? "Reembolso" : "Padrão"} · {r.areaName}</span>
+        <span style={{ fontSize: 12, color: "var(--txt-faint)" }}>{KIND_LABEL[r.kind] || "Padrão"} · {r.areaName}</span>
       </div>
       <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 2 }}>{BRL(r.valor)}</div>
       <div style={{ fontSize: 14, marginBottom: 12 }}>{r.descricao}</div>
