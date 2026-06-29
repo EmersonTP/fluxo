@@ -33,6 +33,7 @@ export async function GET(req: Request) {
 
   const de = url.searchParams.get("de") || ymd(new Date(2025, 11, 1));
   const ate = url.searchParams.get("ate") || ymd(new Date());
+  const regime = url.searchParams.get("regime") || "competencia";
 
   const regras: any[] = await prisma.categoriaRegra.findMany({
     where: { companyId }, orderBy: { prioridade: "desc" },
@@ -43,6 +44,43 @@ export async function GET(req: Request) {
     for (const r of regras) { if (r.aplicaA !== "ambos" && r.aplicaA !== tipo) continue; if (up.includes(r.padrao)) return r.categoria; }
     return null;
   };
+
+  // ---- Regime de CAIXA: demonstrativo no formato DRE, mas pela data do pagamento ----
+  // Tudo que entrou/saiu das contas de caixa (cartão e sócio ficam fora), agrupado por categoria.
+  if (regime === "caixa") {
+    type CatC = { grupo: string; nome: string; total: number; porMes: Record<string, number>; itens: { data: string; descricao: string; valor: number }[] };
+    const meses = new Set<string>();
+    const ent: Record<string, CatC> = {}, sai: Record<string, CatC> = {};
+    const push = (store: Record<string, CatC>, grupo: string, nome: string, l: any) => {
+      const key = `${grupo} › ${nome}`; const c = (store[key] = store[key] || { grupo, nome, total: 0, porMes: {}, itens: [] });
+      const m = ym(l.data); if (m) meses.add(m);
+      c.total += l.valor; c.porMes[m] = (c.porMes[m] || 0) + l.valor; c.itens.push({ data: l.data, descricao: (l.descricao || "").slice(0, 60), valor: Math.round(l.valor) });
+    };
+    const bancoC = await getLancamentos(companyId, de, ate, { apenasCaixa: true });
+    for (const t of bancoC) {
+      const c = t.override || classifica(t.tipo, t.descricao);
+      const grupo = c?.grupo || "Sem categoria"; const nome = c?.nome || "Não categorizado";
+      push(t.tipo === "credito" ? ent : sai, grupo, nome, t);
+    }
+    const round = (n: number) => Math.round(n);
+    const fmt = (store: Record<string, CatC>) => Object.values(store)
+      .map((c) => ({ grupo: c.grupo, nome: c.nome, total: round(c.total), porMes: Object.fromEntries(Object.entries(c.porMes).map(([k, v]) => [k, round(v)])), itens: c.itens.sort((a, b) => (a.data < b.data ? -1 : 1)) }))
+      .sort((a, b) => b.total - a.total);
+    const somaMes = (store: Record<string, CatC>) => { const o: Record<string, number> = {}; for (const c of Object.values(store)) for (const [m, v] of Object.entries(c.porMes)) o[m] = (o[m] || 0) + v; return o; };
+    const totalOf = (store: Record<string, CatC>) => Object.values(store).reduce((s, c) => s + c.total, 0);
+    const mesesArr = [...meses].sort();
+    const entMes = somaMes(ent), saiMes = somaMes(sai);
+    const varMes: Record<string, number> = {};
+    for (const m of mesesArr) varMes[m] = round((entMes[m] || 0) - (saiMes[m] || 0));
+    return NextResponse.json({
+      regime: "caixa (data do pagamento)",
+      meses: mesesArr,
+      receitas: { total: round(totalOf(ent)), porMes: Object.fromEntries(Object.entries(entMes).map(([k, v]) => [k, round(v)])), categorias: fmt(ent) },
+      despesasOperacional: { total: round(totalOf(sai)), porMes: Object.fromEntries(Object.entries(saiMes).map(([k, v]) => [k, round(v)])), categorias: fmt(sai) },
+      resultadoOperacional: { total: round(totalOf(ent) - totalOf(sai)), porMes: varMes },
+      naoOperacional: { investimento: [], financiamento: [] },
+    });
+  }
 
   type Lanc = { data: string; tipo: string; valor: number; descricao: string; cat: any };
   const lancs: Lanc[] = [];

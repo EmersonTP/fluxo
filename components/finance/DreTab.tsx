@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { Section } from "./ui";
 import React from "react";
 
-export function DreTab({ companyId }: { companyId: string }) {
+export function DreTab({ companyId, regime = "competencia" }: { companyId: string; regime?: string }) {
+  const caixa = regime === "caixa";
   type Item = { data: string; descricao: string; valor: number };
   type Cat = { grupo: string; nome: string; total: number; porMes: Record<string, number>; itens: Item[] };
   type Grp = { total: number; porMes: Record<string, number>; categorias: Cat[] };
@@ -11,7 +12,7 @@ export function DreTab({ companyId }: { companyId: string }) {
   const [d, setD] = useState<Dados | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  useEffect(() => { setLoading(true); fetch(`/api/finance/dre?company=${companyId}`).then((r) => r.json()).then(setD).finally(() => setLoading(false)); }, [companyId]);
+  useEffect(() => { setLoading(true); fetch(`/api/finance/dre?company=${companyId}${caixa ? "&regime=caixa" : ""}`).then((r) => r.json()).then(setD).finally(() => setLoading(false)); }, [companyId]);
   const money = (v: number) => (v < 0 ? "−" : "") + "R$ " + Math.abs(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const mesLabel = (m: string) => { const [a, mm] = m.split("-"); return `${mm}/${a.slice(2)}`; };
   if (loading) return <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>;
@@ -52,17 +53,17 @@ export function DreTab({ companyId }: { companyId: string }) {
 
   return (
     <>
-      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 14, maxWidth: 780 }}><b>DRE — {d.regime}.</b> Lê os lançamentos reais (extrato + cartão + recebíveis). <b>Clique numa categoria</b> para ver os lançamentos que a compõem. Investimento e aportes ficam no memo (fora do resultado).</div>
+      <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 14, maxWidth: 780 }}><b>{caixa ? "Demonstrativo de Caixa" : "DRE"} — {d.regime}.</b> {caixa ? "Tudo que entrou e saiu das contas de caixa, na data do pagamento, agrupado por categoria." : "Lê os lançamentos reais (extrato + cartão + recebíveis)."} <b>Clique numa categoria</b> para ver os lançamentos.</div>
       <div style={{ overflowX: "auto", border: "1px solid var(--line)", borderRadius: "var(--r-card)" }}>
         <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 540 }}>
           <thead><tr><th style={{ ...head, textAlign: "left" }}>Conta</th>{meses.map((m) => <th key={m} style={head}>{mesLabel(m)}</th>)}<th style={head}>Total</th></tr></thead>
           <tbody>
-            {totalRow("RECEITAS", d.receitas.porMes, d.receitas.total, "#0f6b50")}
+            {totalRow(caixa ? "ENTRADAS" : "RECEITAS", d.receitas.porMes, d.receitas.total, "#0f6b50")}
             {catRows(d.receitas.categorias)}
             {d.receitas.categorias.length === 0 && <tr><td colSpan={meses.length + 2} style={{ padding: "6px 22px", fontSize: 12, color: "var(--txt-faint)" }}>Sem receitas no período.</td></tr>}
-            {totalRow("(−) DESPESAS OPERACIONAIS", d.despesasOperacional.porMes, d.despesasOperacional.total, "#a8332c")}
+            {totalRow(caixa ? "(−) SAÍDAS" : "(−) DESPESAS OPERACIONAIS", d.despesasOperacional.porMes, d.despesasOperacional.total, "#a8332c")}
             {catRows(d.despesasOperacional.categorias)}
-            {totalRow("= RESULTADO OPERACIONAL", d.resultadoOperacional.porMes, d.resultadoOperacional.total)}
+            {totalRow(caixa ? "= VARIAÇÃO DE CAIXA" : "= RESULTADO OPERACIONAL", d.resultadoOperacional.porMes, d.resultadoOperacional.total)}
           </tbody>
         </table>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { Field } from "./ui";
+import { DreTab } from "./DreTab";
 
 export function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
   const hoje = new Date();
@@ -14,6 +15,7 @@ export function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdm
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
   const [aberta, setAberta] = useState<string | null>(null); // categoria expandida (drill-down)
+  const [vista, setVista] = useState<"saldos" | "dre">("saldos");
   const money = (v: number) => (v < 0 ? "−" : "") + "R$ " + Math.abs(v || 0).toLocaleString("pt-BR");
   const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
   const mesLabel = (m: string) => { const [y, mm] = m.split("-"); return `${MES[(+mm || 1) - 1]}/${y.slice(2)}`; };
@@ -117,6 +119,12 @@ export function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdm
         {isAdmin && <button className="fx-btn" disabled={seeding} onClick={seed} title="Cria/atualiza o plano de contas e as regras de categorização">{seeding ? "Configurando…" : "Configurar plano"}</button>}
       </div>
 
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {([["saldos", "Saldos & gráfico"], ["dre", "Demonstrativo (formato DRE)"]] as const).map(([k, l]) => (
+          <button key={k} className="fx-btn" onClick={() => setVista(k)} style={{ fontSize: 12.5, fontWeight: vista === k ? 700 : 400, background: vista === k ? "rgba(146,80,172,.12)" : undefined, color: vista === k ? "var(--txt)" : "var(--txt-soft)" }}>{l}</button>
+        ))}
+      </div>
+
       {/* selo de atualização + sincronizar */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 16, fontSize: 12.5 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: fresco ? "#d7ebe2" : "#f6e7cd", color: fresco ? "#0f6b50" : "#b5781f", borderRadius: 999, padding: "3px 11px", fontWeight: 600 }}>
@@ -127,6 +135,8 @@ export function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdm
         {syncMsg && <span style={{ color: "var(--txt-faint)" }}>{syncMsg}</span>}
         <span style={{ color: "var(--txt-faint)" }}>· sincroniza sozinho todo dia às 7h</span>
       </div>
+
+      {vista === "dre" ? <DreTab companyId={companyId} regime="caixa" /> : (<>
 
       {err && <div style={{ background: "#f3dcd8", color: "#a8332c", border: "1px solid #e4b8b1", borderRadius: "var(--r-card)", padding: "12px 15px", fontSize: 13.5, maxWidth: 680 }}>{err}</div>}
       {loading && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
@@ -240,6 +250,7 @@ export function FluxoCaixaTab({ companyId, isAdmin }: { companyId: string; isAdm
           )}
         </>
       )}
+      </>)}
     </>
   );
 }

@@ -13,7 +13,6 @@ export function ConciliacaoTab({ companyId }: { companyId: string }) {
   async function act(transactionId: string, body: any) { await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionId, ...body }) }); load(); }
   const [autoMsg, setAutoMsg] = useState("");
   async function autoConc() {
-    if (!confirm("Conciliar automaticamente os lançamentos que seguem padrões (transferências, CDB/aplicação, fatura, tarifas) e os que casam por valor único?")) return;
     setAutoMsg("Conciliando…");
     const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "auto", companyId }) });
     const d = await r.json();
