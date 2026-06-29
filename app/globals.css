@@ -161,7 +161,7 @@ body {
   color: #fff;
 }
 .fx-rail-item.active {
-  background: rgba(146, 80, 172, 0.45);
+  background: var(--setor, rgba(146, 80, 172, 0.45));
   color: #fff;
 }
 .fx-rail-label {
@@ -347,7 +347,7 @@ body {
 }
 .fx-accent {
   height: 3px;
-  background: linear-gradient(90deg, var(--coral), var(--roxo));
+  background: var(--setor, linear-gradient(90deg, var(--coral), var(--roxo)));
   border-radius: var(--r-pill);
   margin: 0 26px;
 }

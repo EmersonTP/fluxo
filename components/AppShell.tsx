@@ -213,8 +213,11 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     [{ icon: "gear", label: "Config", href: "/configuracoes" }],
   ] as RailItem[][]).filter((g) => g.length > 0);
 
+  const _ci = companies.findIndex((c) => c.id === activeCompany);
+  const setorColor = COMPANY_COLORS[(_ci < 0 ? 0 : _ci) % COMPANY_COLORS.length];
+
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100vh", ["--setor" as any]: setorColor }}>
       {collapsed ? (
         /* ---------- Recolhido: rail de ícones ---------- */
         <div className="fx-rail" style={{ overflow: "visible" }}>
