@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany } from "@/lib/finance";
+import { getClassifier } from "@/lib/ledger";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -47,6 +48,32 @@ export async function POST(req: Request) {
   if (isResponse(user)) return user;
   if (!isAdmin(user)) return NextResponse.json({ error: "Só admin." }, { status: 403 });
   const b = await req.json();
+
+  // Conciliação automática por padrões: marca os lançamentos "auto-conciliáveis"
+  // (transferências, CDB/aplicação, fatura, tarifas — pelas regras/descrição) e os que casam por valor único.
+  if (b.action === "auto") {
+    const companyId = b.companyId || "";
+    if (!companyId || !canAccessCompany(user, companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+    const classifica = await getClassifier(companyId);
+    const GRUPOS = new Set(["Transferência entre contas", "Aplicações Financeiras", "Aporte de Sócios", "Financeiras"]);
+    const PAT = /RESGATE|APLICA|CDB|GARANTIA|RENDIMENTO|TRANSFER|INTERNO|FATURA|IOF|TARIFA/i;
+    const txs: any[] = await prisma.bankTransaction.findMany({ where: { companyId, conciliado: false, account: { tipo: { not: "cartao" } } }, include: { categoria: { select: { grupo: true, nome: true } } } });
+    const pagar: any[] = await prisma.paymentRequest.findMany({ where: { companyId, status: { notIn: ["cancelada", "recusada"] } }, select: { id: true, valor: true } });
+    const receber: any[] = await prisma.receivable.findMany({ where: { companyId, status: { notIn: ["cancelada", "estornada"] } }, select: { id: true, valorCents: true } });
+    const r2 = (n: number) => Math.round(Math.abs(n));
+    let auto = 0;
+    for (const tx of txs) {
+      const cat: any = tx.categoria ? { grupo: tx.categoria.grupo, nome: tx.categoria.nome } : classifica(tx.tipo, tx.descricao);
+      let conc = false; let reqId: string | null = null;
+      if (cat && (GRUPOS.has(cat.grupo) || String(cat.nome || "").includes("Reembolso a sócios"))) conc = true;
+      else if (PAT.test(tx.descricao || "")) conc = true;
+      else { const v = r2(tx.valor); const cands = tx.tipo === "debito" ? pagar.filter((p) => r2(p.valor) === v) : receber.filter((r) => r2((r.valorCents || 0) / 100) === v); if (cands.length === 1) { conc = true; reqId = cands[0].id; } }
+      if (conc) { await prisma.bankTransaction.update({ where: { id: tx.id }, data: { conciliado: true, ...(reqId ? { requestId: reqId } : {}) } }); auto++; }
+    }
+    await logAudit({ req, user, action: "update", entity: "extrato", companyId, meta: `conciliação automática: ${auto}/${txs.length}` });
+    return NextResponse.json({ ok: true, auto, total: txs.length, restantes: txs.length - auto });
+  }
+
   const t = await prisma.bankTransaction.findUnique({ where: { id: b.transactionId }, select: { companyId: true } });
   if (!t || !canAccessCompany(user, t.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   const data: Record<string, unknown> = {};

@@ -11,14 +11,25 @@ export function ConciliacaoTab({ companyId }: { companyId: string }) {
   const load = useCallback(() => { setLoading(true); fetch(`/api/finance/conciliar?company=${companyId}${soPend ? "&pendentes=1" : ""}`).then((r) => r.json()).then(setData).finally(() => setLoading(false)); }, [companyId, soPend]);
   useEffect(() => { load(); }, [load]);
   async function act(transactionId: string, body: any) { await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionId, ...body }) }); load(); }
+  const [autoMsg, setAutoMsg] = useState("");
+  async function autoConc() {
+    if (!confirm("Conciliar automaticamente os lançamentos que seguem padrões (transferências, CDB/aplicação, fatura, tarifas) e os que casam por valor único?")) return;
+    setAutoMsg("Conciliando…");
+    const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "auto", companyId }) });
+    const d = await r.json();
+    setAutoMsg(r.ok ? `${d.auto} conciliado(s) automaticamente · ${d.restantes} restante(s) pra revisar.` : (d.error || "Erro."));
+    load();
+  }
   return (
     <>
       <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 12, maxWidth: 760 }}><b>Conciliação.</b> Cada lançamento do extrato é amarrado ao pagamento/recebimento que o originou. A Sandra sugere o que casa pelo valor; você confirma. (Cartão fica de fora — não é caixa.)</div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
         <label style={{ fontSize: 13, color: "var(--txt-soft)", display: "flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={soPend} onChange={(e) => setSoPend(e.target.checked)} /> Só pendentes</label>
         {data && <span style={{ fontSize: 12.5, color: "var(--txt-faint)" }}>{data.pendentes} pendente(s) de {data.total}</span>}
-        <button className="fx-btn" onClick={load} style={{ marginLeft: "auto" }}>Recarregar</button>
+        <button className="fx-btn fx-btn-primary" onClick={autoConc} style={{ marginLeft: "auto" }}>Conciliar automático</button>
+        <button className="fx-btn" onClick={load}>Recarregar</button>
       </div>
+      {autoMsg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "8px 12px", fontSize: 12.5, marginBottom: 12 }}>{autoMsg}</div>}
       {loading && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {data && data.lancamentos.length === 0 && <p style={{ color: "var(--txt-faint)" }}>Nada para conciliar no período. 🎉</p>}
