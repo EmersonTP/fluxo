@@ -296,6 +296,7 @@ function ListPageInner({ params }: { params: { id: string } }) {
             removeTaskLocal(id);
             setOpenTask(null);
           }}
+          onOpenTask={(id) => setOpenTask(id)}
         />
       )}
       <Toast />

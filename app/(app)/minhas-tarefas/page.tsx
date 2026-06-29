@@ -156,6 +156,7 @@ export default function MyTasksPage() {
             setOpenTask(null);
             load();
           }}
+          onOpenTask={(id) => setOpenTask(id)}
         />
       )}
     </>

@@ -103,12 +103,14 @@ export default function TaskModal({
   onClose,
   onUpdated,
   onDeleted,
+  onOpenTask,
 }: {
   taskId: string;
   members: Member[];
   onClose: () => void;
   onUpdated: (t: TaskT) => void;
   onDeleted: (id: string) => void;
+  onOpenTask?: (id: string) => void;
 }) {
   const [task, setTask] = useState<FullTask | null>(null);
   const [name, setName] = useState("");
@@ -300,6 +302,13 @@ export default function TaskModal({
       setTask((prev) => (prev ? { ...prev, subtasks: [...prev.subtasks, st] } : prev));
       setNewSubtask("");
     }
+  }
+
+  async function deleteSubtask(st: SubtaskT) {
+    if (!task) return;
+    if (!window.confirm(`Excluir a subtarefa "${st.name}"?`)) return;
+    setTask((prev) => (prev ? { ...prev, subtasks: prev.subtasks.filter((s) => s.id !== st.id) } : prev));
+    await fetch(`/api/tasks/${st.id}`, { method: "DELETE" });
   }
 
   async function toggleSubtask(st: SubtaskT) {
@@ -495,10 +504,25 @@ export default function TaskModal({
               {task.subtasks.map((st) => {
                 const done = st.status?.type === "done" || st.status?.type === "closed";
                 return (
-                  <label key={st.id} className={`fx-subtask ${done ? "done" : ""}`}>
+                  <div key={st.id} className={`fx-subtask ${done ? "done" : ""}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input type="checkbox" checked={done} onChange={() => toggleSubtask(st)} />
-                    <span>{st.name}</span>
-                  </label>
+                    <span
+                      style={{ flex: 1, minWidth: 0, cursor: onOpenTask ? "pointer" : "default", textDecoration: onOpenTask ? "none" : undefined }}
+                      onClick={onOpenTask ? () => onOpenTask(st.id) : undefined}
+                      title={onOpenTask ? "Abrir subtarefa (criar sub-subtarefas, prazo, responsável, descrição…)" : undefined}
+                    >
+                      {st.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Excluir subtarefa"
+                      title="Excluir subtarefa"
+                      onClick={() => deleteSubtask(st)}
+                      style={{ background: "none", border: "none", color: "var(--txt-faint)", cursor: "pointer", padding: "2px 4px", lineHeight: 1, fontSize: 13 }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 );
               })}
               <input className="fx-input" style={{ marginTop: 8 }} value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addSubtask()} placeholder="+ Adicionar subtarefa" />
