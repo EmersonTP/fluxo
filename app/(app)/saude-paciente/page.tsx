@@ -11,15 +11,15 @@ const PG: Record<string, { label: string; cor: string }> = {
 };
 
 export default function SaudePacientePage() {
-  const [tab, setTab] = useState<"saude" | "checkin">("saude");
+  const [tab, setTab] = useState<"saude" | "checkin" | "metricas">("saude");
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ display: "flex", gap: 4, padding: "14px 28px 0", borderBottom: "1px solid var(--line)" }}>
-        {([["saude", "Saúde"], ["checkin", "Check-in da sessão"]] as const).map(([k, l]) => (
+        {([["saude", "Saúde"], ["metricas", "Métricas"], ["checkin", "Check-in da sessão"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{ background: "none", border: "none", borderBottom: tab === k ? "2px solid var(--roxo)" : "2px solid transparent", padding: "8px 10px", fontWeight: tab === k ? 700 : 500, color: tab === k ? "var(--txt)" : "var(--txt-soft)", cursor: "pointer", fontSize: 14 }}>{l}</button>
         ))}
       </div>
-      {tab === "saude" ? <SaudeView /> : <CheckinSessaoView />}
+      {tab === "saude" ? <SaudeView /> : tab === "metricas" ? <MetricasView /> : <CheckinSessaoView />}
     </div>
   );
 }
@@ -95,6 +95,80 @@ function SaudeView() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+
+const ROTINA_LIST_ID = "cmqjngc9i046ytox30huda7ue"; // Rotina - Nicolas
+
+function MetricasView() {
+  const [d, setD] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(() => { setLoading(true); fetch(`/api/cs/metricas-rotina?list=${ROTINA_LIST_ID}`).then((r) => r.json()).then(setD).finally(() => setLoading(false)); }, []);
+  useEffect(() => { load(); }, [load]);
+  const hoje = d?.hoje || [];
+  const semana = d?.semana || [];
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "22px 28px 60px" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontSize: 11, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".08em" }}>Customer Success</div>
+          <div className="serif" style={{ fontSize: 24, fontWeight: 700 }}>Métricas da Rotina — Nicolas</div>
+          <div style={{ fontSize: 13, color: "var(--txt-soft)", marginTop: 2 }}>O que ele fez × a meta. Os números vêm dos campos da rotina; a cada abertura, a Sandra guarda o do dia.</div>
+        </div>
+        <button className="fx-btn" onClick={load} disabled={loading}>{loading ? "…" : "Recarregar"}</button>
+      </div>
+
+      {loading && !d && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
+      {d && hoje.length === 0 && (
+        <p style={{ color: "var(--txt-faint)" }}>Sem números ainda. Abra a rotina do Nicolas, e em cada item (ex.: "abastecer com 3 mensagens") adicione um campo personalizado do tipo Número e preencha o valor do dia.</p>
+      )}
+
+      {hoje.length > 0 && (
+        <>
+          <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", margin: "4px 0 10px" }}>Hoje</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 26 }}>
+            {hoje.map((m: any, i: number) => {
+              const feito = m.tipo === "numero" ? Number(m.valor) : null;
+              const pct = m.meta && feito != null ? Math.min(100, Math.round((feito / m.meta) * 100)) : null;
+              const bateu = m.meta != null && feito != null && feito >= m.meta;
+              return (
+                <div key={i} style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", background: "var(--surface)", padding: "11px 15px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 600, fontSize: 13.5, flex: 1, minWidth: 200 }}>{m.label} <span style={{ color: "var(--txt-faint)", fontWeight: 400 }}>· {m.itemNome.replace(/^\[[^\]]+\]\s*/, "")}</span></span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: bateu ? "#0f6b50" : "var(--txt)" }}>
+                      {m.valor}{m.meta != null ? <span style={{ color: "var(--txt-faint)", fontWeight: 600 }}> / {m.meta}</span> : ""}
+                    </span>
+                  </div>
+                  {pct != null && (
+                    <span style={{ display: "block", marginTop: 8, height: 6, borderRadius: 999, background: "var(--line)", overflow: "hidden" }}>
+                      <span style={{ display: "block", height: "100%", width: `${pct}%`, background: bateu ? "#0f6b50" : "var(--roxo)" }} />
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {semana.length > 0 && (
+        <>
+          <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--txt-soft)", margin: "4px 0 10px" }}>Últimos 7 dias</div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {semana.map((s: any, i: number) => (
+              <div key={i} style={{ flex: 1, minWidth: 180, border: "1px solid var(--line)", borderRadius: "var(--r-card)", background: "var(--surface)", padding: "12px 16px" }}>
+                <div style={{ fontSize: 12.5, color: "var(--txt-soft)" }}>{s.label}</div>
+                {s.tipo === "numero"
+                  ? <div style={{ fontSize: 24, fontWeight: 800 }}>{s.total}<span style={{ fontSize: 12, color: "var(--txt-faint)", fontWeight: 600 }}> no total · {s.dias} dia(s)</span></div>
+                  : <div style={{ fontSize: 14, fontWeight: 700 }}>{s.dias} registro(s)</div>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -831,3 +831,18 @@ model SessaoPresenca {
   @@unique([sessaoId, clienteId])
   @@index([clienteId])
 }
+
+model RotinaMetricaLog {
+  id        String   @id @default(cuid())
+  listId    String
+  itemId    String
+  itemNome  String
+  label     String
+  tipo      String   @default("numero")
+  valor     String   @default("")
+  data      String   // YYYY-MM-DD (dia do snapshot)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([itemId, label, data])
+  @@index([listId, data])
+}
