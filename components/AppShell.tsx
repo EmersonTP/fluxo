@@ -214,7 +214,21 @@ export default function AppShell({ user, children }: { user: User; children: Rea
   ] as RailItem[][]).filter((g) => g.length > 0);
 
   const _ci = companies.findIndex((c) => c.id === activeCompany);
-  const setorColor = COMPANY_COLORS[(_ci < 0 ? 0 : _ci) % COMPANY_COLORS.length];
+  let setorColor = COMPANY_COLORS[(_ci < 0 ? 0 : _ci) % COMPANY_COLORS.length];
+  {
+    // dentro de um espaço/lista, o acento usa a cor daquele setor (espaço)
+    const mSpace = pathname.match(/^\/space\/([^/]+)/)?.[1];
+    const mList = pathname.match(/^\/list\/([^/]+)/)?.[1];
+    if (mSpace || mList) {
+      for (const ws of workspaces) {
+        (ws.spaces || []).forEach((sp, i) => {
+          const col = sp.color || SPACE_COLORS[i % SPACE_COLORS.length];
+          if (mSpace && sp.id === mSpace) setorColor = col;
+          else if (mList && ((sp.lists || []).some((l) => l.id === mList) || (sp.folders || []).some((f) => (f.lists || []).some((l) => l.id === mList)))) setorColor = col;
+        });
+      }
+    }
+  }
 
   return (
     <div style={{ display: "flex", height: "100vh", ["--setor" as any]: setorColor }}>
