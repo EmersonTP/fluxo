@@ -197,7 +197,6 @@ export default function AppShell({ user, children }: { user: User; children: Rea
       { icon: "sprint", label: "Sprints", href: "/sprints" },
       { icon: "chat", label: "Chat", href: "/chat" },
       { icon: "docs", label: "Docs", href: "/documentos" },
-      { icon: "patients", label: "Acompanhamento", href: "/acompanhamento" },
       { icon: "heart", label: "Saúde do Paciente", href: "/saude-paciente" },
     ],
     // Financeiro / análise

@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { CheckinSessaoView } from "@/components/CheckinSessaoView";
 
 const COR = { verde: "#0f6b50", amarelo: "#b5781f", vermelho: "#a8332c" } as const;
 const BG = { verde: "#d7ebe2", amarelo: "#f6e7cd", vermelho: "#f3dcd8" } as const;
@@ -10,6 +11,20 @@ const PG: Record<string, { label: string; cor: string }> = {
 };
 
 export default function SaudePacientePage() {
+  const [tab, setTab] = useState<"saude" | "checkin">("saude");
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ display: "flex", gap: 4, padding: "14px 28px 0", borderBottom: "1px solid var(--line)" }}>
+        {([["saude", "Saúde"], ["checkin", "Check-in da sessão"]] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} style={{ background: "none", border: "none", borderBottom: tab === k ? "2px solid var(--roxo)" : "2px solid transparent", padding: "8px 10px", fontWeight: tab === k ? 700 : 500, color: tab === k ? "var(--txt)" : "var(--txt-soft)", cursor: "pointer", fontSize: 14 }}>{l}</button>
+        ))}
+      </div>
+      {tab === "saude" ? <SaudeView /> : <CheckinSessaoView />}
+    </div>
+  );
+}
+
+function SaudeView() {
   const [companyId, setCompanyId] = useState("");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +74,7 @@ export default function SaudePacientePage() {
 
       {loading && !data && <p style={{ color: "var(--txt-faint)" }}>Carregando…</p>}
       {data && pacientes.length === 0 && (
-        <p style={{ color: "var(--txt-faint)" }}>Nenhum paciente cadastrado ainda. Cadastre em Finanças → Contas a Receber → Memberships, e marque presença em Acompanhamento.</p>
+        <p style={{ color: "var(--txt-faint)" }}>Nenhum paciente cadastrado ainda. Cadastre em Finanças → Contas a Receber → Memberships, e marque presença na aba Check-in da sessão.</p>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
