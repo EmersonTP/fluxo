@@ -4,7 +4,7 @@ import { Row, Field, Section } from "./ui";
 
 export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
   type Plano = { id: string; nome: string; valor: number; intervalo: number; intervaloTipo: string; ativo: boolean; assinaturas: number };
-  type Assin = { id: string; status: string; proximaCobranca: string | null; cliente: string; plano: string; valor: number };
+  type Assin = { id: string; clienteId?: string; status: string; proximaCobranca: string | null; cliente: string; plano: string; valor: number };
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [assin, setAssin] = useState<Assin[]>([]);
   const [clientes, setClientes] = useState<{ id: string; nome: string; documento?: string }[]>([]);
