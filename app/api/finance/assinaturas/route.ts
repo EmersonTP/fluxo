@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     include: { cliente: { select: { nome: true } }, plano: { select: { nome: true, valorCents: true } } },
   });
   return NextResponse.json({ assinaturas: rows.map((a: any) => ({
-    id: a.id, status: a.status, proximaCobranca: a.proximaCobranca,
+    id: a.id, clienteId: a.clienteId, status: a.status, proximaCobranca: a.proximaCobranca,
     cliente: a.cliente?.nome || "—", plano: a.plano?.nome || "—", valor: ((a.valorCents ?? a.plano?.valorCents) || 0) / 100,
   })) });
 }

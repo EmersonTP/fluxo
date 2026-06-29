@@ -22,6 +22,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   const [cob, setCob] = useState<any>(null);
   const [savingM, setSavingM] = useState(false);
   const [etapa, setEtapa] = useState(1);
+  const [novoId, setNovoId] = useState("");
   const [copiado, setCopiado] = useState("");
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -50,12 +51,13 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   async function cancelAssin(id: string) { if (!confirm("Cancelar assinatura?")) return; await fetch(`/api/finance/assinaturas?id=${id}`, { method: "DELETE" }); load(); }
   async function criarMembership() {
     if (!nm.nome.trim() || !nm.vencimento || (!nm.valor && !nm.planoId)) { setMsg("Preencha nome, valor (ou plano) e 1º vencimento."); return; }
-    setSavingM(true); setCob(null);
+    setSavingM(true); setCob(null); setNovoId("");
     const r = await fetch("/api/finance/memberships", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, paciente: { nome: nm.nome, documento: nm.documento, email: nm.email, telefone: nm.telefone, cep: nm.cep, logradouro: nm.logradouro, numero: nm.numero, bairro: nm.bairro, cidade: nm.cidade, uf: nm.uf, consentimentoLGPD: nm.consentimentoLGPD }, planoId: nm.planoId || null, valor: nm.valor ? Number(nm.valor) : null, recorrencia: nm.recorrencia, diaCobranca: nm.diaCobranca, vencimento: nm.vencimento, situacao: nm.situacao, pagoEm: nm.pagoEm }) });
     const d = await r.json(); setSavingM(false);
     if (!r.ok) { setMsg(d.error || "Erro ao cadastrar."); return; }
     setMsg(d.warning || "✓ Membership criado, conta a receber gerada e cobrança emitida no Inter.");
     setCob(d.cobranca || null);
+    setNovoId(d.clienteId || "");
     setNm({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false, situacao: "emitir", pagoEm: "" });
     setEtapa(1);
     load();
@@ -140,15 +142,27 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
               <button className="fx-btn" onClick={() => setEtapa(2)}>← Voltar</button>
               <button className="fx-btn fx-btn-primary" disabled={savingM} onClick={criarMembership}>{savingM ? "Cadastrando…" : nm.situacao === "emitir" ? "Cadastrar e emitir cobrança" : "Cadastrar membership"}</button>
             </div>
+          </>
+        )}
+        {novoId && (
+          <div style={{ marginTop: 14, border: "1px solid #9fe1cb", background: "var(--verde-soft)", borderRadius: "var(--r-card)", padding: "14px 16px", maxWidth: 660 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0c5a44" }}>✓ Paciente cadastrado</div>
+              <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => { setNovoId(""); setCob(null); }}>fechar</button>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0" }}>
+              <button className="fx-btn fx-btn-primary" onClick={() => window.open(`/api/finance/clientes/${novoId}/contrato`, "_blank")}>Gerar contrato</button>
+              <span style={{ fontSize: 12, color: "#0c5a44", alignSelf: "center" }}>→ mande assinar (gov.br) e suba o assinado no Cofre do paciente (na lista de Clientes).</span>
+            </div>
             {cob && (
-              <div style={{ marginTop: 12, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 14px", background: "var(--surface)", maxWidth: 640 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Cobrança emitida — envie pro paciente:</div>
+              <div style={{ borderTop: "1px solid #9fe1cb", paddingTop: 10, marginTop: 2 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: "#0c5a44" }}>Cobrança emitida — envie pro paciente:</div>
                 {cob.secureUrl && <div style={{ fontSize: 13, marginBottom: 4 }}>Boleto/PDF: <a href={cob.secureUrl} target="_blank" rel="noreferrer" style={{ color: "var(--roxo)" }}>abrir</a></div>}
                 {cob.linhaDigitavel && <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 4 }}>Linha digitável: {cob.linhaDigitavel}</div>}
                 {cob.pixCopiaECola && <div style={{ fontSize: 12, color: "var(--txt-soft)", wordBreak: "break-all" }}>Pix copia-e-cola: {cob.pixCopiaECola}</div>}
               </div>
             )}
-          </>
+          </div>
         )}
       </Section>
 
@@ -239,6 +253,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
           {assin.filter((a) => a.status === "ativa").map((a) => (
             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
               <div style={{ flex: 1 }}><b>{a.cliente}</b> · {a.plano}<div style={{ fontSize: 12, color: "var(--txt-faint)" }}>{money(a.valor)} · próxima {a.proximaCobranca ? new Date(a.proximaCobranca).toLocaleDateString("pt-BR") : "—"}</div></div>
+              {a.clienteId && <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => window.open(`/api/finance/clientes/${a.clienteId}/contrato`, "_blank")}>Contrato</button>}
               <button className="fx-btn" style={{ fontSize: 12, color: "var(--coral-deep)" }} onClick={() => cancelAssin(a.id)}>Cancelar</button>
             </div>
           ))}
