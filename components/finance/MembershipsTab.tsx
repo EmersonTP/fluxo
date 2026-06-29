@@ -21,6 +21,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   const [nm, setNm] = useState({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false, situacao: "emitir", pagoEm: "" });
   const [cob, setCob] = useState<any>(null);
   const [savingM, setSavingM] = useState(false);
+  const [etapa, setEtapa] = useState(1);
   const [copiado, setCopiado] = useState("");
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -56,6 +57,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
     setMsg(d.warning || "✓ Membership criado, conta a receber gerada e cobrança emitida no Inter.");
     setCob(d.cobranca || null);
     setNm({ nome: "", documento: "", email: "", telefone: "", cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", planoId: "", valor: "", recorrencia: "mensal", diaCobranca: "", vencimento: "", consentimentoLGPD: false, situacao: "emitir", pagoEm: "" });
+    setEtapa(1);
     load();
   }
   async function addLink() { if (!nl.planoId) return; await fetch("/api/finance/onboarding-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nl }) }); setNl({ planoId: "", valor: "", diaCobranca: "", label: "" }); load(); }
@@ -72,47 +74,81 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
       <button className="fx-btn fx-btn-primary" onClick={gerarMes} style={{ marginBottom: 18 }}>Gerar títulos do mês</button>
 
       <Section title="Novo membership (paciente + cobrança)">
-        <div style={{ fontSize: 13, color: "var(--txt-soft)", marginBottom: 10, maxWidth: 720 }}>Cadastre o paciente, o valor e a recorrência. A Sandra cria o cadastro, a assinatura, a conta a receber e <b>emite o Pix/boleto no Inter</b> (precisa de CPF + endereço pro boleto).</div>
-        <Row>
-          <Field label="Nome do paciente *"><input className="fx-input" value={nm.nome} onChange={(e) => setNm({ ...nm, nome: e.target.value })} /></Field>
-          <Field label="CPF"><input className="fx-input" value={nm.documento} onChange={(e) => setNm({ ...nm, documento: e.target.value })} placeholder="000.000.000-00" /></Field>
-        </Row>
-        <Row>
-          <Field label="E-mail"><input className="fx-input" value={nm.email} onChange={(e) => setNm({ ...nm, email: e.target.value })} /></Field>
-          <Field label="Telefone"><input className="fx-input" value={nm.telefone} onChange={(e) => setNm({ ...nm, telefone: e.target.value })} /></Field>
-        </Row>
-        <Row>
-          <Field label="CEP"><input className="fx-input" value={nm.cep} onChange={(e) => setNm({ ...nm, cep: e.target.value })} /></Field>
-          <Field label="Endereço"><input className="fx-input" value={nm.logradouro} onChange={(e) => setNm({ ...nm, logradouro: e.target.value })} /></Field>
-          <Field label="Nº"><input className="fx-input" value={nm.numero} onChange={(e) => setNm({ ...nm, numero: e.target.value })} /></Field>
-        </Row>
-        <Row>
-          <Field label="Bairro"><input className="fx-input" value={nm.bairro} onChange={(e) => setNm({ ...nm, bairro: e.target.value })} /></Field>
-          <Field label="Cidade"><input className="fx-input" value={nm.cidade} onChange={(e) => setNm({ ...nm, cidade: e.target.value })} /></Field>
-          <Field label="UF"><input className="fx-input" value={nm.uf} maxLength={2} onChange={(e) => setNm({ ...nm, uf: e.target.value.toUpperCase() })} /></Field>
-        </Row>
-        <Row>
-          <Field label="Plano (opcional)"><select className="fx-input" value={nm.planoId} onChange={(e) => setNm({ ...nm, planoId: e.target.value })}><option value="">— valor avulso —</option>{planos.map((p) => <option key={p.id} value={p.id}>{p.nome} ({money(p.valor)})</option>)}</select></Field>
-          <Field label="Valor (R$)"><input className="fx-input" type="number" value={nm.valor} onChange={(e) => setNm({ ...nm, valor: e.target.value })} placeholder={nm.planoId ? "usa o do plano" : "ex.: 500"} /></Field>
-        </Row>
-        <Row>
-          <Field label="Recorrência"><select className="fx-input" value={nm.recorrencia} onChange={(e) => setNm({ ...nm, recorrencia: e.target.value })}><option value="mensal">Mensal (assinatura)</option><option value="unica">Única (1 cobrança)</option></select></Field>
-          <Field label="1º vencimento *"><input className="fx-input" type="date" value={nm.vencimento} onChange={(e) => setNm({ ...nm, vencimento: e.target.value })} /></Field>
-          <Field label="Dia de cobrança"><input className="fx-input" type="number" value={nm.diaCobranca} onChange={(e) => setNm({ ...nm, diaCobranca: e.target.value })} placeholder="ex.: 5" /></Field>
-        </Row>
-        <Row>
-          <Field label="Situação do 1º pagamento"><select className="fx-input" value={nm.situacao} onChange={(e) => setNm({ ...nm, situacao: e.target.value })}><option value="emitir">Emitir cobrança agora (Inter)</option><option value="pago">Já foi pago (só registrar)</option><option value="registrar">Em aberto (só registrar, sem emitir)</option></select></Field>
-          {nm.situacao === "pago" && <Field label="Pago em"><input className="fx-input" type="date" value={nm.pagoEm} onChange={(e) => setNm({ ...nm, pagoEm: e.target.value })} /></Field>}
-        </Row>
-        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--txt-soft)", margin: "4px 0 12px" }}><input type="checkbox" checked={nm.consentimentoLGPD} onChange={(e) => setNm({ ...nm, consentimentoLGPD: e.target.checked })} /> Consentimento LGPD registrado (execução de contrato)</label>
-        <button className="fx-btn fx-btn-primary" disabled={savingM} onClick={criarMembership}>{savingM ? "Cadastrando…" : nm.situacao === "emitir" ? "Cadastrar e emitir cobrança" : "Cadastrar membership"}</button>
-        {cob && (
-          <div style={{ marginTop: 12, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 14px", background: "var(--surface)", maxWidth: 640 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Cobrança emitida — envie pro paciente:</div>
-            {cob.secureUrl && <div style={{ fontSize: 13, marginBottom: 4 }}>Boleto/PDF: <a href={cob.secureUrl} target="_blank" rel="noreferrer" style={{ color: "var(--roxo)" }}>abrir</a></div>}
-            {cob.linhaDigitavel && <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 4 }}>Linha digitável: {cob.linhaDigitavel}</div>}
-            {cob.pixCopiaECola && <div style={{ fontSize: 12, color: "var(--txt-soft)", wordBreak: "break-all" }}>Pix copia-e-cola: {cob.pixCopiaECola}</div>}
-          </div>
+        <div style={{ fontSize: 13, color: "var(--txt-soft)", marginBottom: 12, maxWidth: 720 }}>Em 3 passos: paciente, endereço e cobrança. A Sandra cria o cadastro, a assinatura, a conta a receber e <b>emite o Pix/boleto no Inter</b> (CPF + endereço são necessários pro boleto).</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+          {([[1, "Paciente"], [2, "Endereço"], [3, "Cobrança"]] as const).map(([n, l]) => (
+            <button key={n} type="button" onClick={() => setEtapa(n)} style={{ display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", padding: "4px 8px" }}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, background: etapa === n ? "var(--roxo)" : "var(--line)", color: etapa === n ? "#fff" : "var(--txt-soft)" }}>{n}</span>
+              <span style={{ fontSize: 13, fontWeight: etapa === n ? 700 : 500, color: etapa >= n ? "var(--txt)" : "var(--txt-faint)" }}>{l}</span>
+            </button>
+          ))}
+        </div>
+
+        {etapa === 1 && (
+          <>
+            <Row>
+              <Field label="Nome do paciente *"><input className="fx-input" value={nm.nome} onChange={(e) => setNm({ ...nm, nome: e.target.value })} /></Field>
+              <Field label="CPF"><input className="fx-input" value={nm.documento} onChange={(e) => setNm({ ...nm, documento: e.target.value })} placeholder="000.000.000-00" /></Field>
+            </Row>
+            <Row>
+              <Field label="E-mail"><input className="fx-input" value={nm.email} onChange={(e) => setNm({ ...nm, email: e.target.value })} /></Field>
+              <Field label="Telefone"><input className="fx-input" value={nm.telefone} onChange={(e) => setNm({ ...nm, telefone: e.target.value })} /></Field>
+            </Row>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+              <button className="fx-btn fx-btn-primary" onClick={() => { if (!nm.nome.trim()) { setMsg("Informe o nome do paciente."); return; } setMsg(""); setEtapa(2); }}>Próximo →</button>
+            </div>
+          </>
+        )}
+
+        {etapa === 2 && (
+          <>
+            <Row>
+              <Field label="CEP"><input className="fx-input" value={nm.cep} onChange={(e) => setNm({ ...nm, cep: e.target.value })} /></Field>
+              <Field label="Endereço"><input className="fx-input" value={nm.logradouro} onChange={(e) => setNm({ ...nm, logradouro: e.target.value })} /></Field>
+              <Field label="Nº"><input className="fx-input" value={nm.numero} onChange={(e) => setNm({ ...nm, numero: e.target.value })} /></Field>
+            </Row>
+            <Row>
+              <Field label="Bairro"><input className="fx-input" value={nm.bairro} onChange={(e) => setNm({ ...nm, bairro: e.target.value })} /></Field>
+              <Field label="Cidade"><input className="fx-input" value={nm.cidade} onChange={(e) => setNm({ ...nm, cidade: e.target.value })} /></Field>
+              <Field label="UF"><input className="fx-input" value={nm.uf} maxLength={2} onChange={(e) => setNm({ ...nm, uf: e.target.value.toUpperCase() })} /></Field>
+            </Row>
+            <div style={{ fontSize: 12, color: "var(--txt-faint)", marginTop: 2 }}>Sem CPF/endereço dá pra cadastrar mesmo assim — o boleto fica pra emitir depois.</div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+              <button className="fx-btn" onClick={() => setEtapa(1)}>← Voltar</button>
+              <button className="fx-btn fx-btn-primary" onClick={() => setEtapa(3)}>Próximo →</button>
+            </div>
+          </>
+        )}
+
+        {etapa === 3 && (
+          <>
+            <Row>
+              <Field label="Plano (opcional)"><select className="fx-input" value={nm.planoId} onChange={(e) => setNm({ ...nm, planoId: e.target.value })}><option value="">— valor avulso —</option>{planos.map((p) => <option key={p.id} value={p.id}>{p.nome} ({money(p.valor)})</option>)}</select></Field>
+              <Field label="Valor (R$)"><input className="fx-input" type="number" value={nm.valor} onChange={(e) => setNm({ ...nm, valor: e.target.value })} placeholder={nm.planoId ? "usa o do plano" : "ex.: 500"} /></Field>
+            </Row>
+            <Row>
+              <Field label="Recorrência"><select className="fx-input" value={nm.recorrencia} onChange={(e) => setNm({ ...nm, recorrencia: e.target.value })}><option value="mensal">Mensal (assinatura)</option><option value="unica">Única (1 cobrança)</option></select></Field>
+              <Field label="1º vencimento *"><input className="fx-input" type="date" value={nm.vencimento} onChange={(e) => setNm({ ...nm, vencimento: e.target.value })} /></Field>
+              <Field label="Dia de cobrança"><input className="fx-input" type="number" value={nm.diaCobranca} onChange={(e) => setNm({ ...nm, diaCobranca: e.target.value })} placeholder="ex.: 5" /></Field>
+            </Row>
+            <Row>
+              <Field label="Situação do 1º pagamento"><select className="fx-input" value={nm.situacao} onChange={(e) => setNm({ ...nm, situacao: e.target.value })}><option value="emitir">Emitir cobrança agora (Inter)</option><option value="pago">Já foi pago (só registrar)</option><option value="registrar">Em aberto (só registrar, sem emitir)</option></select></Field>
+              {nm.situacao === "pago" && <Field label="Pago em"><input className="fx-input" type="date" value={nm.pagoEm} onChange={(e) => setNm({ ...nm, pagoEm: e.target.value })} /></Field>}
+            </Row>
+            <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--txt-soft)", margin: "6px 0 12px" }}><input type="checkbox" checked={nm.consentimentoLGPD} onChange={(e) => setNm({ ...nm, consentimentoLGPD: e.target.checked })} /> Consentimento LGPD registrado (execução de contrato)</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button className="fx-btn" onClick={() => setEtapa(2)}>← Voltar</button>
+              <button className="fx-btn fx-btn-primary" disabled={savingM} onClick={criarMembership}>{savingM ? "Cadastrando…" : nm.situacao === "emitir" ? "Cadastrar e emitir cobrança" : "Cadastrar membership"}</button>
+            </div>
+            {cob && (
+              <div style={{ marginTop: 12, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "12px 14px", background: "var(--surface)", maxWidth: 640 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Cobrança emitida — envie pro paciente:</div>
+                {cob.secureUrl && <div style={{ fontSize: 13, marginBottom: 4 }}>Boleto/PDF: <a href={cob.secureUrl} target="_blank" rel="noreferrer" style={{ color: "var(--roxo)" }}>abrir</a></div>}
+                {cob.linhaDigitavel && <div style={{ fontSize: 12, color: "var(--txt-soft)", marginBottom: 4 }}>Linha digitável: {cob.linhaDigitavel}</div>}
+                {cob.pixCopiaECola && <div style={{ fontSize: 12, color: "var(--txt-soft)", wordBreak: "break-all" }}>Pix copia-e-cola: {cob.pixCopiaECola}</div>}
+              </div>
+            )}
+          </>
         )}
       </Section>
 
