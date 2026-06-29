@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const fitId = "man_" + crypto.createHash("md5").update(`${conta.id}|${b.data}|${signed}|${descricao}`).digest("hex").slice(0, 20);
   try {
     await prisma.bankTransaction.create({
-      data: { accountId: conta.id, companyId: conta.companyId, data, valor: signed, tipo, descricao, origem: "manual", fitId },
+      data: { accountId: conta.id, companyId: conta.companyId, data, valor: signed, tipo, descricao, origem: "manual", fitId, categoriaId: b.categoriaId ? String(b.categoriaId) : null, conciliado: true },
     });
   } catch { return NextResponse.json({ error: "Lançamento idêntico já existe." }, { status: 409 }); }
   await logAudit({ req, user, action: "create", entity: "extrato", companyId: conta.companyId, meta: `lançamento manual: ${descricao} ${signed}` });

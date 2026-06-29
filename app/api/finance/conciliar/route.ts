@@ -23,23 +23,27 @@ export async function GET(req: Request) {
   // lançamentos de contas de caixa (cartão fica de fora da conciliação)
   const txs: any[] = await prisma.bankTransaction.findMany({
     where: { companyId, data: { gte: new Date(de + "T00:00:00"), lte: new Date(ate + "T23:59:59") }, account: { tipo: { not: "cartao" } }, ...(soPendentes ? { conciliado: false } : {}) },
-    include: { account: { select: { nome: true } } }, orderBy: { data: "desc" },
+    include: { account: { select: { nome: true } }, categoria: { select: { grupo: true, nome: true } } }, orderBy: { data: "desc" },
   });
 
   // candidatos: contas a pagar (não canceladas/recusadas) e a receber, ainda não amarrados
-  const pagar: any[] = await prisma.paymentRequest.findMany({ where: { companyId, status: { notIn: ["cancelada", "recusada"] } }, select: { id: true, descricao: true, areaName: true, valor: true, status: true } });
-  const receber: any[] = await prisma.receivable.findMany({ where: { companyId, status: { notIn: ["cancelada", "estornada"] } }, select: { id: true, descricao: true, valorCents: true, status: true } });
+  const pagar: any[] = await prisma.paymentRequest.findMany({ where: { companyId, status: { notIn: ["cancelada", "recusada"] } }, select: { id: true, descricao: true, areaName: true, valor: true, status: true, vencimento: true, credor: { select: { nome: true } } } });
+  const receber: any[] = await prisma.receivable.findMany({ where: { companyId, status: { notIn: ["cancelada", "estornada"] } }, select: { id: true, descricao: true, valorCents: true, status: true, vencimento: true, metodo: true, cliente: { select: { nome: true } } } });
+  const classifica = await getClassifier(companyId);
+  const categorias = await prisma.categoria.findMany({ where: { companyId }, select: { id: true, grupo: true, nome: true }, orderBy: [{ grupo: "asc" }, { nome: "asc" }] });
+  const contas = await prisma.bankAccount.findMany({ where: { companyId, tipo: { not: "cartao" } }, select: { id: true, nome: true, tipo: true }, orderBy: { ordem: "asc" } });
 
   const round = (n: number) => Math.round(Math.abs(n));
   const out = txs.map((t) => {
     const v = round(t.valor);
     const sugestoes = t.tipo === "debito"
-      ? pagar.filter((p) => round(p.valor) === v).slice(0, 4).map((p) => ({ tipo: "pagar", id: p.id, descricao: p.descricao || p.areaName, valor: Math.round(p.valor), status: p.status }))
-      : receber.filter((r) => round(r.valorCents / 100) === v).slice(0, 4).map((r) => ({ tipo: "receber", id: r.id, descricao: r.descricao, valor: Math.round(r.valorCents / 100), status: r.status }));
-    return { id: t.id, data: ymd(t.data as Date), descricao: t.descricao, valor: Math.round(t.valor), tipo: t.tipo, conta: t.account?.nome, conciliado: t.conciliado, requestId: t.requestId, sugestoes };
+      ? pagar.filter((p) => round(p.valor) === v).slice(0, 5).map((p) => ({ tipo: "pagar", id: p.id, descricao: p.descricao || p.areaName, valor: Math.round(p.valor), status: p.status, vencimento: p.vencimento ? ymd(p.vencimento as Date) : null, contraparte: p.credor?.nome || p.areaName || "", metodo: null }))
+      : receber.filter((r) => round(r.valorCents / 100) === v).slice(0, 5).map((r) => ({ tipo: "receber", id: r.id, descricao: r.descricao, valor: Math.round(r.valorCents / 100), status: r.status, vencimento: r.vencimento ? ymd(r.vencimento as Date) : null, contraparte: r.cliente?.nome || "", metodo: r.metodo || null }));
+    const cat = t.categoria ? { grupo: t.categoria.grupo, nome: t.categoria.nome } : (classifica(t.tipo, t.descricao) || null);
+    return { id: t.id, data: ymd(t.data as Date), descricao: t.descricao, valor: Math.round(t.valor), tipo: t.tipo, conta: t.account?.nome, categoria: cat ? `${cat.grupo} › ${cat.nome}` : null, conciliado: t.conciliado, requestId: t.requestId, sugestoes };
   });
   const totalPend = out.filter((x) => !x.conciliado).length;
-  return NextResponse.json({ periodo: { de, ate }, total: out.length, pendentes: totalPend, lancamentos: out });
+  return NextResponse.json({ periodo: { de, ate }, total: out.length, pendentes: totalPend, lancamentos: out, categorias, contas });
 }
 
 // Amarra (ou desamarra) um lançamento a um pagamento/recebimento, ou marca conciliado avulso.

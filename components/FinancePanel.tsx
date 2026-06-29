@@ -195,7 +195,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
     ] },
     { g: "Sistema", items: [
       ...(isAdmin ? [{ k: "saude", l: "Saúde" }] : []),
-      ...(isAdmin ? [{ k: "conciliar", l: "Conciliação" }] : []),
+      ...(isAdmin ? [{ k: "conciliar", l: "Extrato / Conciliação" }] : []),
       ...(isAdmin ? [{ k: "seguranca", l: "Segurança & LGPD" }] : []),
       ...(isAdmin ? [{ k: "cfg", l: "Configuração" }] : []),
     ] },
