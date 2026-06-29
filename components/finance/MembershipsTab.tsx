@@ -211,12 +211,15 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
           {clientes.map((c) => (
             <div key={c.id}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
-              <div style={{ flex: 1 }}><button type="button" onClick={() => abrirFicha(c.id)} title="Abrir ficha do paciente" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--txt)", font: "inherit", textAlign: "left" }}><b style={{ borderBottom: "1px dashed var(--line)" }}>{c.nome}</b></button>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}> · {c.documento}</span> : null}</div>
-              <button className="fx-btn" style={{ fontSize: 12 }} onClick={() => abrirDocs(c.id)}>Documentos</button>
-              <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/contrato`} target="_blank" rel="noopener">Gerar contrato</a>
-              <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/recibo`} target="_blank" rel="noopener">Recibo (reembolso)</a>
-              <button className="fx-btn" style={{ fontSize: 12, color: "var(--coral-deep)" }} onClick={() => delCliente(c.id)}>Excluir</button>
+            <div onClick={() => abrirFicha(c.id)} title="Abrir ficha do paciente" style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)", cursor: "pointer" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--bg-soft, rgba(146,80,172,.05))"; (e.currentTarget as HTMLDivElement).style.borderColor = "var(--roxo)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--surface)"; (e.currentTarget as HTMLDivElement).style.borderColor = "var(--line)"; }}>
+              <span style={{ color: "var(--roxo)", fontSize: 15, flexShrink: 0 }}>👤</span>
+              <div style={{ flex: 1, minWidth: 0 }}><b>{c.nome}</b>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}> · {c.documento}</span> : null}<div style={{ fontSize: 11.5, color: "var(--roxo)", fontWeight: 600 }}>Ver ficha (plano, pagamentos, recebíveis) →</div></div>
+              <button className="fx-btn" style={{ fontSize: 12 }} onClick={(e) => { e.stopPropagation(); abrirDocs(c.id); }}>Documentos</button>
+              <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/contrato`} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}>Gerar contrato</a>
+              <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/recibo`} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}>Recibo (reembolso)</a>
+              <button className="fx-btn" style={{ fontSize: 12, color: "var(--coral-deep)" }} onClick={(e) => { e.stopPropagation(); delCliente(c.id); }}>Excluir</button>
             </div>
             {docsCli === c.id && (
               <div style={{ border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 var(--r-card) var(--r-card)", padding: "10px 14px", background: "var(--bg-soft, rgba(0,0,0,.02))" }}>

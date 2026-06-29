@@ -83,9 +83,11 @@ function SaudeView() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {pacientes.map((p: any) => (
-          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, border: "1px solid var(--line)", borderLeft: `4px solid ${COR[p.score as keyof typeof COR]}`, borderRadius: "var(--r-card)", background: "var(--surface)", padding: "12px 16px", flexWrap: "wrap" }}>
+          <div key={p.id} onClick={() => abrirFicha(p.id)} title="Abrir ficha do paciente" style={{ display: "flex", alignItems: "center", gap: 14, border: "1px solid var(--line)", borderLeft: `4px solid ${COR[p.score as keyof typeof COR]}`, borderRadius: "var(--r-card)", background: "var(--surface)", padding: "12px 16px", flexWrap: "wrap", cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--bg-soft, rgba(146,80,172,.05))"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--surface)"; }}>
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: COR[p.score as keyof typeof COR], flexShrink: 0 }} />
-            <button type="button" onClick={() => abrirFicha(p.id)} title="Abrir ficha do paciente" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--txt)", font: "inherit", textAlign: "left", fontWeight: 600, fontSize: 14, minWidth: 160, flex: 1 }}><span style={{ borderBottom: "1px dashed var(--line)" }}>{p.nome}</span></button>
+            <span style={{ fontWeight: 600, fontSize: 14, minWidth: 160, flex: 1 }}>{p.nome} <span style={{ fontSize: 11, color: "var(--roxo)", fontWeight: 600 }}>· ver ficha →</span></span>
             <span style={{ fontSize: 12.5, color: "var(--txt-soft)", minWidth: 130 }}>
               Presença: {p.presenca.total ? `${p.presenca.presentes}/${p.presenca.total}${p.presenca.taxa !== null ? ` (${p.presenca.taxa}%)` : ""}` : "—"}
             </span>
