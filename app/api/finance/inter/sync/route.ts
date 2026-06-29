@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { isAdmin, canAccessCompany } from "@/lib/finance";
 import { getInterConfig, getExtrato } from "@/lib/inter";
+import { getClassifier } from "@/lib/ledger";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -33,6 +34,12 @@ export async function POST(req: Request) {
   let conta = await prisma.bankAccount.findFirst({ where: { companyId, conexao: "inter" } });
   if (!conta) { const n = await prisma.bankAccount.count({ where: { companyId } }); conta = await prisma.bankAccount.create({ data: { companyId, nome: "Inter PJ", banco: "inter", conexao: "inter", ordem: n } }); }
 
+  // Auto-conciliação do "barulho": transferências, CDB/aplicação, fatura, tarifas — nascem conciliados.
+  const classifica = await getClassifier(companyId);
+  const GRUPOS_AUTO = new Set(["Transferência entre contas", "Aplicações Financeiras", "Aporte de Sócios", "Financeiras"]);
+  const PAT_AUTO = /RESGATE|APLICA|CDB|GARANTIA|RENDIMENTO|TRANSFER|INTERNO|FATURA|IOF|TARIFA/i;
+  const ehBarulho = (tipo: string, desc: string) => { const c: any = classifica(tipo, desc); if (c && (GRUPOS_AUTO.has(c.grupo) || String(c.nome || "").includes("Reembolso a sócios"))) return true; return PAT_AUTO.test(desc || ""); };
+
   const ate = b.ate || ymd(new Date());
   const de = b.de || ymd(new Date(2025, 10, 1)); // nov/2025
   let criados = 0, pulados = 0; const erros: string[] = [];
@@ -48,7 +55,7 @@ export async function POST(req: Request) {
         const descricao = (t.descricao || t.detalhes?.descricaoOperacao || t.titulo || "").slice(0, 200);
         const fitId = t.idTransacao || t.id || crypto.createHash("md5").update(`${dataStr}|${tipo}|${valor}|${descricao}`).digest("hex");
         try {
-          await prisma.bankTransaction.create({ data: { accountId: conta.id, companyId, data: new Date(dataStr), tipo, valor: tipo === "debito" ? -Math.abs(valor) : Math.abs(valor), descricao, origem: "inter", fitId } });
+          await prisma.bankTransaction.create({ data: { accountId: conta.id, companyId, data: new Date(dataStr), tipo, valor: tipo === "debito" ? -Math.abs(valor) : Math.abs(valor), descricao, origem: "inter", fitId, conciliado: ehBarulho(tipo, descricao) } });
           criados++;
         } catch { pulados++; }
       }
