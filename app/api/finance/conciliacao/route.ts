@@ -56,6 +56,10 @@ export async function GET(req: Request) {
   // 3) só Inter conectado? sugerir outras contas
   if (!contas.some((c: any) => c.nome.toUpperCase().includes("C6"))) alertas.push({ sev: "atencao", texto: "Conta C6 não cadastrada — aportes/movimentos do C6 ficam fora dos relatórios." });
 
+  // não conciliados (lançamentos de caixa sem amarração a pagamento/recebível)
+  const naoConc = await prisma.bankTransaction.count({ where: { companyId, conciliado: false, account: { tipo: { not: "cartao" } }, data: { gte: new Date(de + "T00:00:00"), lte: new Date(ate + "T23:59:59") } } });
+  if (naoConc) alertas.push({ sev: "atencao", texto: `${naoConc} lançamento(s) do extrato ainda não conciliado(s) — amarre cada um ao pagamento/recebível na aba Conciliação.` });
+
   // 4) não categorizado
   const totalNaoCat = naoCat.reduce((s, x) => s + x.valor, 0);
   if (naoCat.length) alertas.push({ sev: "critico", texto: `${naoCat.length} lançamento(s) sem categoria (R$ ${totalNaoCat.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}) — criam furo nos relatórios até receberem regra.` });

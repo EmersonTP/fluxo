@@ -31,10 +31,13 @@ export async function POST(req: Request) {
     const arec = await prisma.receivable.findMany({ where: { companyId: co.id, status: { in: ["pendente", "vencida"] } }, select: { valorCents: true, vencimento: true, status: true } });
     let arVenc = 0, arVencV = 0; for (const r of arec) { const v = (r.valorCents || 0) / 100; if (r.status === "vencida" || (r.vencimento && r.vencimento < hoje)) { arVenc++; arVencV += v; } }
 
+    const naoConc = await prisma.bankTransaction.count({ where: { companyId: co.id, conciliado: false, account: { tipo: { not: "cartao" } } } });
+
     const linhas: string[] = [];
     if (semCat) linhas.push(`🟠 ${semCat} lançamento(s) sem categoria (${brl(semCatValor)}) — identifique na Conciliação.`);
     if (apVenc) linhas.push(`🔴 ${apVenc} conta(s) a pagar vencida(s) (${brl(apVencV)}).`);
     if (arVenc) linhas.push(`🟡 ${arVenc} recebível(is) vencido(s) (${brl(arVencV)}).`);
+    if (naoConc) linhas.push(`🔵 ${naoConc} lançamento(s) do extrato não conciliado(s) — amarrar na Conciliação.`);
     const corpo = linhas.length ? linhas.join("\n") : "✅ Tudo conciliado: sem pendências.";
     const texto = `*Conciliação Sandra — ${hoje.toLocaleDateString("pt-BR")}*\n${corpo}`;
 

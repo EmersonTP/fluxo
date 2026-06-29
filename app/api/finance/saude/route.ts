@@ -57,6 +57,12 @@ export async function GET(req: Request) {
   if (vazias.length) checks.push({ id: "contas", label: "Extrato de contas manuais", sev: "atencao", detalhe: `${vazias.length} conta(s) sem extrato: ${vazias.map((c: any) => c.nome).join(", ")}.`, acao: "Importar o extrato (CSV)." });
   else checks.push({ id: "contas", label: "Extrato de contas manuais", sev: "ok", detalhe: "Todas as contas manuais têm lançamentos." });
 
+  // 6b) Conciliação do extrato (lançamentos de caixa ainda não amarrados a pagamento/recebível)
+  const naoConc = await prisma.bankTransaction.count({ where: { companyId, conciliado: false, account: { tipo: { not: "cartao" } } } });
+  checks.push(naoConc > 0
+    ? { id: "concil", label: "Conciliação do extrato", sev: "atencao", detalhe: `${naoConc} lançamento(s) do extrato ainda não conciliado(s).`, acao: "Conciliar em Sistema → Conciliação." }
+    : { id: "concil", label: "Conciliação do extrato", sev: "ok", detalhe: "Extrato conciliado." });
+
   // 7) Títulos a receber vencidos
   const recVenc = await prisma.receivable.findMany({ where: { companyId, status: "pendente", vencimento: { lt: now } }, select: { valorCents: true } });
   const recTot = recVenc.reduce((s: number, r: any) => s + r.valorCents, 0) / 100;
