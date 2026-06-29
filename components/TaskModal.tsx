@@ -89,7 +89,7 @@ type FullTask = TaskT & {
   subtasks: SubtaskT[];
   attachments: AttachmentT[];
   comments: { id: string; text: string; createdAt: string; user?: Member | null }[];
-  customFields?: Record<string, string> | null;
+  customFields?: Record<string, any> | null;
   blockedBy?: DepLite[];
   blocking?: DepLite[];
   activities?: { id: string; type: string; text: string; createdAt: string; user?: Member | null }[];
@@ -130,7 +130,8 @@ export default function TaskModal({
   const [depSearch, setDepSearch] = useState("");
   const [listTasks, setListTasks] = useState<DepLite[]>([]);
   const [newCfKey, setNewCfKey] = useState("");
-  const [newCfVal, setNewCfVal] = useState("");
+  const [newCfTipo, setNewCfTipo] = useState("texto");
+  const [newCfOpcoes, setNewCfOpcoes] = useState("");
   const [sprints, setSprints] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -236,13 +237,22 @@ export default function TaskModal({
     await reload();
   }
 
-  function saveCustomFields(next: Record<string, string>) {
+  // Campo estruturado: { tipo: texto|numero|data|escolha, valor, opcoes? }. Leitura retrocompatível (string antiga vira texto).
+  function normCf(v: any): { tipo: string; valor: string; opcoes?: string[] } {
+    if (v && typeof v === "object") return { tipo: v.tipo || "texto", valor: v.valor ?? "", opcoes: Array.isArray(v.opcoes) ? v.opcoes : undefined };
+    return { tipo: "texto", valor: v == null ? "" : String(v) };
+  }
+  function saveCustomFields(next: Record<string, any>) {
     setTask((prev) => (prev ? { ...prev, customFields: next } : prev));
     patch({ customFields: next });
   }
   function setCfValue(key: string, value: string) {
-    const next = { ...(task?.customFields || {}), [key]: value };
+    const cur = normCf((task?.customFields || {})[key]);
+    const next = { ...(task?.customFields || {}), [key]: { ...cur, valor: value } };
     setTask((prev) => (prev ? { ...prev, customFields: next } : prev));
+  }
+  function commitCf() {
+    saveCustomFields({ ...(task?.customFields || {}) });
   }
   function removeCf(key: string) {
     const next = { ...(task?.customFields || {}) };
@@ -252,9 +262,11 @@ export default function TaskModal({
   function addCf() {
     const k = newCfKey.trim();
     if (!k) return;
-    saveCustomFields({ ...(task?.customFields || {}), [k]: newCfVal });
+    const opcoes = newCfTipo === "escolha" ? newCfOpcoes.split(",").map((o) => o.trim()).filter(Boolean) : undefined;
+    saveCustomFields({ ...(task?.customFields || {}), [k]: { tipo: newCfTipo, valor: "", ...(opcoes ? { opcoes } : {}) } });
     setNewCfKey("");
-    setNewCfVal("");
+    setNewCfTipo("texto");
+    setNewCfOpcoes("");
   }
 
   function toggleAssignee(id: string) {
@@ -572,22 +584,42 @@ export default function TaskModal({
 
             <div className="fx-field-label">Campos personalizados</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {Object.entries(task.customFields || {}).map(([key, val]) => (
-                <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 130, fontSize: 12.5, color: "var(--txt-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{key}</span>
-                  <input
-                    className="fx-input"
-                    style={{ flex: 1 }}
-                    value={val}
-                    onChange={(e) => setCfValue(key, e.target.value)}
-                    onBlur={() => saveCustomFields({ ...(task.customFields || {}) })}
-                  />
-                  <button onClick={() => removeCf(key)} style={{ background: "none", border: "none", color: "var(--txt-faint)", cursor: "pointer" }}>✕</button>
-                </div>
-              ))}
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {Object.entries(task.customFields || {}).map(([key, raw]) => {
+                const cf = normCf(raw);
+                const tipoLabel = cf.tipo === "numero" ? "nº" : cf.tipo === "data" ? "data" : cf.tipo === "escolha" ? "opção" : "texto";
+                return (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 130, fontSize: 12.5, color: "var(--txt-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }} title={`${key} (${tipoLabel})`}>{key}</span>
+                    {cf.tipo === "escolha" ? (
+                      <select className="fx-input" style={{ flex: 1 }} value={cf.valor} onChange={(e) => { setCfValue(key, e.target.value); }} onBlur={commitCf}>
+                        <option value="">—</option>
+                        {(cf.opcoes || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        className="fx-input"
+                        style={{ flex: 1 }}
+                        type={cf.tipo === "numero" ? "number" : cf.tipo === "data" ? "date" : "text"}
+                        value={cf.valor}
+                        onChange={(e) => setCfValue(key, e.target.value)}
+                        onBlur={commitCf}
+                      />
+                    )}
+                    <button onClick={() => removeCf(key)} style={{ background: "none", border: "none", color: "var(--txt-faint)", cursor: "pointer" }} title="Remover campo">✕</button>
+                  </div>
+                );
+              })}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <input className="fx-input" style={{ width: 130, flexShrink: 0 }} placeholder="Campo" value={newCfKey} onChange={(e) => setNewCfKey(e.target.value)} />
-                <input className="fx-input" style={{ flex: 1 }} placeholder="Valor" value={newCfVal} onChange={(e) => setNewCfVal(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCf()} />
+                <select className="fx-input" style={{ width: 110, flexShrink: 0 }} value={newCfTipo} onChange={(e) => setNewCfTipo(e.target.value)}>
+                  <option value="texto">Texto</option>
+                  <option value="numero">Número</option>
+                  <option value="data">Data</option>
+                  <option value="escolha">Escolha</option>
+                </select>
+                {newCfTipo === "escolha" && (
+                  <input className="fx-input" style={{ flex: 1, minWidth: 140 }} placeholder="Opções separadas por vírgula" value={newCfOpcoes} onChange={(e) => setNewCfOpcoes(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCf()} />
+                )}
                 <button className="fx-chip" style={{ borderStyle: "dashed" }} onClick={addCf}>+ Add</button>
               </div>
             </div>
