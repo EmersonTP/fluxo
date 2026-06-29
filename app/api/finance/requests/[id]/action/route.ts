@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, isResponse } from "@/lib/api";
 import { canActOn, notifyFinance, logStep } from "@/lib/finance";
 import { logAudit } from "@/lib/audit";
+import { verifyPin } from "@/lib/pin";
+import { getInterConfig, pagarPix } from "@/lib/inter";
 
 const COTACAO_LIMITE = 400;
 
@@ -64,17 +66,48 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ ok: true });
   }
 
-  // PAGAR (pagador/sócio)
+  // PAGAR (pagador/sócio). Dois modos:
+  //  - executar=true: a Sandra dispara o Pix de verdade no Inter (exige PIN + teto + chave do credor).
+  //  - executar=false (padrão): só registra a baixa (pagamento feito por fora).
   if (action === "pagar") {
     if (r.status !== "conferida") return NextResponse.json({ error: "Etapa inválida." }, { status: 400 });
+    let metaExtra = "";
+    if (b.executar) {
+      // 1) PIN do pagador
+      const u = await prisma.user.findUnique({ where: { id: user.id }, select: { paymentPinHash: true } });
+      if (!u?.paymentPinHash) return NextResponse.json({ error: "Defina seu PIN de pagamento em Config antes de pagar pela Sandra." }, { status: 400 });
+      if (!verifyPin(String(b.pin || ""), u.paymentPinHash)) return NextResponse.json({ error: "PIN incorreto." }, { status: 403 });
+      // 2) Teto da empresa
+      const integ = await prisma.integrationConfig.findFirst({ where: { companyId: r.companyId, provider: "inter" }, select: { tetoPagamentoCents: true } });
+      const teto = (integ?.tetoPagamentoCents ?? 500000) / 100;
+      if (r.valor > teto) return NextResponse.json({ error: `Acima do teto de pagamento automático (R$ ${teto.toLocaleString("pt-BR")}). Pague no app do Inter e marque como pago manualmente.` }, { status: 400 });
+      // 3) Chave Pix do credor
+      const credor = r.credorId ? await prisma.credor.findUnique({ where: { id: r.credorId }, select: { nome: true, pixKey: true, documento: true } }) : null;
+      const chave = (credor?.pixKey || "").trim();
+      if (!chave) return NextResponse.json({ error: "O credor não tem chave Pix cadastrada (aba Credores). Cadastre a chave ou pague manualmente." }, { status: 400 });
+      // 4) Inter conectado
+      const cfg = await getInterConfig(r.companyId);
+      if (!cfg) return NextResponse.json({ error: "Inter não conectado nesta empresa." }, { status: 400 });
+      // 5) Dispara o Pix
+      let resp: any;
+      try {
+        resp = await pagarPix(cfg, { valor: r.valor, chave, descricao: `${r.code ? "#" + r.code + " " : ""}${r.descricao || ""}`.trim() });
+      } catch (e: any) {
+        return NextResponse.json({ error: `Falha ao enviar o Pix no Inter: ${e?.message || e}. Verifique se a aplicação do Inter tem o escopo de pagamento habilitado.` }, { status: 502 });
+      }
+      const cod = resp?.codigoSolicitacao || resp?.endToEndId || "";
+      const tipoRetorno = resp?.tipoRetorno || "";
+      metaExtra = ` · Pix Inter${cod ? " " + cod : ""}${tipoRetorno ? " (" + tipoRetorno + ")" : ""}`;
+      // Se o Inter exige aprovação no app, avisamos no histórico (o débito entra via extrato).
+    }
     await prisma.paymentRequest.update({
       where: { id: r.id },
       data: { status: "paga", pagadorId: user.id, dataPagamento: b.dataPagamento ? new Date(b.dataPagamento) : new Date() },
     });
-    await logStep(r.id, "paga", r.status, "paga", { id: user.id, name: user.name }, note);
-    await logAudit({ req, user, action: "pay", entity: "solicitacao", entityId: r.id, companyId: r.companyId, meta: `#${r.code} R$ ${r.valor.toLocaleString("pt-BR")}` });
+    await logStep(r.id, "paga", r.status, "paga", { id: user.id, name: user.name }, (note || "") + (b.executar ? " [pago via Inter]" + metaExtra : " [baixa manual]"));
+    await logAudit({ req, user, action: "pay", entity: "solicitacao", entityId: r.id, companyId: r.companyId, meta: `#${r.code} R$ ${r.valor.toLocaleString("pt-BR")}${b.executar ? " via Inter" : " (manual)"}${metaExtra}` });
     if (r.solicitanteId) await notifyFinance([r.solicitanteId], `Sua solicitação foi paga por ${user.name} — R$ ${r.valor.toLocaleString("pt-BR")}`, user.id);
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, viaInter: !!b.executar, meta: metaExtra });
   }
 
   return NextResponse.json({ error: "Ação inválida." }, { status: 400 });

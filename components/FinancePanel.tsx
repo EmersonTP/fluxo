@@ -530,6 +530,7 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [tag, setTag] = useState("nf");
+  const [pin, setPin] = useState("");
 
   const load = useCallback(() => {
     fetch(`/api/finance/requests/${id}`).then((x) => x.json()).then((d) => {
@@ -653,9 +654,16 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
         </Section>
       )}
       {r.status === "conferida" && canPag && (
-        <Section title="Pagamento (sócio)">
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="fx-btn fx-btn-primary" disabled={busy} onClick={() => act("pagar")}>Marcar como PAGO</button>
+        <Section title="Pagamento">
+          <div style={{ fontSize: 12.5, color: "var(--txt-soft)", marginBottom: 10, maxWidth: 640 }}>
+            <b>Pagar via Inter</b> dispara o Pix de verdade pela chave do credor (precisa do seu PIN; respeita o teto da empresa). <b>Marcar pago (manual)</b> só registra a baixa — use quando o Pix foi feito por fora.
+          </div>
+          <Row>
+            <Field label="PIN de pagamento (para pagar via Inter)"><input className="fx-input" type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="••••" /></Field>
+          </Row>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+            <button className="fx-btn fx-btn-primary" disabled={busy || !pin} onClick={() => { if (confirm(`Enviar Pix de R$ ${(r.valor||0).toLocaleString("pt-BR",{minimumFractionDigits:2})} para ${r.credor?.nome || "o credor"} agora?`)) act("pagar", { executar: true, pin }); }}>Pagar via Inter (Pix)</button>
+            <button className="fx-btn" disabled={busy} onClick={() => act("pagar")}>Marcar pago (manual)</button>
             <button className="fx-btn" style={{ color: "var(--coral-deep)" }} disabled={busy} onClick={recusar}>Recusar</button>
           </div>
         </Section>

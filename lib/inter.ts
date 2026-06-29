@@ -115,6 +115,21 @@ export function registerCobrancaWebhook(cfg: InterCfg, webhookUrl: string) {
   return api(cfg, "PUT", "/cobranca/v3/webhook", { webhookUrl }, "boleto-cobranca.write");
 }
 
+// ===== Pagamento Pix (SAÍDA) — escopo "pagamento-pix.write" =====
+// Envia um Pix por chave. ATENÇÃO: move dinheiro de verdade. Exige que a aplicação
+// no portal do Inter tenha o escopo de pagamento habilitado. Dependendo da config da
+// conta, o Inter pode exigir aprovação adicional no app (tipoRetorno = "APROVACAO").
+export async function pagarPix(cfg: InterCfg, args: { valor: number; chave: string; descricao?: string }): Promise<any> {
+  const valor = Number(args.valor).toFixed(2);
+  const body: Record<string, unknown> = {
+    valor,
+    descricao: (args.descricao || "").slice(0, 140),
+    destinatario: { tipo: "CHAVE", chave: args.chave },
+  };
+  // POST /banking/v2/pix — retorna { tipoRetorno, codigoSolicitacao, ... }
+  return api(cfg, "POST", "/banking/v2/pix", body, "pagamento-pix.write");
+}
+
 // Saldo bancário atual (escopo "extrato.read").
 export async function getSaldo(cfg: InterCfg): Promise<number> {
   try {
