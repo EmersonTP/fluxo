@@ -2,6 +2,64 @@
 import { useState, useEffect, useCallback } from "react";
 import { Row, Field, Section } from "./ui";
 
+function PacientesDashboard({ companyId }: { companyId: string }) {
+  const [d, setD] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      fetch(`/api/finance/assinaturas?company=${companyId}`).then((r) => r.json()).then((x) => x.assinaturas || []),
+      fetch(`/api/finance/clientes?company=${companyId}`).then((r) => r.json()).then((x) => x.clientes || []),
+      fetch(`/api/finance/receber?company=${companyId}`).then((r) => r.json()).then((x) => x.resumo || {}),
+      fetch(`/api/cs/pacientes?company=${companyId}`).then((r) => r.json()).catch(() => ({})),
+    ]).then(([assin, cli, resumo, cs]: any[]) => {
+      const ativas = assin.filter((a: any) => a.status === "ativa");
+      const pac = cs?.pacientes || [];
+      const cont = (f: (p: any) => boolean) => pac.filter(f).length;
+      setD({
+        totalPac: cli.length,
+        ativos: ativas.length,
+        mrr: ativas.reduce((s: number, a: any) => s + (a.valor || 0), 0),
+        aReceber: resumo.aReceber || 0, vencido: resumo.vencido || 0, recebidoMes: resumo.recebidoMes || 0,
+        emDia: cont((p) => p.pagamento === "em_dia"), vence: cont((p) => p.pagamento === "vence"), atrasado: cont((p) => p.pagamento === "atrasado"),
+        verde: cs?.verde ?? null, amarelo: cs?.amarelo ?? null, vermelho: cs?.vermelho ?? null,
+      });
+    }).finally(() => setLoading(false));
+  }, [companyId]);
+  useEffect(() => { load(); }, [load]);
+  const brl = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (!d && loading) return <div style={{ color: "var(--txt-faint)", marginBottom: 16 }}>Carregando painel…</div>;
+  if (!d) return null;
+  const Card = ({ label, valor, cor, sub }: { label: string; valor: string; cor?: string; sub?: string }) => (
+    <div style={{ flex: "1 1 150px", minWidth: 140, border: "1px solid var(--line)", borderRadius: "var(--r-card)", background: "var(--surface)", padding: "12px 16px" }}>
+      <div style={{ fontSize: 11.5, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: cor || "var(--txt)", marginTop: 2 }}>{valor}</div>
+      {sub && <div style={{ fontSize: 11.5, color: "var(--txt-faint)" }}>{sub}</div>}
+    </div>
+  );
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+        <div className="serif" style={{ fontSize: 19, fontWeight: 700 }}>Painel de Pacientes</div>
+        <button className="fx-btn" style={{ fontSize: 12 }} onClick={load} disabled={loading}>{loading ? "…" : "Recarregar"}</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {Card({ label: "Pacientes ativos", valor: String(d.ativos), sub: `de ${d.totalPac} cadastrados` })}
+        {Card({ label: "MRR (recorrente/mês)", valor: brl(d.mrr), cor: "#0f6b50" })}
+        {Card({ label: "A receber (aberto)", valor: brl(d.aReceber), cor: d.aReceber > 0 ? "#b5781f" : undefined })}
+        {Card({ label: "Vencido", valor: brl(d.vencido), cor: d.vencido > 0 ? "#a8332c" : undefined })}
+        {Card({ label: "Recebido no mês", valor: brl(d.recebidoMes), cor: "#0f6b50" })}
+      </div>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 12, fontSize: 13, color: "var(--txt-soft)" }}>
+        <span><b style={{ color: "#0f6b50" }}>{d.emDia}</b> em dia</span>
+        <span><b style={{ color: "#b5781f" }}>{d.vence}</b> vencendo ≤7d</span>
+        <span><b style={{ color: "#a8332c" }}>{d.atrasado}</b> atrasado(s)</span>
+        {d.vermelho !== null && <span style={{ marginLeft: "auto" }}>Saúde: <b style={{ color: "#0f6b50" }}>{d.verde}</b> · <b style={{ color: "#b5781f" }}>{d.amarelo}</b> · <b style={{ color: "#a8332c" }}>{d.vermelho}</b></span>}
+      </div>
+    </div>
+  );
+}
+
 export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAdmin: boolean }) {
   type Plano = { id: string; nome: string; valor: number; intervalo: number; intervaloTipo: string; ativo: boolean; assinaturas: number };
   type Assin = { id: string; clienteId?: string; status: string; proximaCobranca: string | null; cliente: string; plano: string; valor: number };
@@ -79,6 +137,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   if (!isAdmin) return <p style={{ color: "var(--txt-faint)" }}>Apenas administradores gerenciam memberships.</p>;
   return (
     <>
+      <PacientesDashboard companyId={companyId} />
       <div style={{ fontSize: 13.5, color: "var(--txt-soft)", marginBottom: 16, maxWidth: 720 }}><b>Gestão de memberships.</b> Cadastre o paciente abaixo (valor, recorrência, vencimento) e a Sandra cria o cadastro, a assinatura, a conta a receber e emite a cobrança. No início de cada mês, "Gerar títulos do mês" cria os recebíveis das assinaturas ativas.</div>
       {msg && <div style={{ background: "#d7ebe2", color: "#0f6b50", border: "1px solid #9fe1cb", borderRadius: "var(--r-card)", padding: "10px 14px", fontSize: 13, marginBottom: 14, maxWidth: 640 }}>{msg}</div>}
       <button className="fx-btn fx-btn-primary" onClick={gerarMes} style={{ marginBottom: 18 }}>Gerar títulos do mês</button>
