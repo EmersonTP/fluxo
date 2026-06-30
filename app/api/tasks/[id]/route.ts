@@ -85,6 +85,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.order !== undefined) data.order = body.order;
   if (body.listId !== undefined) data.listId = body.listId;
 
+  // markDone: arrastar entre baldes "Em aberto" / "Concluídas" (Minhas Tarefas) sem saber o statusId da lista.
+  if (body.markDone !== undefined) {
+    const tk = await prisma.task.findUnique({ where: { id: params.id }, select: { listId: true } });
+    if (tk) {
+      const tipos = body.markDone ? ["done", "closed"] : ["open"];
+      const st = await prisma.status.findFirst({ where: { listId: tk.listId, type: { in: tipos } }, orderBy: { order: "asc" } });
+      if (st) data.statusId = st.id;
+      data.dateClosed = body.markDone ? new Date() : null;
+    }
+  }
   // Mark closed date when moved to a done/closed status
   if (body.statusId) {
     const status = await prisma.status.findUnique({ where: { id: body.statusId } });

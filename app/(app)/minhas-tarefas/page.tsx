@@ -28,6 +28,8 @@ export default function MyTasksPage() {
   const [loading, setLoading] = useState(true);
   const [openTask, setOpenTask] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragCol, setDragCol] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -56,7 +58,15 @@ export default function MyTasksPage() {
     } catch {}
   }
 
-  const filtered = query ? tasks.filter((t) => t.name.toLowerCase().includes(query.toLowerCase())) : tasks;
+  async function moverPara(taskId: string, bucket: string) {
+    if (bucket === "late") return; // "Atrasadas" é derivado da data — não recebe drop
+    const markDone = bucket === "done";
+    // otimista
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, dateClosed: markDone ? new Date().toISOString() : null, status: markDone ? { ...(t.status||{}), type: "done" } as any : { ...(t.status||{}), type: "open" } as any } : t));
+    try { await fetch(`/api/tasks/${taskId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markDone }) }); } catch {}
+    load();
+  }
+    const filtered = query ? tasks.filter((t) => t.name.toLowerCase().includes(query.toLowerCase())) : tasks;
   const openCount = tasks.filter((t) => bucketOf(t) !== "done").length;
   const lateCount = tasks.filter((t) => bucketOf(t) === "late").length;
 
@@ -98,7 +108,11 @@ export default function MyTasksPage() {
           {BUCKETS.map((b) => {
             const list = filtered.filter((t) => bucketOf(t) === b.id);
             return (
-              <div key={b.id} className="fx-col">
+              <div key={b.id} className="fx-col"
+                onDragOver={(e) => { if (draggingId && b.id !== "late") { e.preventDefault(); setDragCol(b.id); } }}
+                onDragLeave={() => setDragCol((c) => (c === b.id ? null : c))}
+                onDrop={(e) => { e.preventDefault(); const id = draggingId || e.dataTransfer.getData("text/plain"); setDragCol(null); setDraggingId(null); if (id) moverPara(id, b.id); }}
+                style={{ outline: dragCol === b.id ? "2px dashed var(--roxo)" : "none", outlineOffset: -2, opacity: draggingId && b.id === "late" ? 0.55 : 1 }}>
                 <div className="fx-colhead">
                   <span className="fx-dot" style={{ background: b.dot }} />
                   <span className="fx-coltitle">{b.title}</span>
@@ -106,9 +120,11 @@ export default function MyTasksPage() {
                 </div>
                 <div className="fx-colbody scrollbar-thin">
                   {list.map((t) => (
-                    <TaskCard key={t.id} task={t} onOpen={setOpenTask} showList={t.list.name} />
+                    <div key={t.id} draggable onDragStart={(e) => { setDraggingId(t.id); e.dataTransfer.setData("text/plain", t.id); e.dataTransfer.effectAllowed = "move"; }} onDragEnd={() => { setDraggingId(null); setDragCol(null); }} style={{ cursor: "grab", opacity: draggingId === t.id ? 0.5 : 1 }}>
+                      <TaskCard task={t} onOpen={setOpenTask} showList={t.list.name} />
+                    </div>
                   ))}
-                  {list.length === 0 && <div style={{ padding: 16, textAlign: "center", color: "var(--txt-faint)", fontSize: 13 }}>Nada aqui.</div>}
+                  {list.length === 0 && <div style={{ padding: 16, textAlign: "center", color: "var(--txt-faint)", fontSize: 13 }}>{draggingId && b.id !== "late" ? "Solte aqui" : "Nada aqui."}</div>}
                 </div>
               </div>
             );
