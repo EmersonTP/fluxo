@@ -32,13 +32,21 @@ export async function GET(req: Request) {
     recorrente: !!r.assinatura,
   }));
   if (status) recebiveis = recebiveis.filter((r: any) => r.status === status);
+  // CRUZAMENTO COM A CONCILIAÇÃO: recebível só tem lastro se há crédito conciliado amarrado a ele.
+  const ids = recebiveis.map((r: any) => r.id);
+  const txConc = ids.length ? await prisma.bankTransaction.findMany({ where: { companyId, tipo: "credito", conciliado: true, requestId: { in: ids } }, select: { requestId: true } }) : [];
+  const comLastro = new Set(txConc.map((t: any) => t.requestId));
+  recebiveis = recebiveis.map((r: any) => ({ ...r, conciliado: comLastro.has(r.id) }));
   // resumo
-  const soma = (f: (x: typeof recebiveis[number]) => boolean) => recebiveis.filter(f).reduce((s: number, x: typeof recebiveis[number]) => s + x.valor, 0);
+  const soma = (f: (x: any) => boolean) => recebiveis.filter(f).reduce((s: number, x: any) => s + x.valor, 0);
   const mes = new Date().toISOString().slice(0, 7);
+  const pagoNoMes = (r: any) => r.status === "paga" && (r.pagoEm ? new Date(r.pagoEm).toISOString().slice(0, 7) === mes : false);
   const resumo = {
     aReceber: soma((r) => r.status === "pendente"),
     vencido: soma((r) => r.status === "vencida"),
-    recebidoMes: soma((r) => r.status === "paga" && (r.pagoEm ? new Date(r.pagoEm).toISOString().slice(0, 7) === mes : false)),
+    recebidoMes: soma(pagoNoMes),
+    recebidoMesConciliado: soma((r) => pagoNoMes(r) && r.conciliado),
+    pagoSemLastro: soma((r) => r.status === "paga" && !r.conciliado),
   };
   return NextResponse.json({ recebiveis, resumo });
 }

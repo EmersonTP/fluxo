@@ -21,6 +21,7 @@ function PacientesDashboard({ companyId }: { companyId: string }) {
         ativos: ativas.length,
         mrr: ativas.reduce((s: number, a: any) => s + (a.valor || 0), 0),
         aReceber: resumo.aReceber || 0, vencido: resumo.vencido || 0, recebidoMes: resumo.recebidoMes || 0,
+        recebidoConc: resumo.recebidoMesConciliado || 0, semLastro: resumo.pagoSemLastro || 0,
         emDia: cont((p) => p.pagamento === "em_dia"), vence: cont((p) => p.pagamento === "vence"), atrasado: cont((p) => p.pagamento === "atrasado"),
         verde: cs?.verde ?? null, amarelo: cs?.amarelo ?? null, vermelho: cs?.vermelho ?? null,
       });
@@ -48,12 +49,13 @@ function PacientesDashboard({ companyId }: { companyId: string }) {
         {Card({ label: "MRR (recorrente/mês)", valor: brl(d.mrr), cor: "#0f6b50" })}
         {Card({ label: "A receber (aberto)", valor: brl(d.aReceber), cor: d.aReceber > 0 ? "#b5781f" : undefined })}
         {Card({ label: "Vencido", valor: brl(d.vencido), cor: d.vencido > 0 ? "#a8332c" : undefined })}
-        {Card({ label: "Recebido no mês", valor: brl(d.recebidoMes), cor: "#0f6b50" })}
+        {Card({ label: "Recebido no mês (conciliado)", valor: brl(d.recebidoConc), cor: "#0f6b50", sub: d.recebidoMes > d.recebidoConc ? `marcado: ${brl(d.recebidoMes)}` : "com lastro no extrato" })}
       </div>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 12, fontSize: 13, color: "var(--txt-soft)" }}>
         <span><b style={{ color: "#0f6b50" }}>{d.emDia}</b> em dia</span>
         <span><b style={{ color: "#b5781f" }}>{d.vence}</b> vencendo ≤7d</span>
         <span><b style={{ color: "#a8332c" }}>{d.atrasado}</b> atrasado(s)</span>
+        {d.semLastro > 0 && <span style={{ color: "#b5781f" }}>⚠ {brl(d.semLastro)} pago <b>sem lastro</b> (conciliar)</span>}
         {d.vermelho !== null && <span style={{ marginLeft: "auto" }}>Saúde: <b style={{ color: "#0f6b50" }}>{d.verde}</b> · <b style={{ color: "#b5781f" }}>{d.amarelo}</b> · <b style={{ color: "#a8332c" }}>{d.vermelho}</b></span>}
       </div>
     </div>
