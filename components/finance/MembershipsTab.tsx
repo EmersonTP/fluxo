@@ -66,6 +66,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [assin, setAssin] = useState<Assin[]>([]);
   const [clientes, setClientes] = useState<{ id: string; nome: string; documento?: string }[]>([]);
+  const [saude, setSaude] = useState<Record<string, { pagamento: string; score: string }>>({});
   const [msg, setMsg] = useState("");
   const [np, setNp] = useState({ nome: "", valor: "" });
   const [nc, setNc] = useState({ nome: "", email: "", documento: "", rg: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", consentimentoLGPD: false });
@@ -86,12 +87,15 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
   const [ficha, setFicha] = useState<any>(null);
   const [fichaLoad, setFichaLoad] = useState(false);
   const money = (v: number) => "R$ " + (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const assinDe = (cid: string) => assin.find((a) => a.clienteId === cid && a.status === "ativa") || assin.find((a) => a.clienteId === cid);
+  const PG_PILL: Record<string, { l: string; c: string; bg: string }> = { em_dia: { l: "em dia", c: "#0f6b50", bg: "var(--verde-soft, #d7ebe2)" }, vence: { l: "vence ≤7d", c: "#b5781f", bg: "#f6e7cd" }, atrasado: { l: "atrasado", c: "#a8332c", bg: "#f3dcd8" } };
 
   const load = useCallback(() => {
     fetch(`/api/finance/planos?company=${companyId}`).then((r) => r.json()).then((d) => setPlanos(d.planos || []));
     fetch(`/api/finance/assinaturas?company=${companyId}`).then((r) => r.json()).then((d) => setAssin(d.assinaturas || []));
     fetch(`/api/finance/clientes?company=${companyId}`).then((r) => r.json()).then((d) => setClientes(d.clientes || []));
     fetch(`/api/finance/onboarding-links?company=${companyId}`).then((r) => r.json()).then((d) => setLinks(d.links || []));
+    fetch(`/api/cs/pacientes?company=${companyId}`).then((r) => r.json()).then((d) => { const m: Record<string, { pagamento: string; score: string }> = {}; (d.pacientes || []).forEach((p: any) => { m[p.id] = { pagamento: p.pagamento, score: p.score }; }); setSaude(m); }).catch(() => {});
   }, [companyId]);
   useEffect(() => { load(); }, [load]);
 
@@ -268,13 +272,17 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
 
       <Section title="Clientes / Pacientes">
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-          {clientes.map((c) => (
+          {clientes.map((c) => { const a = assinDe(c.id); const pg = saude[c.id]?.pagamento ? PG_PILL[saude[c.id].pagamento] : null; return (
             <div key={c.id}>
             <div onClick={() => abrirFicha(c.id)} title="Abrir ficha do paciente" style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)", cursor: "pointer" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--bg-soft, rgba(146,80,172,.05))"; (e.currentTarget as HTMLDivElement).style.borderColor = "var(--roxo)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--surface)"; (e.currentTarget as HTMLDivElement).style.borderColor = "var(--line)"; }}>
               <span style={{ color: "var(--roxo)", fontSize: 15, flexShrink: 0 }}>👤</span>
-              <div style={{ flex: 1, minWidth: 0 }}><b>{c.nome}</b>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}> · {c.documento}</span> : null}<div style={{ fontSize: 11.5, color: "var(--roxo)", fontWeight: 600 }}>Ver ficha (plano, pagamentos, recebíveis) →</div></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}><b>{c.nome}</b>{c.documento ? <span style={{ fontSize: 12, color: "var(--txt-faint)" }}>{c.documento}</span> : null}{pg && <span style={{ fontSize: 10.5, fontWeight: 700, color: pg.c, background: pg.bg, borderRadius: 999, padding: "1px 8px" }}>{pg.l}</span>}</div>
+                <div style={{ fontSize: 12, color: "var(--txt-soft)", marginTop: 1 }}>{a ? <><b>{money(a.valor)}/mês</b>{a.plano && a.plano !== "Avulso (valor por paciente)" ? ` · ${a.plano}` : ""}{a.proximaCobranca ? ` · próxima ${new Date(a.proximaCobranca).toLocaleDateString("pt-BR")}` : ""}{a.status !== "ativa" ? ` · ${a.status}` : ""}</> : <span style={{ color: "var(--txt-faint)" }}>sem assinatura</span>}</div>
+                <div style={{ fontSize: 11, color: "var(--roxo)", fontWeight: 600, marginTop: 1 }}>Ver ficha →</div>
+              </div>
               <button className="fx-btn" style={{ fontSize: 12 }} onClick={(e) => { e.stopPropagation(); abrirDocs(c.id); }}>Documentos</button>
               <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/contrato`} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}>Gerar contrato</a>
               <a className="fx-btn" style={{ fontSize: 12, textDecoration: "none" }} href={`/api/finance/clientes/${c.id}/recibo`} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}>Recibo (reembolso)</a>
@@ -299,7 +307,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
               </div>
             )}
             </div>
-          ))}
+          ); })}
           {clientes.length === 0 && <p style={{ color: "var(--txt-faint)", fontSize: 13 }}>Nenhum cliente cadastrado.</p>}
         </div>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--txt-soft)", marginBottom: 6 }}>+ Novo cliente / paciente</div>
