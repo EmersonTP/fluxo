@@ -97,6 +97,16 @@ type FullTask = TaskT & {
   sprint?: { id: string; name: string } | null;
 };
 
+// Render leve e seguro de comentário: escapa HTML, preserva quebras (pre-wrap no container),
+// aplica **negrito**, *itálico* e realça @menções.
+function renderRich(text: string): string {
+  let h = (text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  h = h.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+  h = h.replace(/(^|\s)@([\p{L}][\p{L}\d_.-]{1,30})/gu, "$1<span style=\"color:var(--roxo);font-weight:600\">@$2</span>");
+  return h;
+}
+
 export default function TaskModal({
   taskId,
   members,
@@ -115,6 +125,8 @@ export default function TaskModal({
   const [task, setTask] = useState<FullTask | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { const el = descRef.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 480) + "px"; } }, [description]);
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [availableTags, setAvailableTags] = useState<TagT[]>([]);
@@ -687,13 +699,13 @@ export default function TaskModal({
 
             <div className="fx-field-label">Descrição</div>
             <textarea
+              ref={descRef}
               className="fx-input"
-              rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onBlur={() => description !== (task.description || "") && patch({ description })}
               placeholder="Adicione uma descrição..."
-              style={{ resize: "vertical" }}
+              style={{ resize: "vertical", minHeight: 240, maxHeight: 480, overflowY: "auto", lineHeight: 1.5 }}
             />
 
             <div className="fx-field-label">Comentários ({task.comments.length})</div>
@@ -707,13 +719,13 @@ export default function TaskModal({
                     <div className="who">
                       {c.user?.name || "Desconhecido"} · <span style={{ color: "var(--txt-faint)", fontWeight: 400 }}>{new Date(c.createdAt).toLocaleString("pt-BR")}</span>
                     </div>
-                    <div className="bubble">{c.text}</div>
+                    <div className="bubble" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: renderRich(c.text) }} />
                   </div>
                 </div>
               ))}
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <input className="fx-input" value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addComment()} placeholder="Escreva um comentário..." />
+              <textarea className="fx-input" value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); } }} placeholder="Escreva um comentário…  (Enter envia, Shift+Enter quebra · @ menciona)" rows={2} style={{ resize: "vertical", minHeight: 44 }} />
               <button className="fx-btn fx-btn-primary" onClick={addComment}>
                 Enviar
               </button>
