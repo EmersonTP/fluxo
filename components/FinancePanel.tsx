@@ -194,7 +194,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
     { g: "Cadastros", items: [
       ...(af ? [{ k: "contas", l: "Contas Bancárias" }] : []),
       ...(af ? [{ k: "categorias", l: "Categorias" }] : []),
-      ...(af ? [{ k: "cred", l: "Credores" }] : []),
+      ...(af ? [{ k: "cred", l: "Fornecedores e Pessoas" }] : []),
     ] },
     { g: "Sistema", items: [
       ...(isAdmin ? [{ k: "saude", l: "Saúde" }] : []),
@@ -467,7 +467,7 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
     <Drawer title="Nova solicitação de pagamento" onClose={onClose}>
       <Row><Field label="Tipo"><select className="fx-input" value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
         <Field label="Área*"><select className="fx-input" value={spaceId} onChange={(e) => setSpaceId(e.target.value)}><option value="">Selecione…</option>{areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field></Row>
-      <Field label={KIND_PRECISA_CREDOR.has(kind) ? "Credor / Favorecido*" : "Credor / Favorecido"}><select className="fx-input" value={credorId} onChange={(e) => setCredorId(e.target.value)}><option value="">— selecione ou cadastre na aba Credores —</option>{credores.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.documento}</option>)}</select></Field>
+      <Field label={KIND_PRECISA_CREDOR.has(kind) ? "Favorecido (fornecedor/pessoa)*" : "Favorecido (fornecedor/pessoa)"}><select className="fx-input" value={credorId} onChange={(e) => setCredorId(e.target.value)}><option value="">— selecione ou cadastre na aba Fornecedores e Pessoas —</option>{credores.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.documento}</option>)}</select></Field>
       <Field label="Descrição / justificativa*"><textarea className="fx-input" rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} /></Field>
       <Row><Field label="Valor (R$)*"><input className="fx-input" type="number" value={valor} onChange={(e) => setValor(e.target.value)} /></Field>
         <Field label="Vencimento*"><input className="fx-input" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} /></Field></Row>
@@ -595,7 +595,7 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
       </Section>
 
       <Grid2>
-        <Info label="Credor">{r.credor?.nome || "—"}{r.credor?.documento ? ` · ${r.credor.documento}` : ""}</Info>
+        <Info label="Favorecido">{r.credor?.nome || "—"}{r.credor?.documento ? ` · ${r.credor.documento}` : ""}</Info>
         <Info label="Vencimento">{fmt(r.vencimento)}</Info>
         <Info label="Forma">{r.formaPagamento || "—"}</Info>
         <Info label="Recorrência">{r.recorrencia === "mensal" ? "Mensal" : "Única"}</Info>

@@ -23,13 +23,13 @@ export function CredoresTab({ companyId, credores, reload }: { companyId: string
     if (res.ok) { setEditId(""); reload(); } else setErr(d.error || "Erro.");
   }
   async function del(c: Credor) {
-    if (!confirm(`Excluir o credor "${c.nome}"?`)) return;
+    if (!confirm(`Excluir "${c.nome}"?`)) return;
     const res = await fetch(`/api/finance/credores?id=${c.id}`, { method: "DELETE" });
     if (res.ok) reload(); else { const d = await res.json().catch(() => ({})); setErr(d.error || "Erro ao excluir."); }
   }
   return (
     <>
-      {!adding ? <button className="fx-btn fx-btn-primary" onClick={() => setAdding(true)}>+ Novo credor</button> : (
+      {!adding ? <button className="fx-btn fx-btn-primary" onClick={() => setAdding(true)}>+ Novo cadastro (fornecedor/pessoa)</button> : (
         <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, marginBottom: 14 }}>
           <Row><Field label="Nome*"><input className="fx-input" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /></Field>
             <Field label="CPF/CNPJ*"><input className="fx-input" value={f.documento} onChange={(e) => setF({ ...f, documento: e.target.value })} /></Field></Row>
@@ -59,7 +59,7 @@ export function CredoresTab({ companyId, credores, reload }: { companyId: string
             <button className="fx-btn" style={{ fontSize: 12, color: "var(--coral-deep)" }} onClick={() => del(c)}>Excluir</button>
           </div>
         ))}
-        {credores.length === 0 && <p style={{ padding: 15, color: "var(--txt-faint)", fontSize: 13 }}>Nenhum credor cadastrado.</p>}
+        {credores.length === 0 && <p style={{ padding: 15, color: "var(--txt-faint)", fontSize: 13 }}>Nenhum fornecedor/pessoa cadastrado ainda.</p>}
       </div>
     </>
   );
