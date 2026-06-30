@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     if (!companyId || !canAccessCompany(user, companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
     const classifica = await getClassifier(companyId);
     const GRUPOS = new Set(["Transferência entre contas", "Aplicações Financeiras", "Aporte de Sócios", "Financeiras"]);
-    const PAT = /RESGATE|APLICA|CDB|GARANTIA|RENDIMENTO|TRANSFER|INTERNO|FATURA|IOF|TARIFA/i;
+    const PAT = /RESGATE|APLICA|CDB|GARANTIA|RENDIMENTO|FATURA|IOF|TARIFA/i;
     const txs: any[] = await prisma.bankTransaction.findMany({ where: { companyId, conciliado: false, account: { tipo: { not: "cartao" } } }, include: { categoria: { select: { grupo: true, nome: true } } } });
     const pagar: any[] = await prisma.paymentRequest.findMany({ where: { companyId, status: { notIn: ["cancelada", "recusada"] } }, select: { id: true, valor: true } });
     const receber: any[] = await prisma.receivable.findMany({ where: { companyId, status: { notIn: ["cancelada", "estornada"] } }, select: { id: true, valorCents: true } });

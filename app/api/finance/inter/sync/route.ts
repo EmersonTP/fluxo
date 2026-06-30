@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   // Auto-conciliação do "barulho": transferências, CDB/aplicação, fatura, tarifas — nascem conciliados.
   const classifica = await getClassifier(companyId);
   const GRUPOS_AUTO = new Set(["Transferência entre contas", "Aplicações Financeiras", "Aporte de Sócios", "Financeiras"]);
-  const PAT_AUTO = /RESGATE|APLICA|CDB|GARANTIA|RENDIMENTO|TRANSFER|INTERNO|FATURA|IOF|TARIFA/i;
+  const PAT_AUTO = /RESGATE|APLICA|CDB|GARANTIA|RENDIMENTO|FATURA|IOF|TARIFA/i;
   const ehBarulho = (tipo: string, desc: string) => { const c: any = classifica(tipo, desc); if (c && (GRUPOS_AUTO.has(c.grupo) || String(c.nome || "").includes("Reembolso a sócios"))) return true; return PAT_AUTO.test(desc || ""); };
 
   const ate = b.ate || ymd(new Date());
