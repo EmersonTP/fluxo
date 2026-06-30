@@ -110,5 +110,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ ok: true, viaInter: !!b.executar, meta: metaExtra });
   }
 
+  // REABRIR PAGAMENTO (Paga → Conferida) — correção de baixa indevida. Não mexe em dinheiro.
+  if (action === "reabrir_pagamento") {
+    if (r.status !== "paga") return NextResponse.json({ error: "Só dá pra reabrir uma solicitação que está Paga." }, { status: 400 });
+    if (!(await canActOn(user, r, "pagar"))) return NextResponse.json({ error: "Só o pagador/admin pode reabrir." }, { status: 403 });
+    await prisma.paymentRequest.update({ where: { id: r.id }, data: { status: "conferida", dataPagamento: null } });
+    await logStep(r.id, "reaberta", r.status, "conferida", { id: user.id, name: user.name }, note || "Pagamento reaberto (baixa revertida)");
+    await logAudit({ req, user, action: "update", entity: "solicitacao", entityId: r.id, companyId: r.companyId, meta: `#${r.code} reaberto (paga→conferida)` });
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
 }

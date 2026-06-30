@@ -668,6 +668,12 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
           </div>
         </Section>
       )}
+      {r.status === "paga" && (isAdmin || canPag) && (
+        <Section title="Pagamento concluído">
+          <div style={{ fontSize: 12.5, color: "var(--txt-soft)", marginBottom: 8 }}>Se essa baixa foi indevida (o dinheiro não saiu de fato), reabra pra ela voltar à fila de pagamento.</div>
+          <button className="fx-btn" disabled={busy} onClick={() => { if (confirm("Reabrir? A solicitação volta para 'Conferida' (fila de pagamento). Não mexe em dinheiro.")) act("reabrir_pagamento"); }}>Reabrir pagamento</button>
+        </Section>
+      )}
       {(r.status === "solicitada" || r.status === "aprovada_gestor" || r.status === "conferida") && (
         <Field label="Observação (opcional, vai no histórico)"><input className="fx-input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       )}
