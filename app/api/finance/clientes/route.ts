@@ -60,3 +60,22 @@ export async function DELETE(req: Request) {
   await logAudit({ req, user, action: "delete", entity: "cliente", entityId: id, companyId: c.companyId });
   return NextResponse.json({ ok: true });
 }
+
+// Edita campos do cliente (admin). Hoje: nome, email, telefone, RG, endereço, documento.
+export async function PATCH(req: Request) {
+  const user = await requireUser();
+  if (isResponse(user)) return user;
+  if (!isAdmin(user)) return NextResponse.json({ error: "Só admin." }, { status: 403 });
+  const b = await req.json();
+  const c = await prisma.cliente.findUnique({ where: { id: String(b.id || "") }, select: { companyId: true } });
+  if (!c || !canAccessCompany(user, c.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+  const data: Record<string, unknown> = {};
+  if (typeof b.nome === "string" && b.nome.trim()) data.nome = b.nome.trim();
+  for (const k of ["email", "telefone", "rg", "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf"]) {
+    if (typeof b[k] === "string") data[k] = b[k] || null;
+  }
+  if (typeof b.documento === "string" && b.documento.trim()) data.documentoEnc = encryptField(b.documento.trim());
+  await prisma.cliente.update({ where: { id: b.id }, data });
+  await logAudit({ req, user, action: "update", entity: "cliente", entityId: b.id, companyId: c.companyId });
+  return NextResponse.json({ ok: true });
+}
