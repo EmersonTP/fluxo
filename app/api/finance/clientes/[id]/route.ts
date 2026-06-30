@@ -28,12 +28,20 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const valorAssin = (a: any) => (a?.valorCents ?? a?.plano?.valorCents ?? 0) / 100;
 
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  // Cruzamento com a CONCILIAÇÃO: um recebível só tem "lastro" quando existe um crédito
+  // do extrato conciliado e amarrado a ele (BankTransaction.requestId = recebivelId, conciliado).
+  const recIds = c.recebiveis.map((r: any) => r.id);
+  const txConc = recIds.length
+    ? await prisma.bankTransaction.findMany({ where: { companyId: c.companyId, tipo: "credito", conciliado: true, requestId: { in: recIds } }, select: { requestId: true } })
+    : [];
+  const comLastro = new Set(txConc.map((t: any) => t.requestId));
   const recebiveis = c.recebiveis.map((r: any) => {
     const vencido = r.status === "pendente" && r.vencimento && new Date(r.vencimento) < hoje;
     return {
       id: r.id, descricao: r.descricao, valor: r.valorCents / 100,
       status: vencido ? "vencida" : r.status, metodo: r.metodo,
       vencimento: r.vencimento, pagoEm: r.pagoEm, secureUrl: r.secureUrl, origem: r.origem,
+      conciliado: comLastro.has(r.id),
     };
   });
   const soma = (f: (r: any) => boolean) => recebiveis.filter(f).reduce((s: number, r: any) => s + r.valor, 0);
@@ -68,6 +76,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       emAbertoValor: soma(emAberto) + soma(vencidaF), emAbertoCount: cnt(emAberto) + cnt(vencidaF),
       vencidoValor: soma(vencidaF), vencidoCount: cnt(vencidaF),
       pagoTotal: soma(pagaF), pagoCount: cnt(pagaF),
+      pagoComLastro: soma((r: any) => pagaF(r) && r.conciliado), pagoSemLastro: soma((r: any) => pagaF(r) && !r.conciliado),
       ultimoPagamento,
       desdeCliente: c.createdAt,
     },

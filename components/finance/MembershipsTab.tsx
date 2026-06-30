@@ -393,6 +393,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
 
                     <div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 7 }}>Recebíveis ({ficha.recebiveis.length})</div>
+                      {re.pagoSemLastro > 0 && <div style={{ fontSize: 12, color: "#b5781f", marginBottom: 6 }}>⚠ R$ {(re.pagoSemLastro).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} marcado(s) pago(s) <b>sem lastro no extrato</b> — concilie na aba Extrato pra fechar o padrão ouro.</div>}
                       {ficha.recebiveis.length === 0 ? <div style={{ fontSize: 13, color: "var(--txt-faint)" }}>Nenhuma conta a receber lançada.</div> : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                           {ficha.recebiveis.map((r: any) => (
@@ -400,6 +401,7 @@ export function MembershipsTab({ companyId, isAdmin }: { companyId: string; isAd
                               <span style={{ width: 8, height: 8, borderRadius: "50%", background: stCor[r.status] || "#9a8f84" }} />
                               <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.descricao || "Conta a receber"}</span>
                               <span style={{ color: "var(--txt-faint)", fontSize: 12 }}>{r.status === "paga" ? "pago " + dt(r.pagoEm) : "vence " + dt(r.vencimento)}</span>
+                              {r.status === "paga" && (r.conciliado ? <span title="Casado com o crédito no extrato" style={{ fontSize: 10.5, fontWeight: 700, color: "#0f6b50", background: "var(--verde-soft, #d7ebe2)", borderRadius: 999, padding: "1px 7px" }}>✓ conciliado</span> : <span title="Marcado pago, mas sem crédito conciliado no extrato" style={{ fontSize: 10.5, fontWeight: 700, color: "#b5781f", background: "#f6e7cd", borderRadius: 999, padding: "1px 7px" }}>⚠ sem lastro</span>)}
                               <b style={{ minWidth: 90, textAlign: "right" }}>R$ {(r.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</b>
                               {r.secureUrl && <a href={r.secureUrl} target="_blank" rel="noreferrer" className="fx-btn" style={{ fontSize: 11 }}>cobrança</a>}
                             </div>
