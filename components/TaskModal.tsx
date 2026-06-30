@@ -139,6 +139,9 @@ export default function TaskModal({
   const [subTab, setSubTab] = useState("Diária");
   const [novaCad, setNovaCad] = useState("Diária");
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const commentRef = useRef<HTMLTextAreaElement>(null);
+  const [mention, setMention] = useState<{ open: boolean; q: string }>({ open: false, q: "" });
   const fileRef = useRef<HTMLInputElement>(null);
   const [depPickerOpen, setDepPickerOpen] = useState(false);
   const [depSearch, setDepSearch] = useState("");
@@ -207,6 +210,21 @@ export default function TaskModal({
     }
   }
 
+  function onCommentChange(v: string) {
+    setComment(v);
+    const el = commentRef.current; const caret = el ? el.selectionStart : v.length;
+    const m = v.slice(0, caret).match(/@([\p{L}\d_.-]*)$/u);
+    setMention(m ? { open: true, q: (m[1] || "").toLowerCase() } : { open: false, q: "" });
+  }
+  function pickMention(name: string) {
+    const first = (name || "").trim().split(/\s+/)[0] || name;
+    const el = commentRef.current; const caret = el ? el.selectionStart : comment.length;
+    const before = comment.slice(0, caret).replace(/@([\p{L}\d_.-]*)$/u, "@" + first + " ");
+    const after = comment.slice(caret);
+    setComment(before + after); setMention({ open: false, q: "" });
+    setTimeout(() => { if (el) { el.focus(); const pos = before.length; el.setSelectionRange(pos, pos); } }, 0);
+  }
+  const mentionMatches = mention.open ? (members || []).filter((mm: any) => { const n = (mm.name || "").toLowerCase(); return !mention.q || n.startsWith(mention.q) || n.split(" ").some((p: string) => p.startsWith(mention.q)); }).slice(0, 6) : [];
   async function addComment() {
     if (!comment.trim()) return;
     const res = await fetch("/api/comments", {
@@ -357,19 +375,24 @@ export default function TaskModal({
     });
   }
 
-  async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !task) return;
+  async function uploadFiles(files: FileList | File[]) {
+    const list = Array.from(files || []);
+    if (!list.length || !task) return;
     setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(`/api/tasks/${task.id}/attachments`, { method: "POST", body: fd });
-    const data = await res.json();
+    for (const file of list) {
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const res = await fetch(`/api/tasks/${task.id}/attachments`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (data.attachment) setTask((prev) => (prev ? { ...prev, attachments: [data.attachment, ...prev.attachments] } : prev));
+        else if (data.error) alert(`${file.name}: ${data.error}`);
+      } catch { alert(`Falha ao enviar ${file.name}.`); }
+    }
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
-    if (data.attachment) setTask((prev) => (prev ? { ...prev, attachments: [data.attachment, ...prev.attachments] } : prev));
-    else if (data.error) alert(data.error);
   }
+  function uploadFile(e: React.ChangeEvent<HTMLInputElement>) { if (e.target.files) uploadFiles(e.target.files); }
 
   async function deleteAttachment(id: string) {
     await fetch(`/api/attachments/${id}`, { method: "DELETE" });
@@ -692,10 +715,15 @@ export default function TaskModal({
                 </div>
               ))}
             </div>
-            <input ref={fileRef} type="file" onChange={uploadFile} style={{ display: "none" }} />
-            <button className="fx-btn" style={{ marginTop: 8, borderStyle: "dashed" }} onClick={() => fileRef.current?.click()} disabled={uploading}>
-              {uploading ? "Enviando..." : "+ Anexar arquivo"}
-            </button>
+            <input ref={fileRef} type="file" multiple onChange={uploadFile} style={{ display: "none" }} />
+            <div
+              onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.length) uploadFiles(e.dataTransfer.files); }}
+              style={{ marginTop: 8, border: `1.5px dashed ${dragOver ? "var(--roxo)" : "var(--line)"}`, background: dragOver ? "var(--bg-soft, rgba(146,80,172,.06))" : "transparent", borderRadius: "var(--r-card)", padding: "12px 14px", textAlign: "center", cursor: "pointer", color: "var(--txt-soft)", fontSize: 13 }}>
+              {uploading ? "Enviando…" : dragOver ? "Solte os arquivos aqui" : "+ Anexar arquivos — clique ou arraste (vários de uma vez)"}
+            </div>
 
             <div className="fx-field-label">Descrição</div>
             <textarea
@@ -724,8 +752,20 @@ export default function TaskModal({
                 </div>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <textarea className="fx-input" value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); } }} placeholder="Escreva um comentário…  (Enter envia, Shift+Enter quebra · @ menciona)" rows={2} style={{ resize: "vertical", minHeight: 44 }} />
+            <div style={{ display: "flex", gap: 8, marginTop: 12, position: "relative", alignItems: "flex-start" }}>
+              <div style={{ flex: 1, position: "relative" }}>
+                <textarea ref={commentRef} className="fx-input" style={{ resize: "vertical", minHeight: 44, width: "100%" }} value={comment} onChange={(e) => onCommentChange(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !mention.open) { e.preventDefault(); addComment(); } if (e.key === "Escape") setMention({ open: false, q: "" }); }} placeholder="Escreva um comentário…  (Enter envia, Shift+Enter quebra · @ menciona)" rows={2} />
+                {mention.open && mentionMatches.length > 0 && (
+                  <div style={{ position: "absolute", left: 0, bottom: "100%", marginBottom: 4, zIndex: 50, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,.18)", minWidth: 200, overflow: "hidden" }}>
+                    {mentionMatches.map((mm: any) => (
+                      <div key={mm.id} onMouseDown={(e) => { e.preventDefault(); pickMention(mm.name); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", cursor: "pointer", fontSize: 13 }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-soft, rgba(146,80,172,.08))")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                        <span style={{ width: 20, height: 20, borderRadius: "50%", background: mm.color || "var(--roxo)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 }}>{(mm.name || "?").charAt(0).toUpperCase()}</span>
+                        {mm.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button className="fx-btn fx-btn-primary" onClick={addComment}>
                 Enviar
               </button>
