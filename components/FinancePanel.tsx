@@ -391,6 +391,10 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   const [kind, setKind] = useState("padrao");
   const [spaceId, setSpaceId] = useState("");
   const [credorId, setCredorId] = useState("");
+  const [addCred, setAddCred] = useState(false);
+  const [nf, setNf] = useState({ nome: "", documento: "", tipo: "fornecedor", pixKey: "" });
+  const [credBusy, setCredBusy] = useState(false);
+  const [credErr, setCredErr] = useState("");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [vencimento, setVencimento] = useState("");
@@ -438,6 +442,15 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
   if (departamentos.length > 0 && !departamentoId) faltando.push("Departamento");
   const completo = faltando.length === 0;
 
+  async function salvarFavorecido() {
+    setCredErr("");
+    if (!nf.nome.trim() || !nf.documento.trim()) { setCredErr("Informe nome e CPF/CNPJ."); return; }
+    setCredBusy(true);
+    const res = await fetch("/api/finance/credores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, ...nf }) });
+    const d = await res.json(); setCredBusy(false);
+    if (res.ok && d.credor?.id) { reloadCred(); setCredorId(d.credor.id); setAddCred(false); setNf({ nome: "", documento: "", tipo: "fornecedor", pixKey: "" }); }
+    else setCredErr(d.error || "Erro ao cadastrar.");
+  }
   async function submit() {
     setErr("");
     if (faltando.length) return setErr(`Preencha tudo para enviar — falta: ${faltando.join(", ")}.`);
@@ -467,7 +480,22 @@ function NewRequest({ companyId, areas, credores, onClose, onCreated, reloadCred
     <Drawer title="Nova solicitação de pagamento" onClose={onClose}>
       <Row><Field label="Tipo"><select className="fx-input" value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
         <Field label="Área*"><select className="fx-input" value={spaceId} onChange={(e) => setSpaceId(e.target.value)}><option value="">Selecione…</option>{areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field></Row>
-      <Field label={KIND_PRECISA_CREDOR.has(kind) ? "Favorecido (fornecedor/pessoa)*" : "Favorecido (fornecedor/pessoa)"}><select className="fx-input" value={credorId} onChange={(e) => setCredorId(e.target.value)}><option value="">— selecione ou cadastre na aba Fornecedores e Pessoas —</option>{credores.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.documento}</option>)}</select></Field>
+      <Field label={KIND_PRECISA_CREDOR.has(kind) ? "Favorecido (fornecedor/pessoa)*" : "Favorecido (fornecedor/pessoa)"}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <select className="fx-input" style={{ flex: 1 }} value={credorId} onChange={(e) => setCredorId(e.target.value)}><option value="">— selecione —</option>{credores.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.documento}</option>)}</select>
+          <button type="button" className="fx-btn" style={{ whiteSpace: "nowrap", fontSize: 12 }} onClick={() => setAddCred((v) => !v)}>{addCred ? "Cancelar" : "+ Cadastrar novo"}</button>
+        </div>
+        {addCred && (
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 12, marginTop: 8, background: "var(--bg-soft, rgba(0,0,0,.02))" }}>
+            <Row><Field label="Nome*"><input className="fx-input" value={nf.nome} onChange={(e) => setNf({ ...nf, nome: e.target.value })} /></Field>
+              <Field label="CPF/CNPJ*"><input className="fx-input" value={nf.documento} onChange={(e) => setNf({ ...nf, documento: e.target.value })} /></Field></Row>
+            <Row><Field label="Tipo"><select className="fx-input" value={nf.tipo} onChange={(e) => setNf({ ...nf, tipo: e.target.value })}>{["fornecedor", "profissional", "funcionario", "socio", "locador", "concessionaria", "orgao"].map((t) => <option key={t} value={t}>{t}</option>)}</select></Field>
+              <Field label="Chave PIX (opcional)"><input className="fx-input" value={nf.pixKey} onChange={(e) => setNf({ ...nf, pixKey: e.target.value })} /></Field></Row>
+            {credErr && <p style={{ color: "var(--coral-deep)", fontSize: 12.5, margin: "2px 0" }}>{credErr}</p>}
+            <button type="button" className="fx-btn fx-btn-primary" style={{ fontSize: 12 }} disabled={credBusy} onClick={salvarFavorecido}>{credBusy ? "Salvando…" : "Salvar favorecido"}</button>
+          </div>
+        )}
+      </Field>
       <Field label="Descrição / justificativa*"><textarea className="fx-input" rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} /></Field>
       <Row><Field label="Valor (R$)*"><input className="fx-input" type="number" value={valor} onChange={(e) => setValor(e.target.value)} /></Field>
         <Field label="Vencimento*"><input className="fx-input" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} /></Field></Row>
