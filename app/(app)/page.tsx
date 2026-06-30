@@ -28,7 +28,9 @@ export default async function Home() {
         };
   const taskWhere = effIds === null ? undefined : { list: listWhere };
 
-  const [spaces, lists, tasks, openTasks, myTasks] = await Promise.all([
+  const finWhere: any = effIds === null ? {} : { companyId: { in: effIds } };
+  const agora = new Date();
+  const [spaces, lists, tasks, openTasks, myTasks, aReceberAberto, vencidoCount, aPagarPend, aConciliar] = await Promise.all([
     prisma.space.count({ where: spaceWhere }),
     prisma.list.count({ where: listWhere }),
     prisma.task.count({ where: taskWhere }),
@@ -41,7 +43,12 @@ export default async function Home() {
           include: { status: true, list: { select: { id: true, name: true } } },
         })
       : Promise.resolve([]),
+    prisma.receivable.count({ where: { ...finWhere, status: "pendente" } }),
+    prisma.receivable.count({ where: { ...finWhere, status: "pendente", vencimento: { lt: agora } } }),
+    prisma.paymentRequest.count({ where: { ...finWhere, status: { notIn: ["paga", "recusada", "cancelada"] } } }),
+    prisma.bankTransaction.count({ where: { ...finWhere, tipo: "credito", requestId: null, conciliado: false, account: { tipo: { not: "cartao" } } } }),
   ]);
+  const temFinanceiro = aReceberAberto + aPagarPend + aConciliar + vencidoCount > 0;
 
   return (
     <>
@@ -60,6 +67,18 @@ export default async function Home() {
           <Stat label="Tarefas" value={tasks} />
           <Stat label="Em aberto" value={openTasks} />
         </div>
+
+        {temFinanceiro && (
+          <div style={{ marginBottom: 28 }}>
+            <div className="serif" style={{ fontSize: 19, fontWeight: 500, marginBottom: 12 }}>Financeiro — o que precisa de você</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <FinCard href="/financeiro" label="Recebimentos a conciliar" value={aConciliar} cor={aConciliar ? "#b5781f" : "#0f6b50"} hint="Contas a Receber → A conciliar" />
+              <FinCard href="/financeiro" label="A pagar / aprovar" value={aPagarPend} cor={aPagarPend ? "#274b6d" : "#0f6b50"} hint="Solicitações em aberto" />
+              <FinCard href="/financeiro" label="Recebíveis vencidos" value={vencidoCount} cor={vencidoCount ? "#a8332c" : "#0f6b50"} hint="Cobrar / conciliar" />
+              <FinCard href="/financeiro" label="A receber (em aberto)" value={aReceberAberto} cor="var(--txt)" hint="Títulos pendentes" />
+            </div>
+          </div>
+        )}
 
         <div className="serif" style={{ fontSize: 19, fontWeight: 500, marginBottom: 12 }}>
           Minhas tarefas
@@ -86,6 +105,16 @@ export default async function Home() {
         )}
       </div>
     </>
+  );
+}
+
+function FinCard({ href, label, value, cor, hint }: { href: string; label: string; value: number; cor: string; hint: string }) {
+  return (
+    <Link href={href} style={{ textDecoration: "none", color: "var(--txt)", background: "var(--surface)", borderRadius: "var(--r-card)", border: "1px solid var(--line)", padding: "14px 16px", display: "block" }}>
+      <div style={{ fontSize: 11.5, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>{label}</div>
+      <div className="serif" style={{ fontSize: 28, fontWeight: 600, color: cor }}>{value}</div>
+      <div style={{ fontSize: 12, color: "var(--txt-soft)" }}>{hint} →</div>
+    </Link>
   );
 }
 
