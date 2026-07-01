@@ -93,6 +93,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, casados: okIds.length });
   }
 
+  // LASTRO MANUAL: marca um recebível PAGO como tendo lastro (ex.: caiu junto num Pix de pagamento conjunto já conciliado, ou veio por Mercado Pago). Tira ele de "pagos sem lastro".
+  if (b.action === "lastro_manual") {
+    if (!b.receivableId) return NextResponse.json({ error: "Informe o recebível." }, { status: 400 });
+    const rec = await prisma.receivable.findUnique({ where: { id: b.receivableId }, select: { companyId: true } });
+    if (!rec || !canAccessCompany(user, rec.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+    await prisma.receivable.update({ where: { id: b.receivableId }, data: { conciliadoManual: true } });
+    await logAudit({ req, user, action: "update", entity: "recebivel", entityId: b.receivableId, companyId: rec.companyId, meta: "lastro manual (pagamento conjunto/MP)" });
+    return NextResponse.json({ ok: true });
+  }
+
   // CATEGORIZAR: atribui o recebimento a 1 ou MAIS pacientes (com valor cada) — pagamento que cruza vários clientes.
   // Cria um recebível PAGO por linha (dá lastro + histórico por paciente) e concilia o crédito. Não depende de título prévio.
   if (b.action === "categorizar") {

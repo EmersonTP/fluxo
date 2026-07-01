@@ -66,6 +66,12 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
     setBusy("");
     if (r.ok) { setMsg("\u2713 Categorizado."); setCatTx(null); load(); } else { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao categorizar."); }
   }
+  async function lastroManual(recId: string) {
+    if (!confirm("Marcar como recebido com lastro? Use quando o dinheiro caiu junto num pagamento conjunto já conciliado, ou veio por Mercado Pago.")) return;
+    setBusy(recId); setMsg("");
+    const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "lastro_manual", receivableId: recId }) });
+    setBusy(""); if (r.ok) { setMsg("\u2713 Marcado com lastro."); } load();
+  }
   async function marcarSemTitulo(creditId: string) {
     setBusy(creditId);
     await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionId: creditId }) }).catch(() => {});
@@ -160,6 +166,7 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#b5781f", flexShrink: 0 }} />
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.cliente || r.descricao}</span>
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: "#b5781f", background: "#f6e7cd", borderRadius: 999, padding: "1px 8px" }}>sem lastro</span>
+                <button className="fx-btn" style={{ fontSize: 11 }} disabled={busy === r.id} onClick={() => lastroManual(r.id)} title="Marcar como recebido (caiu em pagamento conjunto já conciliado ou via Mercado Pago)">marcar recebido</button>
                 <b style={{ minWidth: 84, textAlign: "right" }}>{brl(r.valor)}</b>
               </div>
             ))}
