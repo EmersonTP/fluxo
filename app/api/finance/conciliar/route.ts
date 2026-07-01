@@ -106,13 +106,25 @@ export async function POST(req: Request) {
     const validas = linhas.filter((l) => okset.has(l.clienteId));
     if (validas.length === 0) return NextResponse.json({ error: "Pacientes não encontrados nesta empresa." }, { status: 400 });
     for (const l of validas) {
-      await prisma.receivable.create({ data: {
-        companyId: tx.companyId, clienteId: l.clienteId,
-        descricao: (l.descricao || "Recebimento conciliado").slice(0, 140),
-        valorCents: Math.round(Number(l.valorCents)), status: "paga",
-        pagoEm: tx.data, vencimento: tx.data, metodo: "pix", origem: "conciliacao",
-        provider: "manual", conciliadoManual: true, conciliadoTxId: b.transactionId,
-      } });
+      const cents = Math.round(Number(l.valorCents));
+      // Reaproveita um recebível já PAGO desse paciente/valor que ainda está sem lastro (evita duplicar receita).
+      const candidatos = await prisma.receivable.findMany({ where: { companyId: tx.companyId, clienteId: l.clienteId, status: "paga", valorCents: cents, conciliadoManual: false }, select: { id: true } });
+      let reaproveitado: string | null = null;
+      for (const e of candidatos) {
+        const linked = await prisma.bankTransaction.findFirst({ where: { requestId: e.id, conciliado: true }, select: { id: true } });
+        if (!linked) { reaproveitado = e.id; break; }
+      }
+      if (reaproveitado) {
+        await prisma.receivable.update({ where: { id: reaproveitado }, data: { conciliadoManual: true, conciliadoTxId: b.transactionId } });
+      } else {
+        await prisma.receivable.create({ data: {
+          companyId: tx.companyId, clienteId: l.clienteId,
+          descricao: (l.descricao || "Recebimento conciliado").slice(0, 140),
+          valorCents: cents, status: "paga",
+          pagoEm: tx.data, vencimento: tx.data, metodo: "pix", origem: "conciliacao",
+          provider: "manual", conciliadoManual: true, conciliadoTxId: b.transactionId,
+        } });
+      }
     }
     await prisma.bankTransaction.update({ where: { id: b.transactionId }, data: { conciliado: true, requestId: null, ...(b.categoriaId ? { categoriaId: b.categoriaId } : {}) } });
     await logAudit({ req, user, action: "update", entity: "extrato", entityId: b.transactionId, companyId: tx.companyId, meta: `categorizar: ${validas.length} paciente(s)` });

@@ -30,7 +30,7 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
       const lanc: Lanc[] = conc.lancamentos || [];
       const recs: Rec[] = rec.recebiveis || [];
       // recebimentos (créditos) de receita ainda sem dono (sem título amarrado)
-      setACasar(lanc.filter((t) => t.tipo === "credito" && !t.requestId && /receita|membership|sem categoria/i.test((t.categoria || "sem categoria"))));
+      setACasar(lanc.filter((t) => t.tipo === "credito" && !t.conciliado && /receita|membership|sem categoria/i.test((t.categoria || "sem categoria"))));
       // títulos marcados pagos mas sem lastro no extrato
       setSemLastro(recs.filter((r) => r.status === "paga" && !r.conciliado));
       // títulos em aberto (candidatos pra casar)
