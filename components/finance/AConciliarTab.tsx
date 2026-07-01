@@ -51,12 +51,6 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
     setBusy("");
     if (r.ok) { setMsg("✓ Casado."); setSel((s) => { const n = { ...s }; delete n[creditId]; return n; }); load(); } else { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao casar."); }
   }
-  async function avulsa(creditId: string) {
-    if (!confirm("Marcar como receita avulsa (não é mensalidade — ex.: sessões perdidas)? Dá lastro sem consumir nenhum título.")) return;
-    setBusy(creditId); setMsg("");
-    const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "avulsa", transactionId: creditId }) });
-    setBusy(""); if (r.ok) { setMsg("✓ Lançado como receita avulsa."); } load();
-  }
   function openCat(t: Lanc) {
     setCatTx(t);
     setCatLinhas([{ clienteId: "", valor: String(Math.abs(t.valor || 0)) }]);
@@ -134,8 +128,7 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
                   </optgroup>
                 </select>
                 <button className="fx-btn" style={{ fontSize: 12 }} disabled={busy === t.id || selIds.length === 0} onClick={() => casar(t.id)} title="Casar com um pagamento já registrado (sem lastro)">{busy === t.id ? "…" : `casar existente${selIds.length > 1 ? ` (${selIds.length})` : ""}`}</button>
-                <button className="fx-btn" style={{ fontSize: 11.5 }} disabled={busy === t.id} onClick={() => avulsa(t.id)} title="Receita do paciente que não é mensalidade (ex.: sessões perdidas). Dá lastro sem consumir título.">receita avulsa</button>
-                <button className="fx-btn" style={{ fontSize: 11.5, color: "var(--txt-faint)" }} disabled={busy === t.id} onClick={() => marcarSemTitulo(t.id)} title="Não é receita de paciente (ex.: transferência, outra origem)">não é de paciente</button>
+                <button className="fx-btn" style={{ fontSize: 11.5, color: "var(--txt-faint)" }} disabled={busy === t.id} onClick={() => marcarSemTitulo(t.id)} title="NÃO é receita de paciente (ex.: transferência, aporte, estorno). Receita de paciente use Categorizar.">não é de paciente</button>
                 {selRecs.length > 0 && (
                   <div style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, alignItems: "center" }}>
                     {selRecs.map((r) => (
