@@ -14,6 +14,7 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
   const [msg, setMsg] = useState("");
   const brl = (v: number) => "R$ " + Math.abs(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const dt = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
+  const mesLabel = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }) : "";
 
   const load = useCallback(() => {
     setLoading(true);
@@ -76,8 +77,11 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
         <section style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Recebimentos a casar com paciente ({aCasar.length})</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {aCasar.map((t) => (
-              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
+            {aCasar.map((t) => {
+              const selRec = titulos.find((r) => r.id === sel[t.id]);
+              const mismatch = !!selRec && Math.abs((selRec.valor || 0) - Math.abs(t.valor || 0)) > 0.5;
+              return (
+              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", border: mismatch ? "1px solid #e4b8b1" : "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
                 <div style={{ flex: "1 1 240px", minWidth: 200 }}>
                   <div style={{ fontWeight: 600, fontSize: 13.5 }}>{(t.descricao || "Recebimento").replace("PIX RECEBIDO - Cp :", "").replace(/^\d+-/, "")}</div>
                   <div style={{ fontSize: 12, color: "var(--txt-faint)" }}>{dt(t.data)} · {t.conta || "—"} · {t.categoria || "sem categoria"}</div>
@@ -85,12 +89,16 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
                 <b style={{ color: "#0f6b50", minWidth: 90, textAlign: "right" }}>{brl(t.valor)}</b>
                 <select className="fx-input" style={{ flex: "0 0 230px", maxWidth: 230, fontSize: 12.5 }} value={sel[t.id] || ""} onChange={(e) => setSel({ ...sel, [t.id]: e.target.value })}>
                   <option value="">— título do paciente —</option>
-                  {titOptions.map((r) => <option key={r.id} value={r.id}>{r.cliente || "—"} · {brl(r.valor)}{r.vencimento ? " · vence " + dt(r.vencimento) : ""}</option>)}
+                  {titOptions.map((r) => <option key={r.id} value={r.id}>{r.cliente || "—"} · {brl(r.valor)}{r.vencimento ? ` · ${mesLabel(r.vencimento)} (vence ${dt(r.vencimento)})` : ""}</option>)}
                 </select>
                 <button className="fx-btn fx-btn-primary" style={{ fontSize: 12.5 }} disabled={busy === t.id || !sel[t.id]} onClick={() => casar(t.id)}>{busy === t.id ? "…" : "Casar"}</button>
                 <button className="fx-btn" style={{ fontSize: 11.5, color: "var(--txt-faint)" }} disabled={busy === t.id} onClick={() => marcarSemTitulo(t.id)} title="Não é mensalidade de paciente (ex.: avulso, outra receita)">não é de paciente</button>
+                {mismatch && selRec && (
+                  <div style={{ flexBasis: "100%", fontSize: 11.5, color: "#a8332c", marginTop: 2 }}>⚠ Valor não bate: recebido {brl(t.valor)} · título {brl(selRec.valor)}. Confira o mês/paciente — só casa se for mesmo esse título.</div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
