@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import https from "https";
 import { prisma } from "./prisma";
 
@@ -71,10 +72,11 @@ export async function getInterToken(cfg: InterCfg, scope = ""): Promise<string> 
   return j.access_token;
 }
 
-async function api<T = any>(cfg: InterCfg, method: string, path: string, body?: Record<string, unknown>, scope = ""): Promise<T> {
+async function api<T = any>(cfg: InterCfg, method: string, path: string, body?: Record<string, unknown>, scope = "", extraHeaders?: Record<string, string>): Promise<T> {
   const token = await getInterToken(cfg, scope);
   const headers: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: "application/json" };
   if (cfg.contaCorrente) headers["x-conta-corrente"] = cfg.contaCorrente;
+  if (extraHeaders) Object.assign(headers, extraHeaders);
   const payload = body ? JSON.stringify(body) : undefined;
   if (payload) headers["Content-Type"] = "application/json";
   const r = await mtls(cfg, method, path, headers, payload);
@@ -112,22 +114,51 @@ export function getCobranca(cfg: InterCfg, codigoSolicitacao: string) {
 }
 // Registra o webhook de Cobrança (avisa quando a cobrança muda de situação).
 export function registerCobrancaWebhook(cfg: InterCfg, webhookUrl: string) {
-  return api(cfg, "PUT", "/cobranca/v3/webhook", { webhookUrl }, "boleto-cobranca.write");
+  return api(cfg, "PUT", "/cobranca/v3/cobrancas/webhook", { webhookUrl }, "boleto-cobranca.write");
 }
 
 // ===== Pagamento Pix (SAÍDA) — escopo "pagamento-pix.write" =====
 // Envia um Pix por chave. ATENÇÃO: move dinheiro de verdade. Exige que a aplicação
 // no portal do Inter tenha o escopo de pagamento habilitado. Dependendo da config da
 // conta, o Inter pode exigir aprovação adicional no app (tipoRetorno = "APROVACAO").
-export async function pagarPix(cfg: InterCfg, args: { valor: number; chave: string; descricao?: string }): Promise<any> {
-  const valor = Number(args.valor).toFixed(2);
+export async function pagarPix(cfg: InterCfg, args: { valor: number; chave: string; descricao?: string; idemKey?: string }): Promise<any> {
+  const valor = Number(Number(args.valor).toFixed(2));
   const body: Record<string, unknown> = {
     valor,
     descricao: (args.descricao || "").slice(0, 140),
     destinatario: { tipo: "CHAVE", chave: args.chave },
   };
+  // x-id-idempotente (RFC4122): evita pagamento em duplicidade se a requisição repetir.
+  const idem = args.idemKey || randomUUID();
   // POST /banking/v2/pix — retorna { tipoRetorno, codigoSolicitacao, ... }
-  return api(cfg, "POST", "/banking/v2/pix", body, "pagamento-pix.write");
+  return api(cfg, "POST", "/banking/v2/pix", body, "pagamento-pix.write", { "x-id-idempotente": idem });
+}
+
+// true = o Pix saiu de fato; false = o Inter ainda exige aprovação manual (Gestão de Aprovações).
+export function pixFoiEfetivado(resp: any): boolean {
+  const t = String(resp?.tipoRetorno || "").toUpperCase();
+  // Sem tipoRetorno explícito assumimos processado; "APROVACAO" = pendente de aprovação no banco.
+  return t !== "APROVACAO";
+}
+
+// Recupera o PDF (base64) de uma cobrança na V3.
+export async function getCobrancaPdf(cfg: InterCfg, codigoSolicitacao: string): Promise<string | null> {
+  try {
+    const r: any = await api(cfg, "GET", `/cobranca/v3/cobrancas/${codigoSolicitacao}/pdf`, undefined, "boleto-cobranca.read");
+    return r?.pdf || null;
+  } catch { return null; }
+}
+
+// Pagamento de boleto/tributo por código de barras (escopo "pagamento-boleto.write").
+export async function pagarBoleto(cfg: InterCfg, args: { codBarraLinhaDigitavel: string; valor: number; dataVencimento: string; dataPagamento?: string; cpfCnpjBeneficiario?: string }): Promise<any> {
+  const body: Record<string, unknown> = {
+    codBarraLinhaDigitavel: args.codBarraLinhaDigitavel.replace(/\s/g, ""),
+    valorPagar: Number(args.valor).toFixed(2),
+    dataVencimento: args.dataVencimento,
+  };
+  if (args.dataPagamento) body.dataPagamento = args.dataPagamento;
+  if (args.cpfCnpjBeneficiario) body.cpfCnpjBeneficiario = args.cpfCnpjBeneficiario.replace(/\D/g, "");
+  return api(cfg, "POST", "/banking/v2/pagamento", body, "pagamento-boleto.write", { "x-id-idempotente": randomUUID() });
 }
 
 // Saldo bancário atual (escopo "extrato.read").

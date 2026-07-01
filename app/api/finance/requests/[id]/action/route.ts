@@ -4,7 +4,7 @@ import { requireUser, isResponse } from "@/lib/api";
 import { canActOn, notifyFinance, logStep } from "@/lib/finance";
 import { logAudit } from "@/lib/audit";
 import { verifyPin } from "@/lib/pin";
-import { getInterConfig, pagarPix } from "@/lib/inter";
+import { getInterConfig, pagarPix, pixFoiEfetivado } from "@/lib/inter";
 
 const COTACAO_LIMITE = 400;
 
@@ -98,7 +98,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       const cod = resp?.codigoSolicitacao || resp?.endToEndId || "";
       const tipoRetorno = resp?.tipoRetorno || "";
       metaExtra = ` · Pix Inter${cod ? " " + cod : ""}${tipoRetorno ? " (" + tipoRetorno + ")" : ""}`;
-      // Se o Inter exige aprovação no app, avisamos no histórico (o débito entra via extrato).
+      // Se o Inter ainda exige aprovação no app (Gestão de Aprovações), o Pix NÃO saiu:
+      // não marcamos como paga — deixamos em "conferida" e registramos o envio pendente.
+      if (!pixFoiEfetivado(resp)) {
+        await logStep(r.id, "conferida", r.status, "conferida", { id: user.id, name: user.name }, (note || "") + " [Pix enviado ao Inter — aguardando aprovação no banco]" + metaExtra);
+        await logAudit({ req, user, action: "pay", entity: "solicitacao", entityId: r.id, companyId: r.companyId, meta: `#${r.code} R$ ${r.valor.toLocaleString("pt-BR")} via Inter (aguardando aprovação no banco)${metaExtra}` });
+        return NextResponse.json({ ok: true, viaInter: true, pendenteAprovacaoBanco: true, meta: metaExtra, aviso: "O Pix foi enviado, mas o Inter exige aprovação no app do banco. A solicitação continua como 'conferida' até o débito cair no extrato — não foi marcada como paga." });
+      }
     }
     await prisma.paymentRequest.update({
       where: { id: r.id },
