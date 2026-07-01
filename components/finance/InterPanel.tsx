@@ -12,6 +12,16 @@ export function InterPanel({ companyId, isAdmin }: { companyId: string; isAdmin:
   const [cob, setCob] = useState({ valorReais: "", descricao: "", vencimento: "", devedorNome: "", devedorDoc: "", cep: "", endereco: "", numero: "", bairro: "", cidade: "", uf: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(""); const [err, setErr] = useState("");
+  const [diag, setDiag] = useState<{ resultados: { label: string; para: string; ok: boolean; erro: string | null }[]; podePagarPix: boolean } | null>(null);
+  const [diagBusy, setDiagBusy] = useState(false);
+  async function rodarDiag() {
+    setDiagBusy(true); setDiag(null); setErr("");
+    try {
+      const d = await fetch(`/api/finance/inter/diag?company=${companyId}`).then((r) => r.json());
+      if (d.error) setErr(d.error); else setDiag(d);
+    } catch (e: any) { setErr("Falha no diagnóstico: " + (e?.message || e)); }
+    setDiagBusy(false);
+  }
 
   const load = useCallback(() => {
     setLoaded(false);
@@ -59,7 +69,31 @@ export function InterPanel({ companyId, isAdmin }: { companyId: string; isAdmin:
             </div>
             <div style={{ fontSize: 12.5, color: "var(--txt-soft)" }}>Chave Pix: {st.pixKey || "—"} · Conta: {st.contaCorrente || "—"}</div>
             <div style={{ fontSize: 12.5, color: "var(--txt-faint)", marginTop: 2 }}>Última sincronização: {st.lastSyncAt ? new Date(st.lastSyncAt).toLocaleString("pt-BR") : "ainda sem eventos"}</div>
-            {isAdmin && <button className="fx-btn" style={{ marginTop: 12, color: "var(--coral-deep)" }} onClick={disconnect}>Desconectar</button>}
+            {isAdmin && (
+              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button className="fx-btn" onClick={rodarDiag} disabled={diagBusy}>{diagBusy ? "Testando escopos…" : "Diagnóstico de pagamento"}</button>
+                <button className="fx-btn" style={{ color: "var(--coral-deep)" }} onClick={disconnect}>Desconectar</button>
+              </div>
+            )}
+            {diag && (
+              <div style={{ marginTop: 12, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>{diag.podePagarPix ? "✅ Pagamento por Pix habilitado" : "⚠ Pagamento por Pix ainda BLOQUEADO no portal do Inter"}</div>
+                {diag.resultados.map((r, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0", fontSize: 12.5 }}>
+                    <span style={{ fontWeight: 700, color: r.ok ? "#0f6b50" : "#a8332c" }}>{r.ok ? "✓" : "✗"}</span>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{r.label}</div>
+                      <div style={{ color: "var(--txt-faint)" }}>{r.ok ? r.para : (r.erro || "escopo não habilitado")}</div>
+                    </div>
+                  </div>
+                ))}
+                {!diag.podePagarPix && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: "var(--txt-soft)", background: "#f6e7cd", borderRadius: 8, padding: "8px 10px" }}>
+                    Para pagar pela Sandra: entre no <b>Portal do Desenvolvedor do Inter</b> → sua aplicação → habilite os escopos <b>Pagamento Pix</b> (e <b>Pagamento de boleto</b>, se quiser pagar boleto). Depois rode o diagnóstico de novo.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 16, maxWidth: 640, marginBottom: 18 }}>

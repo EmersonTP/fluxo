@@ -204,7 +204,6 @@ export default function AppShell({ user, children }: { user: User; children: Rea
     // Financeiro / análise
     [
       ...(financeOn ? [{ icon: "finance", label: "Finanças", href: "/financeiro" }] : []),
-      { icon: "reports", label: "Relatórios", href: "/relatorios" },
     ],
     // Gestão (admin)
     [
