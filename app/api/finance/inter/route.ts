@@ -39,7 +39,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Preencha client_id, client_secret e a chave Pix de recebimento." }, { status: 400 });
   }
 
-  const cfg: InterCfg = { clientId, clientSecret, certPem: certPem || null, keyPem: keyPem || null, contaCorrente: contaCorrente || null, pixKey };
+  // Se cert/chave vierem em branco, reaproveita o que já está salvo (pra não quebrar a conexão atual).
+  const prev = await prisma.integrationConfig.findUnique({ where: { companyId_provider: { companyId, provider: "inter" } }, select: { certPem: true, keyPem: true } });
+  const certFinal = certPem || prev?.certPem || null;
+  const keyFinal = keyPem || prev?.keyPem || null;
+  const cfg: InterCfg = { clientId, clientSecret, certPem: certFinal, keyPem: keyFinal, contaCorrente: contaCorrente || null, pixKey };
 
   // 1) Testa a credencial (só pega token — não move dinheiro)
   try {
@@ -54,7 +58,9 @@ export async function POST(req: Request) {
   await prisma.integrationConfig.upsert({
     where: { companyId_provider: { companyId, provider: "inter" } },
     create: { companyId, provider: "inter", apiToken: "", webhookToken, testMode: !!testMode, clientId, clientSecret, certPem: certPem || null, keyPem: keyPem || null, contaCorrente: contaCorrente || null, pixKey },
-    update: { clientId, clientSecret, certPem: certPem || null, keyPem: keyPem || null, contaCorrente: contaCorrente || null, pixKey, testMode: !!testMode },
+    update: { clientId, clientSecret, contaCorrente: contaCorrente || null, pixKey, testMode: !!testMode,
+      // Se o certificado/chave vierem em branco no update, MANTÉM o que já está salvo (não apaga).
+      ...(certPem ? { certPem } : {}), ...(keyPem ? { keyPem } : {}) },
   });
 
   // 3) Registra o webhook Pix na chave de recebimento
