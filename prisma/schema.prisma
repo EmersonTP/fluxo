@@ -723,6 +723,8 @@ model Receivable {
   iuguInvoiceId String?  @unique
   secureUrl     String?  // link da fatura / QR (Pix/boleto)
   origem        String   @default("avulsa") // avulsa | assinatura
+  conciliadoManual Boolean @default(false) // lastro marcado manualmente (ex.: pagamento conjunto 1 Pix -> varios)
+  conciliadoTxId String?  // BankTransaction que deu o lastro (conciliacao manual/multipla)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

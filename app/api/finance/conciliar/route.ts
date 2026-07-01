@@ -78,10 +78,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, auto, total: txs.length, restantes: txs.length - auto });
   }
 
+  // CASAR MÚLTIPLO: 1 recebimento (Pix) que pagou vários pacientes -> amarra a N recebíveis.
+  if (b.action === "casar_multiplo") {
+    const ids: string[] = Array.isArray(b.requestIds) ? b.requestIds.filter(Boolean) : [];
+    if (!b.transactionId || ids.length === 0) return NextResponse.json({ error: "Informe o recebimento e ao menos um pagamento." }, { status: 400 });
+    const tx = await prisma.bankTransaction.findUnique({ where: { id: b.transactionId }, select: { companyId: true } });
+    if (!tx || !canAccessCompany(user, tx.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+    const recs = await prisma.receivable.findMany({ where: { id: { in: ids }, companyId: tx.companyId }, select: { id: true } });
+    const okIds = recs.map((r) => r.id);
+    if (okIds.length === 0) return NextResponse.json({ error: "Pagamentos não encontrados." }, { status: 400 });
+    await prisma.bankTransaction.update({ where: { id: b.transactionId }, data: { conciliado: true, requestId: okIds[0] } });
+    await prisma.receivable.updateMany({ where: { id: { in: okIds } }, data: { conciliadoManual: true, conciliadoTxId: b.transactionId } });
+    await logAudit({ req, user, action: "update", entity: "extrato", entityId: b.transactionId, companyId: tx.companyId, meta: `casar múltiplo: ${okIds.length} pagamentos` });
+    return NextResponse.json({ ok: true, casados: okIds.length });
+  }
+
+  // RECEITA AVULSA: dá lastro num recebimento que NÃO é mensalidade (ex.: sessões perdidas). Sem consumir título.
+  if (b.action === "avulsa") {
+    const tx = await prisma.bankTransaction.findUnique({ where: { id: b.transactionId }, select: { companyId: true } });
+    if (!tx || !canAccessCompany(user, tx.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+    const data: Record<string, unknown> = { conciliado: true, requestId: null };
+    if (b.categoriaId) data.categoriaId = b.categoriaId;
+    await prisma.bankTransaction.update({ where: { id: b.transactionId }, data });
+    await logAudit({ req, user, action: "update", entity: "extrato", entityId: b.transactionId, companyId: tx.companyId, meta: "receita avulsa (não-mensalidade)" });
+    return NextResponse.json({ ok: true });
+  }
+
   const t = await prisma.bankTransaction.findUnique({ where: { id: b.transactionId }, select: { companyId: true } });
   if (!t || !canAccessCompany(user, t.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   const data: Record<string, unknown> = {};
-  if (b.action === "desconciliar") { data.conciliado = false; data.requestId = null; }
+  if (b.action === "desconciliar") { data.conciliado = false; data.requestId = null; await prisma.receivable.updateMany({ where: { conciliadoTxId: b.transactionId }, data: { conciliadoManual: false, conciliadoTxId: null } }); }
   else { data.conciliado = true; if (b.requestId) data.requestId = b.requestId; }
   await prisma.bankTransaction.update({ where: { id: b.transactionId }, data });
   await logAudit({ req, user, action: "update", entity: "extrato", entityId: b.transactionId, companyId: t.companyId, meta: b.action || "conciliar" });

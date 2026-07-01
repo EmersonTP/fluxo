@@ -29,14 +29,14 @@ export async function GET(req: Request) {
     id: r.id, descricao: r.descricao, valor: r.valorCents / 100, status: r.status,
     metodo: r.metodo, vencimento: r.vencimento, pagoEm: r.pagoEm, origem: r.origem,
     provider: r.provider, secureUrl: r.secureUrl, cliente: r.cliente?.nome || null,
-    recorrente: !!r.assinatura,
+    recorrente: !!r.assinatura, conciliadoManual: !!r.conciliadoManual,
   }));
   if (status) recebiveis = recebiveis.filter((r: any) => r.status === status);
   // CRUZAMENTO COM A CONCILIAÇÃO: recebível só tem lastro se há crédito conciliado amarrado a ele.
   const ids = recebiveis.map((r: any) => r.id);
   const txConc = ids.length ? await prisma.bankTransaction.findMany({ where: { companyId, tipo: "credito", conciliado: true, requestId: { in: ids } }, select: { requestId: true } }) : [];
   const comLastro = new Set(txConc.map((t: any) => t.requestId));
-  recebiveis = recebiveis.map((r: any) => ({ ...r, conciliado: comLastro.has(r.id) }));
+  recebiveis = recebiveis.map((r: any) => ({ ...r, conciliado: comLastro.has(r.id) || !!r.conciliadoManual }));
   // resumo
   const soma = (f: (x: any) => boolean) => recebiveis.filter(f).reduce((s: number, x: any) => s + x.valor, 0);
   const mes = new Date().toISOString().slice(0, 7);

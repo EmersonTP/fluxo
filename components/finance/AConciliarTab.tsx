@@ -8,7 +8,7 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
   const [aCasar, setACasar] = useState<Lanc[]>([]);
   const [semLastro, setSemLastro] = useState<Rec[]>([]);
   const [titulos, setTitulos] = useState<Rec[]>([]);
-  const [sel, setSel] = useState<Record<string, string>>({});
+  const [sel, setSel] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
@@ -35,12 +35,18 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
   useEffect(() => { load(); }, [load]);
 
   async function casar(creditId: string) {
-    const recId = sel[creditId];
-    if (!recId) { setMsg("Escolha o título do paciente antes de casar."); return; }
+    const ids = sel[creditId] || [];
+    if (!ids.length) { setMsg("Escolha ao menos um pagamento antes de casar."); return; }
     setBusy(creditId); setMsg("");
-    const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionId: creditId, requestId: recId }) });
+    const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "casar_multiplo", transactionId: creditId, requestIds: ids }) });
     setBusy("");
-    if (r.ok) { setMsg("✓ Casado."); load(); } else { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao casar."); }
+    if (r.ok) { setMsg("✓ Casado."); setSel((s) => { const n = { ...s }; delete n[creditId]; return n; }); load(); } else { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao casar."); }
+  }
+  async function avulsa(creditId: string) {
+    if (!confirm("Marcar como receita avulsa (não é mensalidade — ex.: sessões perdidas)? Dá lastro sem consumir nenhum título.")) return;
+    setBusy(creditId); setMsg("");
+    const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "avulsa", transactionId: creditId }) });
+    setBusy(""); if (r.ok) { setMsg("✓ Lançado como receita avulsa."); } load();
   }
   async function marcarSemTitulo(creditId: string) {
     setBusy(creditId);
@@ -79,17 +85,20 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Recebimentos a casar com paciente ({aCasar.length})</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {aCasar.map((t) => {
-              const selRec = [...semLastro, ...titulos].find((r) => r.id === sel[t.id]);
-              const mismatch = !!selRec && Math.abs((selRec.valor || 0) - Math.abs(t.valor || 0)) > 0.5;
+              const selIds = sel[t.id] || [];
+              const pool = [...semLastro, ...titulos];
+              const selRecs = selIds.map((id) => pool.find((r) => r.id === id)).filter(Boolean) as Rec[];
+              const soma = selRecs.reduce((acc, r) => acc + (r.valor || 0), 0);
+              const mismatch = selRecs.length > 0 && Math.abs(soma - Math.abs(t.valor || 0)) > 0.5;
               return (
               <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", border: mismatch ? "1px solid #e4b8b1" : "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
-                <div style={{ flex: "1 1 240px", minWidth: 200 }}>
+                <div style={{ flex: "1 1 220px", minWidth: 190 }}>
                   <div style={{ fontWeight: 600, fontSize: 13.5 }}>{(t.descricao || "Recebimento").replace("PIX RECEBIDO - Cp :", "").replace(/^\d+-/, "")}</div>
                   <div style={{ fontSize: 12, color: "var(--txt-faint)" }}>{dt(t.data)} · {t.conta || "—"} · {t.categoria || "sem categoria"}</div>
                 </div>
                 <b style={{ color: "#0f6b50", minWidth: 90, textAlign: "right" }}>{brl(t.valor)}</b>
-                <select className="fx-input" style={{ flex: "0 0 230px", maxWidth: 230, fontSize: 12.5 }} value={sel[t.id] || ""} onChange={(e) => setSel({ ...sel, [t.id]: e.target.value })}>
-                  <option value="">— casar com pagamento —</option>
+                <select className="fx-input" style={{ flex: "0 0 230px", maxWidth: 230, fontSize: 12.5 }} value="" onChange={(e) => { const v = e.target.value; if (!v) return; setSel((s) => ({ ...s, [t.id]: Array.from(new Set([...(s[t.id] || []), v])) })); }}>
+                  <option value="">{selIds.length ? "+ adicionar outro pagamento" : "— casar com pagamento —"}</option>
                   {pagosOptions.length > 0 && (
                     <optgroup label="Pagamentos já registrados (sem lastro)">
                       {pagosOptions.map((r) => <option key={r.id} value={r.id}>{r.cliente || "—"} · {brl(r.valor)}{r.vencimento ? ` · ${mesLabel(r.vencimento)}` : ""}</option>)}
@@ -99,10 +108,22 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
                     {titOptions.map((r) => <option key={r.id} value={r.id}>{r.cliente || "—"} · {brl(r.valor)}{r.vencimento ? ` · ${mesLabel(r.vencimento)} (vence ${dt(r.vencimento)})` : ""}</option>)}
                   </optgroup>
                 </select>
-                <button className="fx-btn fx-btn-primary" style={{ fontSize: 12.5 }} disabled={busy === t.id || !sel[t.id]} onClick={() => casar(t.id)}>{busy === t.id ? "…" : "Casar"}</button>
-                <button className="fx-btn" style={{ fontSize: 11.5, color: "var(--txt-faint)" }} disabled={busy === t.id} onClick={() => marcarSemTitulo(t.id)} title="Não é mensalidade de paciente (ex.: avulso, outra receita)">não é de paciente</button>
-                {mismatch && selRec && (
-                  <div style={{ flexBasis: "100%", fontSize: 11.5, color: "#a8332c", marginTop: 2 }}>⚠ Valor não bate: recebido {brl(t.valor)} · título {brl(selRec.valor)}. Confira o mês/paciente — só casa se for mesmo esse título.</div>
+                <button className="fx-btn fx-btn-primary" style={{ fontSize: 12.5 }} disabled={busy === t.id || selIds.length === 0} onClick={() => casar(t.id)}>{busy === t.id ? "…" : `Casar${selIds.length > 1 ? ` (${selIds.length})` : ""}`}</button>
+                <button className="fx-btn" style={{ fontSize: 11.5 }} disabled={busy === t.id} onClick={() => avulsa(t.id)} title="Receita do paciente que não é mensalidade (ex.: sessões perdidas). Dá lastro sem consumir título.">receita avulsa</button>
+                <button className="fx-btn" style={{ fontSize: 11.5, color: "var(--txt-faint)" }} disabled={busy === t.id} onClick={() => marcarSemTitulo(t.id)} title="Não é receita de paciente (ex.: transferência, outra origem)">não é de paciente</button>
+                {selRecs.length > 0 && (
+                  <div style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, alignItems: "center" }}>
+                    {selRecs.map((r) => (
+                      <span key={r.id} style={{ fontSize: 11.5, background: "var(--col, #f4eef7)", border: "1px solid var(--line)", borderRadius: 999, padding: "2px 8px", display: "inline-flex", gap: 6, alignItems: "center" }}>
+                        {r.cliente || "—"} · {brl(r.valor)}
+                        <button onClick={() => setSel((s) => ({ ...s, [t.id]: (s[t.id] || []).filter((x) => x !== r.id) }))} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--txt-faint)", fontSize: 13, lineHeight: 1 }}>×</button>
+                      </span>
+                    ))}
+                    {selRecs.length > 1 && <span style={{ fontSize: 11.5, color: mismatch ? "#a8332c" : "#0f6b50", fontWeight: 600 }}>soma {brl(soma)}</span>}
+                  </div>
+                )}
+                {mismatch && (
+                  <div style={{ flexBasis: "100%", fontSize: 11.5, color: "#a8332c", marginTop: 2 }}>⚠ Soma dos pagamentos ({brl(soma)}) não bate com o recebido ({brl(t.valor)}). Se foi pagamento conjunto com arredondamento, pode casar mesmo assim; senão, revise a seleção.</div>
                 )}
               </div>
               );
