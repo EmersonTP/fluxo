@@ -20,8 +20,11 @@ export async function GET(req: Request) {
   // Período: padrão últimos 30 dias.
   const hoje = new Date();
   const trintaAtras = new Date(hoje.getTime() - 30 * 864e5);
-  const de = url.searchParams.get("de") || ymd(trintaAtras);
+  let de = url.searchParams.get("de") || ymd(trintaAtras);
   const ate = url.searchParams.get("ate") || ymd(hoje);
+  // Inter limita o extrato a 90 dias por consulta — clampa pra evitar 400.
+  const _de = new Date(de + "T00:00:00"), _ate = new Date(ate + "T00:00:00");
+  if ((_ate.getTime() - _de.getTime()) > 90 * 864e5) de = ymd(new Date(_ate.getTime() - 90 * 864e5));
 
   const cfg = await getInterConfig(companyId);
   if (!cfg) return NextResponse.json({ error: "Inter não conectado nesta empresa." }, { status: 400 });
