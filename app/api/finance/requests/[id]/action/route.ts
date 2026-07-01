@@ -36,15 +36,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (action === "aprovar_gestor") {
     if (r.status !== "solicitada") return NextResponse.json({ error: "Etapa inválida." }, { status: 400 });
     // Cotação obrigatória acima do limite (fluxo padrão), salvo dispensa.
-    if (r.kind === "padrao" && r.valor > COTACAO_LIMITE && !r.cotacaoDispensa) {
+    if (r.kind === "padrao" && r.valor > COTACAO_LIMITE && !r.cotacaoDispensa && !b.cotacaoDispensa) {
       const temCotacao = r.attachments.some((a: { tag: string | null }) => a.tag === "cotacao");
       if (!temCotacao) return NextResponse.json({ error: `Acima de R$ ${COTACAO_LIMITE}: anexe as cotações ou marque dispensa (contrato vigente).` }, { status: 400 });
     }
     const data: any = { status: "aprovada_gestor", gestorId: user.id };
     for (const k of ["categoria", "centroCusto", "classeGerencial"]) if (b[k] !== undefined) data[k] = b[k];
+    if (b.cotacaoDispensa !== undefined) data.cotacaoDispensa = !!b.cotacaoDispensa;
     // Classificação obrigatória na aprovação do gestor.
     const cat = b.categoria ?? r.categoria, cc = b.centroCusto ?? r.centroCusto, cg = b.classeGerencial ?? r.classeGerencial;
-    if (!cat || !cc || !cg) return NextResponse.json({ error: "Classifique Categoria + Centro de Custo + Classe Gerencial antes de aprovar." }, { status: 400 });
+    if (!cat || !cg) return NextResponse.json({ error: "Classifique Categoria + Classe Gerencial antes de aprovar (Centro de Custo é opcional)." }, { status: 400 });
     await prisma.paymentRequest.update({ where: { id: r.id }, data });
     await logStep(r.id, "aprovada_gestor", r.status, "aprovada_gestor", { id: user.id, name: user.name }, note);
     const a = await import("@/lib/finance").then((m) => m.approversOf(r.companyId));

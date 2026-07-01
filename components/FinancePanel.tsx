@@ -553,7 +553,7 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
   const [atts, setAtts] = useState<Att[]>([]);
   const [nm, setNm] = useState<Record<string, { name: string; color: string }>>(names);
   const [note, setNote] = useState("");
-  const [cat, setCat] = useState(""); const [cc, setCc] = useState(""); const [cg, setCg] = useState("");
+  const [cat, setCat] = useState(""); const [cc, setCc] = useState(""); const [cg, setCg] = useState(""); const [disp, setDisp] = useState(false);
   const [conta, setConta] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -663,11 +663,15 @@ function RequestDetail({ id, meId, isAdmin, members, names, canGestor, canFin, c
         <Section title="Aprovação do gestor — classifique e aprove">
           <Grid2>
             <Field label="Categoria*"><select className="fx-input" value={cat} onChange={(e) => setCat(e.target.value)}><option value="">—</option>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
-            <Field label="Centro de Custo*"><input className="fx-input" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="ex.: Cursinho / Obra / Marketing" /></Field>
+            <Field label="Centro de custo (opcional)"><input className="fx-input" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="ex.: Cursinho / Obra / Marketing" /></Field>
             <Field label="Classe Gerencial (DRE)*"><input className="fx-input" value={cg} onChange={(e) => setCg(e.target.value)} placeholder="ex.: Despesa fixa / variável" /></Field>
           </Grid2>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 13, color: "var(--txt-soft)", cursor: "pointer" }}>
+            <input type="checkbox" checked={disp} onChange={(e) => setDisp(e.target.checked)} style={{ width: 15, height: 15, accentColor: "var(--roxo)" }} />
+            Dispensa de cotação (contrato vigente / fornecedor único)
+          </label>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button className="fx-btn fx-btn-primary" disabled={busy} onClick={() => act("aprovar_gestor", { categoria: cat, centroCusto: cc, classeGerencial: cg })}>Aprovar e enviar ao financeiro</button>
+            <button className="fx-btn fx-btn-primary" disabled={busy} onClick={() => act("aprovar_gestor", { categoria: cat, centroCusto: cc, classeGerencial: cg, cotacaoDispensa: disp })}>Aprovar e enviar ao financeiro</button>
             <button className="fx-btn" style={{ color: "var(--coral-deep)" }} disabled={busy} onClick={recusar}>Recusar</button>
           </div>
         </Section>
