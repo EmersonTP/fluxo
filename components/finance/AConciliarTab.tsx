@@ -9,6 +9,11 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
   const [semLastro, setSemLastro] = useState<Rec[]>([]);
   const [titulos, setTitulos] = useState<Rec[]>([]);
   const [sel, setSel] = useState<Record<string, string[]>>({});
+  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
+  const [catsRec, setCatsRec] = useState<{ id: string; grupo: string; nome: string }[]>([]);
+  const [catTx, setCatTx] = useState<Lanc | null>(null);
+  const [catLinhas, setCatLinhas] = useState<{ clienteId: string; valor: string }[]>([]);
+  const [catCatId, setCatCatId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
@@ -33,6 +38,10 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
     }).finally(() => setLoading(false));
   }, [companyId]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    fetch(`/api/finance/clientes?company=${companyId}`).then((r) => r.json()).then((d) => setClientes((d.clientes || []).map((c: any) => ({ id: c.id, nome: c.nome })))).catch(() => {});
+    fetch(`/api/finance/categorias?company=${companyId}`).then((r) => r.json()).then((d) => setCatsRec(((d.categorias || d || []) as any[]).filter((c) => c.tipo === "receita"))).catch(() => {});
+  }, [companyId]);
 
   async function casar(creditId: string) {
     const ids = sel[creditId] || [];
@@ -47,6 +56,21 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
     setBusy(creditId); setMsg("");
     const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "avulsa", transactionId: creditId }) });
     setBusy(""); if (r.ok) { setMsg("✓ Lançado como receita avulsa."); } load();
+  }
+  function openCat(t: Lanc) {
+    setCatTx(t);
+    setCatLinhas([{ clienteId: "", valor: String(Math.abs(t.valor || 0)) }]);
+    const mem = catsRec.find((c) => /member/i.test(c.nome || ""));
+    setCatCatId(mem?.id || catsRec[0]?.id || "");
+  }
+  async function salvarCat() {
+    if (!catTx) return;
+    const linhas = catLinhas.filter((l) => l.clienteId && Number(l.valor) > 0).map((l) => ({ clienteId: l.clienteId, valorCents: Math.round(Number(l.valor) * 100) }));
+    if (!linhas.length) { setMsg("Adicione ao menos um paciente com valor."); return; }
+    setBusy(catTx.id); setMsg("");
+    const r = await fetch("/api/finance/conciliar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "categorizar", transactionId: catTx.id, categoriaId: catCatId || null, linhas }) });
+    setBusy("");
+    if (r.ok) { setMsg("\u2713 Categorizado."); setCatTx(null); load(); } else { const d = await r.json().catch(() => ({})); setMsg(d.error || "Erro ao categorizar."); }
   }
   async function marcarSemTitulo(creditId: string) {
     setBusy(creditId);
@@ -97,7 +121,8 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
                   <div style={{ fontSize: 12, color: "var(--txt-faint)" }}>{dt(t.data)} · {t.conta || "—"} · {t.categoria || "sem categoria"}</div>
                 </div>
                 <b style={{ color: "#0f6b50", minWidth: 90, textAlign: "right" }}>{brl(t.valor)}</b>
-                <select className="fx-input" style={{ flex: "0 0 230px", maxWidth: 230, fontSize: 12.5 }} value="" onChange={(e) => { const v = e.target.value; if (!v) return; setSel((s) => ({ ...s, [t.id]: Array.from(new Set([...(s[t.id] || []), v])) })); }}>
+                <button className="fx-btn fx-btn-primary" style={{ fontSize: 12.5 }} disabled={busy === t.id} onClick={() => openCat(t)} title="Atribuir a um ou mais pacientes (pagamento que cruza vários clientes)">Categorizar</button>
+                <select className="fx-input" style={{ flex: "0 0 200px", maxWidth: 200, fontSize: 12 }} value="" onChange={(e) => { const v = e.target.value; if (!v) return; setSel((s) => ({ ...s, [t.id]: Array.from(new Set([...(s[t.id] || []), v])) })); }}>
                   <option value="">{selIds.length ? "+ adicionar outro pagamento" : "— casar com pagamento —"}</option>
                   {pagosOptions.length > 0 && (
                     <optgroup label="Pagamentos já registrados (sem lastro)">
@@ -108,7 +133,7 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
                     {titOptions.map((r) => <option key={r.id} value={r.id}>{r.cliente || "—"} · {brl(r.valor)}{r.vencimento ? ` · ${mesLabel(r.vencimento)} (vence ${dt(r.vencimento)})` : ""}</option>)}
                   </optgroup>
                 </select>
-                <button className="fx-btn fx-btn-primary" style={{ fontSize: 12.5 }} disabled={busy === t.id || selIds.length === 0} onClick={() => casar(t.id)}>{busy === t.id ? "…" : `Casar${selIds.length > 1 ? ` (${selIds.length})` : ""}`}</button>
+                <button className="fx-btn" style={{ fontSize: 12 }} disabled={busy === t.id || selIds.length === 0} onClick={() => casar(t.id)} title="Casar com um pagamento já registrado (sem lastro)">{busy === t.id ? "…" : `casar existente${selIds.length > 1 ? ` (${selIds.length})` : ""}`}</button>
                 <button className="fx-btn" style={{ fontSize: 11.5 }} disabled={busy === t.id} onClick={() => avulsa(t.id)} title="Receita do paciente que não é mensalidade (ex.: sessões perdidas). Dá lastro sem consumir título.">receita avulsa</button>
                 <button className="fx-btn" style={{ fontSize: 11.5, color: "var(--txt-faint)" }} disabled={busy === t.id} onClick={() => marcarSemTitulo(t.id)} title="Não é receita de paciente (ex.: transferência, outra origem)">não é de paciente</button>
                 {selRecs.length > 0 && (
@@ -147,6 +172,38 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
             ))}
           </div>
         </section>
+      )}
+
+      {catTx && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 }} onClick={() => setCatTx(null)}>
+          <div style={{ background: "var(--surface)", borderRadius: 14, padding: 20, width: 540, maxWidth: "94vw", maxHeight: "88vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Categorizar recebimento</div>
+            <div style={{ fontSize: 12.5, color: "var(--txt-faint)", marginBottom: 14 }}>{dt(catTx.data)} · recebido <b style={{ color: "#0f6b50" }}>{brl(catTx.valor)}</b>. Diga de quais pacientes é esse dinheiro — pode dividir entre vários.</div>
+            <label style={{ fontSize: 12, color: "var(--txt-soft)" }}>Categoria de receita</label>
+            <select className="fx-input" value={catCatId} onChange={(e) => setCatCatId(e.target.value)} style={{ width: "100%", marginBottom: 12 }}>
+              {catsRec.length === 0 && <option value="">—</option>}
+              {catsRec.map((c) => <option key={c.id} value={c.id}>{c.grupo} › {c.nome}</option>)}
+            </select>
+            {catLinhas.map((l, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                <select className="fx-input" value={l.clienteId} onChange={(e) => { const n = [...catLinhas]; n[i] = { ...n[i], clienteId: e.target.value }; setCatLinhas(n); }} style={{ flex: 1 }}>
+                  <option value="">— paciente —</option>
+                  {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+                <input className="fx-input" type="number" value={l.valor} onChange={(e) => { const n = [...catLinhas]; n[i] = { ...n[i], valor: e.target.value }; setCatLinhas(n); }} style={{ width: 110 }} placeholder="R$" />
+                {catLinhas.length > 1 && <button className="fx-btn" onClick={() => setCatLinhas(catLinhas.filter((_, j) => j !== i))} style={{ color: "var(--coral-deep)" }}>×</button>}
+              </div>
+            ))}
+            <button className="fx-btn" style={{ fontSize: 12.5, marginTop: 2 }} onClick={() => setCatLinhas([...catLinhas, { clienteId: "", valor: "" }])}>+ adicionar paciente</button>
+            {(() => { const soma = catLinhas.reduce((a, l) => a + (Number(l.valor) || 0), 0); const ok = Math.abs(soma - Math.abs(catTx.valor || 0)) <= 0.5; return (
+              <div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: ok ? "#0f6b50" : "#a8332c" }}>Soma {brl(soma)} de {brl(catTx.valor)} {ok ? "✓" : "— não bate (ok se foi arredondamento)"}</div>
+            ); })()}
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <button className="fx-btn fx-btn-primary" disabled={busy === catTx.id} onClick={salvarCat}>{busy === catTx.id ? "Salvando…" : "Salvar categorização"}</button>
+              <button className="fx-btn" onClick={() => setCatTx(null)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

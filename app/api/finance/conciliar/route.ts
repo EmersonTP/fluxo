@@ -93,6 +93,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, casados: okIds.length });
   }
 
+  // CATEGORIZAR: atribui o recebimento a 1 ou MAIS pacientes (com valor cada) — pagamento que cruza vários clientes.
+  // Cria um recebível PAGO por linha (dá lastro + histórico por paciente) e concilia o crédito. Não depende de título prévio.
+  if (b.action === "categorizar") {
+    const linhas: any[] = Array.isArray(b.linhas) ? b.linhas.filter((l: any) => l && l.clienteId && Number(l.valorCents) > 0) : [];
+    if (!b.transactionId || linhas.length === 0) return NextResponse.json({ error: "Informe o recebimento e ao menos um paciente com valor." }, { status: 400 });
+    const tx = await prisma.bankTransaction.findUnique({ where: { id: b.transactionId }, select: { companyId: true, data: true, descricao: true } });
+    if (!tx || !canAccessCompany(user, tx.companyId)) return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
+    const cliIds = [...new Set(linhas.map((l) => l.clienteId))];
+    const clientes = await prisma.cliente.findMany({ where: { id: { in: cliIds }, companyId: tx.companyId }, select: { id: true } });
+    const okset = new Set(clientes.map((c) => c.id));
+    const validas = linhas.filter((l) => okset.has(l.clienteId));
+    if (validas.length === 0) return NextResponse.json({ error: "Pacientes não encontrados nesta empresa." }, { status: 400 });
+    for (const l of validas) {
+      await prisma.receivable.create({ data: {
+        companyId: tx.companyId, clienteId: l.clienteId,
+        descricao: (l.descricao || "Recebimento conciliado").slice(0, 140),
+        valorCents: Math.round(Number(l.valorCents)), status: "paga",
+        pagoEm: tx.data, vencimento: tx.data, metodo: "pix", origem: "conciliacao",
+        provider: "manual", conciliadoManual: true, conciliadoTxId: b.transactionId,
+      } });
+    }
+    await prisma.bankTransaction.update({ where: { id: b.transactionId }, data: { conciliado: true, requestId: null, ...(b.categoriaId ? { categoriaId: b.categoriaId } : {}) } });
+    await logAudit({ req, user, action: "update", entity: "extrato", entityId: b.transactionId, companyId: tx.companyId, meta: `categorizar: ${validas.length} paciente(s)` });
+    return NextResponse.json({ ok: true, criados: validas.length });
+  }
+
   // RECEITA AVULSA: dá lastro num recebimento que NÃO é mensalidade (ex.: sessões perdidas). Sem consumir título.
   if (b.action === "avulsa") {
     const tx = await prisma.bankTransaction.findUnique({ where: { id: b.transactionId }, select: { companyId: true } });
