@@ -11,6 +11,7 @@ import { CredoresTab } from "./finance/CredoresTab";
 import { DropZone } from "./finance/DropZone";
 import { Esteira } from "./finance/Esteira";
 import { HomeTab } from "./finance/HomeTab";
+import { PainelDia } from "./finance/PainelDia";
 import { DreTab } from "./finance/DreTab";
 import { ConciliacaoTab } from "./finance/ConciliacaoTab";
 import { GestaoTab } from "./finance/GestaoTab";
@@ -178,7 +179,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
   type NavItem = { k: string; l: string; soon?: boolean };
   const af = isAdmin || isFinanceiro;
   const groups: { g: string; items: NavItem[] }[] = [
-    ...(af ? [{ g: "", items: [{ k: "home", l: "Visão geral" }] as NavItem[] }] : []),
+    ...(af ? [{ g: "", items: [{ k: "paineldia", l: "Painel do dia" }, { k: "home", l: "Visão geral" }] as NavItem[] }] : []),
     { g: "Operação", items: [
       { k: "solicitar", l: "Solicitar" },
       ...(isApprover ? [{ k: "aprov", l: "Aprovações" }] : []),
@@ -353,6 +354,7 @@ export default function FinancePanel({ meId, isAdmin }: { meId: string; isAdmin:
           </>
         )}
 
+        {tab === "paineldia" && (isAdmin || isFinanceiro) && <PainelDia companyId={companyId} />}
         {tab === "gestao" && (isAdmin || isFinanceiro) && <GestaoTab companyId={companyId} />}
         {tab === "contas" && (isAdmin || isFinanceiro) && <ContasTab companyId={companyId} isAdmin={isAdmin} />}
         {tab === "fluxo" && (isAdmin || isFinanceiro) && <FluxoCaixaTab companyId={companyId} isAdmin={isAdmin} />}
