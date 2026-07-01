@@ -69,7 +69,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     data: hojeStr,
     caixa: Math.round(saldoTotal), ultimoSync,
-    entrouHoje: Math.round(entrouHoje), saiuHoje: Math.round(saiuHoje),
+    entrouHoje: Math.abs(Math.round(entrouHoje)), saiuHoje: Math.abs(Math.round(saiuHoje)),
     aReceberAberto: c(aReceberAberto), vencidoValor: c(vencidoValor), vencidoQtd: vencidos.length,
     recebidoMes: c(recebidoMes), mrr: c(mrr),
     aPagarPend: pagarPend, aguardandoPagamento: aguardandoPag,
