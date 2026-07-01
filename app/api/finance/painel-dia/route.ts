@@ -17,9 +17,10 @@ export async function GET(req: Request) {
   if (!isAdmin(user) && !fin.financeiros.includes(user.id)) return NextResponse.json({ error: "Acesso restrito." }, { status: 403 });
 
   const hojeStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-  const d0 = new Date(`${hojeStr}T00:00:00-03:00`);
+  const d0 = new Date(`${hojeStr}T00:00:00Z`);
   const d1 = new Date(d0.getTime() + 24 * 3600 * 1000);
-  const inicioMes = new Date(`${hojeStr.slice(0, 7)}-01T00:00:00-03:00`);
+  const inicioMes = new Date(`${hojeStr.slice(0, 7)}-01T00:00:00Z`);
+  const noventaDias = new Date(Date.now() - 90 * 24 * 3600 * 1000);
   const agora = new Date();
   const c = (v: number) => Math.round((v || 0) / 100);
 
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
     prisma.assinatura.findMany({ where: { companyId, status: "ativa" }, select: { valorCents: true, plano: { select: { valorCents: true } } } }),
     prisma.paymentRequest.count({ where: { companyId, status: { notIn: ["paga", "recusada", "cancelada"] } } }),
     prisma.paymentRequest.count({ where: { companyId, status: "conferida" } }),
-    prisma.bankTransaction.count({ where: { companyId, categoriaId: null, conciliado: false, account: { tipo: { not: "cartao" } } } }),
+    prisma.bankTransaction.count({ where: { companyId, categoriaId: null, conciliado: false, data: { gte: noventaDias }, account: { tipo: { not: "cartao" } } } }),
   ]);
 
   const entrouHoje = txHoje.filter((t) => t.tipo === "credito").reduce((s, t) => s + t.valor, 0);
@@ -48,8 +49,8 @@ export async function GET(req: Request) {
       saldoTotal += Number(agg._sum.valor || 0);
     }
   }
-  const cfgI = await prisma.integrationConfig.findFirst({ where: { companyId, provider: "inter" }, select: { lastSyncAt: true } });
-  ultimoSync = cfgI?.lastSyncAt ? cfgI.lastSyncAt.toISOString() : null;
+  const accSync = await prisma.bankAccount.findFirst({ where: { companyId, lastSyncAt: { not: null } }, orderBy: { lastSyncAt: "desc" }, select: { lastSyncAt: true } });
+  ultimoSync = accSync?.lastSyncAt ? accSync.lastSyncAt.toISOString() : null;
 
   const conciliadoDoRec = (r: any) => r.conciliadoManual; // lastro por bank tx é resolvido no /receber; aqui usamos o flag manual + status
   const aReceberAberto = receb.filter((r) => r.status === "pendente").reduce((s, r) => s + r.valorCents, 0);
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
   const txConc = recIds.length ? await prisma.bankTransaction.findMany({ where: { companyId, tipo: "credito", conciliado: true, requestId: { in: recIds } }, select: { requestId: true } }) : [];
   const comLastro = new Set(txConc.map((t) => t.requestId));
   const pagosSemLastro = receb.filter((r) => r.status === "paga" && !r.conciliadoManual && !comLastro.has(r.id)).length;
-  const aCasar = await prisma.bankTransaction.count({ where: { companyId, tipo: "credito", conciliado: false, account: { tipo: { not: "cartao" } } } });
+  const aCasar = await prisma.bankTransaction.count({ where: { companyId, tipo: "credito", conciliado: false, data: { gte: noventaDias }, account: { tipo: { not: "cartao" } } } });
 
   return NextResponse.json({
     data: hojeStr,
