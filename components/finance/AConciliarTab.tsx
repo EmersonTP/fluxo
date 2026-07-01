@@ -49,6 +49,7 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
   }
 
   const titOptions = [...titulos].sort((a, b) => (a.cliente || "").localeCompare(b.cliente || ""));
+  const pagosOptions = [...semLastro].sort((a, b) => (a.cliente || "").localeCompare(b.cliente || ""));
   const card = (label: string, n: number, cor: string) => (
     <div style={{ flex: "1 1 130px", minWidth: 120, border: "1px solid var(--line)", borderRadius: "var(--r-card)", background: "var(--surface)", padding: "12px 16px" }}>
       <div style={{ fontSize: 11.5, color: "var(--txt-faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>{label}</div>
@@ -78,7 +79,7 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt-soft)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Recebimentos a casar com paciente ({aCasar.length})</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {aCasar.map((t) => {
-              const selRec = titulos.find((r) => r.id === sel[t.id]);
+              const selRec = [...semLastro, ...titulos].find((r) => r.id === sel[t.id]);
               const mismatch = !!selRec && Math.abs((selRec.valor || 0) - Math.abs(t.valor || 0)) > 0.5;
               return (
               <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", border: mismatch ? "1px solid #e4b8b1" : "1px solid var(--line)", borderRadius: "var(--r-card)", padding: "10px 14px", background: "var(--surface)" }}>
@@ -88,8 +89,15 @@ export function AConciliarTab({ companyId }: { companyId: string }) {
                 </div>
                 <b style={{ color: "#0f6b50", minWidth: 90, textAlign: "right" }}>{brl(t.valor)}</b>
                 <select className="fx-input" style={{ flex: "0 0 230px", maxWidth: 230, fontSize: 12.5 }} value={sel[t.id] || ""} onChange={(e) => setSel({ ...sel, [t.id]: e.target.value })}>
-                  <option value="">— título do paciente —</option>
-                  {titOptions.map((r) => <option key={r.id} value={r.id}>{r.cliente || "—"} · {brl(r.valor)}{r.vencimento ? ` · ${mesLabel(r.vencimento)} (vence ${dt(r.vencimento)})` : ""}</option>)}
+                  <option value="">— casar com pagamento —</option>
+                  {pagosOptions.length > 0 && (
+                    <optgroup label="Pagamentos já registrados (sem lastro)">
+                      {pagosOptions.map((r) => <option key={r.id} value={r.id}>{r.cliente || "—"} · {brl(r.valor)}{r.vencimento ? ` · ${mesLabel(r.vencimento)}` : ""}</option>)}
+                    </optgroup>
+                  )}
+                  <optgroup label="Títulos em aberto (futuros)">
+                    {titOptions.map((r) => <option key={r.id} value={r.id}>{r.cliente || "—"} · {brl(r.valor)}{r.vencimento ? ` · ${mesLabel(r.vencimento)} (vence ${dt(r.vencimento)})` : ""}</option>)}
+                  </optgroup>
                 </select>
                 <button className="fx-btn fx-btn-primary" style={{ fontSize: 12.5 }} disabled={busy === t.id || !sel[t.id]} onClick={() => casar(t.id)}>{busy === t.id ? "…" : "Casar"}</button>
                 <button className="fx-btn" style={{ fontSize: 11.5, color: "var(--txt-faint)" }} disabled={busy === t.id} onClick={() => marcarSemTitulo(t.id)} title="Não é mensalidade de paciente (ex.: avulso, outra receita)">não é de paciente</button>
